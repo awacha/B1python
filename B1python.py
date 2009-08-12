@@ -17,6 +17,28 @@ from scipy.optimize.minpack import leastsq
 import scipy.special
 
 HC=12396.4 #Planck's constant times speed of light, in eV*Angstrom units
+def energycalibration(energymeas,energycalib,energy1):
+    """Do energy calibration.
+    
+    Inputs:
+        energymeas: vector of measured (apparent) energies
+        energycalib: vector of theoretical energies corresponding to the measured ones
+        energy1: vector or matrix or a scalar of apparent energies to calibrate.
+        
+    Output:
+        the calibrated energy/energies, in the same form as energy1 was supplied
+        
+    Note:
+        to do backward-calibration (theoretical -> apparent), swap energymeas
+        and energycalib on the parameter list.
+    """
+    a,b,aerr,berr=linfit(energymeas,energycalib)
+    if type(energy1)==pylab.np.ndarray:
+        return a*energy1+b
+    elif type(energy1)==types.ListType:
+        return [a*e+b for e in energy1]
+    else:
+        return a*energy1+b
 def rebin(data,qrange):
     qrange=pylab.array(qrange)
     if type(data)!=types.ListType:
@@ -24,7 +46,7 @@ def rebin(data,qrange):
     data2=[];
     counter=0;
     for d in data:
-        print counter
+        #print counter
         counter=counter+1
         tmp={};
         tmp['q']=qrange
@@ -43,8 +65,8 @@ def stackdata(tup):
     data['q']=tmp[:,0]
     data['Intensity']=tmp[:,1]
     data['Error']=tmp[:,2]
-    print data['q'].min()
-    print data['q'].max()
+    #print data['q'].min()
+    #print data['q'].max()
     return data
 def energiesfromparam(param):
     return unique([p['Energy'] for p in param],lambda a,b:(abs(a-b)<2))
@@ -1071,18 +1093,18 @@ def plotints(data,param,samplename,energies,symboll='-',mult=1,gui=False):
             if param[k]['Title']==samplename[s]:
                 for e in range(min(len(colors),len(energies))):
                     if abs(param[k]['Energy']-energies[e])<2:
-                        #h=ax.loglog(data[k]['q'],
-                        #               data[k]['Intensity']*mult[s],
-                        #               marker=symboll[s],
-                        #               color=colors[e])
+                        h=ax.loglog(data[k]['q'],
+                                       data[k]['Intensity']*mult[s],
+                                       marker=symboll[s],
+                                       color=colors[e])
                         #h=ax.semilogy(data[k]['q'],
                         #                data[k]['Intensity']*mult[s],
                         #                marker=symboll[s],
                         #                color=colors[e])
-                        h=ax.plot(data[k]['q'],
-                                         data[k]['Intensity']*mult[s],
-                                         marker=symboll[s],
-                                         color=colors[e])
+                        #h=ax.plot(data[k]['q'],
+                        #                 data[k]['Intensity']*mult[s],
+                        #                 marker=symboll[s],
+                        #                 color=colors[e])
                         if gui==True:
                             texts.append('%d(%s) @%.2f eV' % (param[k]['FSN'], param[k]['Title'], param[k]['Energy']))
                             handles.append(h[0])
@@ -1103,8 +1125,7 @@ def plotints(data,param,samplename,energies,symboll='-',mult=1,gui=False):
         while len(fig.axes)==3:
             fig.waitforbuttonpress()
             pylab.draw()
-    pylab.show()
-def plot2dmatrix(A,maxval=None,mask=None):
+def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=None):
     """Plots the matrix A in log-log plot
     
     Inputs:
@@ -1112,6 +1133,12 @@ def plot2dmatrix(A,maxval=None,mask=None):
         maxval: if not None, then before taking log(A), the elements of A,
             which are larger than this are replaced by the largest element of
             A below maxval.
+        mask: a mask matrix to overlay the scattering pattern with it. Pixels
+            where the mask is 0 will be faded.
+        header: the header or param structure. If it is supplied, the x and y
+            axes will display the q-range
+        qs: q-values for which concentric circles will be drawn. To use this
+            option, header should be given.
     """
     tmp=A.copy(); # this is needed as Python uses the pass-by-object method,
                   # so A is the SAME as the version of the caller. tmp=A would
@@ -1128,12 +1155,36 @@ def plot2dmatrix(A,maxval=None,mask=None):
     tmp[tmp<=0]=tmp[tmp>0].min()
     tmp=pylab.log(tmp);
     tmp[pylab.isnan(tmp)]=0;
-    pylab.imshow(tmp);
+    if header is not None:
+        xmin=0-(header['BeamPosX']-1)*header['PixelSize']
+        xmax=(tmp.shape[0]-(header['BeamPosX']-1))*header['PixelSize']
+        ymin=0-(header['BeamPosY']-1)*header['PixelSize']
+        ymax=(tmp.shape[1]-(header['BeamPosY']-1))*header['PixelSize']
+        print xmin,xmax,ymin,ymax
+        print header['Dist']
+        print float(HC)/header['EnergyCalibrated']
+        qxmin=4*pylab.pi*pylab.sin(0.5*pylab.arctan(xmin/header['Dist']))*header['EnergyCalibrated']/float(HC)
+        qxmax=4*pylab.pi*pylab.sin(0.5*pylab.arctan(xmax/header['Dist']))*header['EnergyCalibrated']/float(HC)
+        qymin=4*pylab.pi*pylab.sin(0.5*pylab.arctan(ymin/header['Dist']))*header['EnergyCalibrated']/float(HC)
+        qymax=4*pylab.pi*pylab.sin(0.5*pylab.arctan(ymax/header['Dist']))*header['EnergyCalibrated']/float(HC)
+        extent=[qymin,qymax,qxmin,qxmax]
+    else:
+        extent=None
+    pylab.imshow(tmp,extent=extent);
     if mask is not None:
         white=pylab.ones((mask.shape[0],mask.shape[1],4))
         white[:,:,3]=pylab.array(1-mask).astype('float')*0.7
-        pylab.imshow(white)
-
+        pylab.imshow(white,extent=extent)
+    if qs is not None:
+        if (type(qs)!=pylab.ndarray) and (type(qs)!=types.ListType):
+            qs=[qs]
+        for q in qs:
+            a=pylab.gca().axis()
+            pylab.plot(q*pylab.cos(pylab.linspace(0,2*pylab.pi,2000)),
+                       q*pylab.sin(pylab.linspace(0,2*pylab.pi,2000)),
+                       color='white')
+            pylab.gca().axis(a)
+            
 #Miscellaneous routines
 def maxwellian(n,r0,x):
     return 2.0/(x**(n+1.0)*scipy.special.gamma((n+1.0)/2.0))*(x**n)**pylab.exp(-x**2/r0**2);
@@ -1361,6 +1412,7 @@ def readheader(filename,fsn=None,fileend=None):
             header['Current1']=float(string.strip(lines[81]))
             header['Current2']=float(string.strip(lines[82]))
             header['Detector']='Unknown'
+            header['PixelSize']=(header['XPixel']+header['YPixel'])/2.0
             del lines
             headers.append(header)
         except IOError:
@@ -1839,3 +1891,44 @@ def readwaxscor(fsns):
         except IOError:
             print '%s not found. Skipping it.' % filename
     return waxsdata
+def readenergyfio(filename,files,fileend):
+    """Read abt_*.fio files.
+    
+    Inputs:
+        filename: beginning of the file name, eg. 'abt_'
+        files: a list or a single fsn number, eg. [1, 5, 12] or 3
+        fileend: extension of a file, eg. '.fio'
+    
+    Outputs: three lists:
+        energies: the uncalibrated (=apparent) energies for each fsn.
+        samples: the sample names for each fsn
+        muds: the mu*d values for each fsn
+    """
+    if type(files)!=types.ListType:
+        files=[files]
+    samples=[]
+    energies=[]
+    muds=[]
+    for f in files:
+        mud=[];
+        energy=[];
+        fname='%s%05d%s' % (filename,f,fileend)
+        try:
+            fid=open(fname,'r')
+            lines=fid.readlines()
+            samples.append(lines[5].strip())
+            for l in lines[41:]:
+                tmp=l.strip().split()
+                if len(tmp)==11:
+                    try:
+                        tmpe=float(tmp[0])
+                        tmpmud=float(tmp[-1])
+                        energy.append(tmpe)
+                        mud.append(tmpmud)
+                    except ValueError:
+                        pass
+            muds.append(mud)
+            energies.append(energy)
+        except IOError:
+            print 'Cannot find file %s.' % fname
+    return (energies,samples,muds)
