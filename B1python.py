@@ -14,6 +14,7 @@ import shutil
 import matplotlib.widgets
 import matplotlib.nxutils
 from scipy.optimize.minpack import leastsq
+from scipy.optimize import fmin
 import scipy.special
 
 HC=12396.4 #Planck's constant times speed of light, in eV*Angstrom units
@@ -72,6 +73,77 @@ def energiesfromparam(param):
     return unique([p['Energy'] for p in param],lambda a,b:(abs(a-b)<2))
 def samplenamesfromparam(param):
     return unique([p['Title'] for p in param])
+def findbeam(data,orig_initial,mask=None,maxiter=20):
+    """Find beam center
+    
+    Inputs:
+        data: scattering matrix
+        orig_initial: estimated value for x (row) and y (column) coordinates
+            of the beam center, starting from 1.
+        mask: mask matrix. If None, nothing will be masked. Otherwise it should be
+            of the same size as data. Nonzero means non-masked.
+    Output:
+        a vector of length 2 with the x and y coordinates of the origin.
+    """
+    orig=pylab.array(orig_initial)
+    if mask is None:
+        mask=pylab.ones(data.shape)
+    def targetfunc(orig,data,mask):
+        c1,nc1=imageint(data,orig,mask,35,20)
+        c2,nc2=imageint(data,orig,mask,35+90,20)
+        c3,nc3=imageint(data,orig,mask,35+180,20)
+        c4,nc4=imageint(data,orig,mask,35+270,20)
+        commonlen=min(len(c1),len(c2),len(c3),len(c4))
+        first=pylab.array([pylab.find(nc1!=0).min(),pylab.find(nc2!=0).min(),pylab.find(nc3!=0).min(),pylab.find(nc4!=0).min()]).max()
+        return pylab.sum(pylab.sqrt((c1[first:commonlen]-c3[first:commonlen])**2+(c2[first:commonlen]-c4[first:commonlen])**2))/commonlen
+    orig=fmin(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxiter=maxiter,disp=True)
+    return orig
+def imageint(data,orig,mask,fi=None,dfi=None):
+    """Perform radial averaging on the image.
+    
+    Inputs:
+        data: matrix to average
+        orig: vector of beam center coordinates, starting from 1.
+        mask: mask matrix; 1 means masked, 0 means non-masked
+        fi: starting angle for sector averaging, in degrees
+        dfi: angle extent for sector averaging, in degrees
+    Outputs:
+        vector of integrated values
+        vector of effective areas
+    """
+    Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),pylab.arange(data.shape[0]))
+    X=X-orig[0]+1
+    Y=Y-orig[1]+1
+    D=pylab.sqrt(X**2+Y**2)
+    d=D[mask==0]
+    dat=data[mask==0]
+    if (fi is not None) and (dfi is not None):
+        x=X[mask==0]
+        y=Y[mask==0]
+        phi=pylab.fmod(pylab.arctan2(y,x)-pylab.pi/180.0*fi+10*pylab.pi,2*pylab.pi)
+        d=d[phi<=dfi*pylab.pi/180.0]
+        dat=dat[phi<=dfi*pylab.pi/180.0]
+    C=pylab.zeros(pylab.ceil(d.max()))
+    NC=pylab.zeros(pylab.ceil(d.max()))
+    for i in range(len(dat)):
+        C[pylab.floor(d[i])]+=dat[i]
+        NC[pylab.floor(d[i])]+=1
+    return C,NC
+def sectint(data,fi,orig,mask):
+    """Calculate sector-delimited radial average
+    
+    Inputs:
+        data: matrix to average
+        fi: a vector of length 2 of starting and ending angles, in degree.
+        orig: the origin. Coordinates are counted from 1.
+        mask: mask matrix
+
+    Outputs:
+        vector of integrated values
+        vector of effective areas
+    """
+    fi=pylab.array(fi)
+    return imageint(data,orig,mask,fi=fi.min(),dfi=fi.max()-fi.min())
 def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,shutup=True):
     """Do radial integration on 2D scattering images
     
@@ -320,6 +392,25 @@ def shullroess(data,r0min,r0max,r0stepping,qmin=None,qmax=None):
 
 
 #data quality tools
+def testorigin(data,orig,mask):
+    """
+    """
+    pylab.subplot(2,2,1)
+    plot2dmatrix(data,mask=mask)
+    pylab.plot([0,data.shape[1]],[orig[0],orig[0]],color='white')
+    pylab.plot([orig[1],orig[1]],[0,data.shape[0]],color='white')
+    pylab.gca().axis('tight')
+    pylab.subplot(2,2,2)
+    c1,nc1=imageint(data,orig,1-mask,35,20)
+    c2,nc2=imageint(data,orig,1-mask,35+90,20)
+    c3,nc3=imageint(data,orig,1-mask,35+180,20)
+    c4,nc4=imageint(data,orig,1-mask,35+270,20)
+    pylab.plot(c1,marker='.',color='blue',markersize=3)
+    pylab.plot(c3,marker='o',color='blue',markersize=6)
+    pylab.plot(c2,marker='.',color='red',markersize=3)
+    pylab.plot(c4,marker='o',color='red',markersize=6)
+    pylab.subplot(2,2,3)
+    
 def assesstransmission(fsns,titleofsample,mode='Gabriel'):
     """Plot transmission, beam center and Doris current vs. FSNs of the given
     sample.
@@ -641,7 +732,7 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
     asaxsecalib=pylab.array(asaxsecalib);
     
     print "Calibrated ASAXS energies:", asaxsecalib
-    fprimes=pylab.load(fprimefile);
+    fprimes=readf1f2(fprimefile);
     pylab.plot(fprimes[:,0],fprimes[:,1],'b-');
     pylab.plot(fprimes[:,0],fprimes[:,2],'r-');
     asaxsf1=pylab.interp(asaxsecalib-chemshift,fprimes[:,0],fprimes[:,1]);
@@ -1160,9 +1251,6 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=None):
         xmax=(tmp.shape[0]-(header['BeamPosX']-1))*header['PixelSize']
         ymin=0-(header['BeamPosY']-1)*header['PixelSize']
         ymax=(tmp.shape[1]-(header['BeamPosY']-1))*header['PixelSize']
-        print xmin,xmax,ymin,ymax
-        print header['Dist']
-        print float(HC)/header['EnergyCalibrated']
         qxmin=4*pylab.pi*pylab.sin(0.5*pylab.arctan(xmin/header['Dist']))*header['EnergyCalibrated']/float(HC)
         qxmax=4*pylab.pi*pylab.sin(0.5*pylab.arctan(xmax/header['Dist']))*header['EnergyCalibrated']/float(HC)
         qymin=4*pylab.pi*pylab.sin(0.5*pylab.arctan(ymin/header['Dist']))*header['EnergyCalibrated']/float(HC)
@@ -1182,7 +1270,7 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=None):
             a=pylab.gca().axis()
             pylab.plot(q*pylab.cos(pylab.linspace(0,2*pylab.pi,2000)),
                        q*pylab.sin(pylab.linspace(0,2*pylab.pi,2000)),
-                       color='white')
+                       color='white',linewidth=3)
             pylab.gca().axis(a)
             
 #Miscellaneous routines
@@ -1330,7 +1418,18 @@ def common(a,b):
     """
     c=[x for x in a if a in b]
     return c
-
+def lorentzian(x0,gamma,x):
+    """Evaluate the PDF of the Cauchy-Lorentz distribution at given points
+    
+    Inputs:
+        x0: the location of the peak
+        gamma: the scale (half-width at half-maximum, HWHM)
+        x: points in which the value is needed
+        
+    Outputs:
+        a vector of the same size as x.
+    """
+    return 1/(pylab.pi*gamma*(1+(x-x0)/gamma)**2)
 #IO routines
 def readheader(filename,fsn=None,fileend=None):
     """Reads header data from measurement files
@@ -1806,7 +1905,9 @@ def readlogfile(fsn):
                         'Beam size X Y (mm)':('BeamsizeX','BeamsizeY'),
                         'Pixel size of 2D detector (mm)':'PixelSize',
                         'Primary intensity at monitor (counts/sec)':'Monitor',
-                        'Primary intensity calculated from GC (photons/sec/mm^2)':'PrimaryIntensity'                  
+                        'Primary intensity calculated from GC (photons/sec/mm^2)':'PrimaryIntensity',
+                        'Sample rotation around x axis':'RotXsample',
+                        'Sample rotation around y axis':'RotYsample'
                         }
     #this dict. contains the string parameters
     logfile_dict_str={'Sample title':'Title'}
@@ -1869,6 +1970,74 @@ def readlogfile(fsn):
         except IOError, detail:
             print 'Cannot find file %s.' % filename
     return params;
+def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
+                 thickGC,injectionGC,injectionEB,pixelsize,mode='Pilatus300k'):
+    """Write logfiles.
+    
+    Inputs:
+        header: header structure as read by readheader()
+        ori: origin vector of 2
+        thick: thickness of the sample (cm)
+        dc: if mode=='Pilatus300k' then this is the DC level which is subtracted.
+            Otherwise it is the dark current FSN.
+        realenergy: calibrated energy (eV)
+        distance: sample-to-detector distance (mm)
+        mult: absolute normalization factor
+        errmult: error of mult
+        reffsn: FSN of GC measurement
+        thickGC: thickness of GC (cm)
+        injectionGC: if injection occurred between GC and sample measurements:
+            'y' or True. Otherwise 'n' or False
+        injectionEB: the same as injectionGC but for empty beam and sample.
+        pixelsize: the size of the pixel of the 2D detector (mm)
+        mode: 'Pilatus300k' or 'Gabriel'. If invalid, it defaults to 'Gabriel'
+        
+    Output:
+        a file intnorm<fsn>.log is saved to the current directory
+    """
+    
+    if injectionEB!='y' and injectionEB!='n':
+        if injectionEB:
+            injectionEB='y'
+        else:
+            injectionEB='n'
+    if injectionGC!='y' and injectionGC!='n':
+        if injectionGC:
+            injectionGC='y'
+        else:
+            injectionGC='n'
+    name='intnorm%d.log' % header['FSN']
+    fid=open(name,'wt')
+    fid.write('FSN:\t%d\n' % header['FSN'])
+    fid.write('Sample title:\t%s\n' % header['Title'])
+    fid.write('Sample-to-detector distance (mm):\t%d\n' % distance)
+    fid.write('Sample thickness (cm):\t%f\n' % thick)
+    fid.write('Sample transmission:\t%.4f\n' % header['Transm'])
+    fid.write('Sample position (mm):\t%.2f\n' % header['PosSample'])
+    fid.write('Temperature:\t%.2f\n' % header['Temperature'])
+    fid.write('Measurement time (sec):\t%.2f\n' % header['MeasTime'])
+    fid.write('Scattering on 2D detector (photons/sec):\t%.1f\n' % (header['Anode']/header['MeasTime']))
+    if mode=='Pilatus300k':
+        fid.write('Dark current subtracted (cps):\t%d\n' % dclevel)
+    else:
+        fid.write('Dark current FSN:\t%d\n' % dc)
+    fid.write('Empty beam FSN:\t%d\n' % header['FSNempty'])
+    fid.write('Injection between Empty beam and sample measurements?:\t%s\n' % injectionEB)
+    fid.write('Glassy carbon FSN:\t%d\n' % reffsn)
+    fid.write('Glassy carbon thickness (cm):\t%.4f\n' % thickGC)
+    fid.write('Injection between Glassy carbon and sample measurements?:\t%s\n' % injectionGC)
+    fid.write('Energy (eV):\t%.2f\n' % header['Energy'])
+    fid.write('Calibrated energy (eV):\t%.2f\n' % realenergy)
+    fid.write('Beam x y for integration:\t%.2f %.2f\n' % (ori[0],ori[1]))
+    fid.write('Normalisation factor (to absolute units):\t%e\n' % mult)
+    fid.write('Relative error of normalisation factor (percentage):\t%.2f\n' % (100*errmult/mult))
+    fid.write('Beam size X Y (mm):\t%.2f %.2f\n' % (header['BeamsizeX'],header['BeamsizeY']))
+    fid.write('Pixel size of 2D detector (mm):\t%.4f\n' % pixelsize)
+    fid.write('Primary intensity at monitor (counts/sec):\t%.1f\n' % (header['Monitor']/header['MeasTime']))
+    fid.write('Primary intensity calculated from GC (photons/sec/mm^2):\t%e\n'% (header['Monitor']/header['MeasTime']/mult/header['BeamsizeX']/header['BeamsizeY']))
+    fid.write('Sample rotation around x axis:\t%e\n'%header['Rot1'])
+    fid.write('Sample rotation around y axis:\t%e\n'%header['Rot2'])
+    fid.close()
 def readwaxscor(fsns):
     """Read corrected waxs file
     
@@ -1932,3 +2101,16 @@ def readenergyfio(filename,files,fileend):
         except IOError:
             print 'Cannot find file %s.' % fname
     return (energies,samples,muds)
+def readf1f2(filename):
+    fprimes=pylab.load(filename)
+    return fprimes
+def getsequences(headers,ebname='Empty_beam'):
+    seqs=[]
+    ebnums=[x for x in range(len(headers)) if headers[x]['Title']==ebname]
+    for i in range(len(ebnums)-1):
+        seqs.append(range(ebnums[i],ebnums[i+1]))
+    seqs.append(range(ebnums[-1],len(headers)))
+    return seqs
+def convolutef1f2(f1f2,width):
+    pass
+
