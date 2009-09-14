@@ -1,0 +1,24 @@
+FSN:	114
+Sample title:	LaB6
+Sample-to-detector distance (mm):	925
+Sample thickness (cm):	0.010000
+Sample transmission:	0.0759
+Sample position (mm):	20.00
+Temperature:	25.40
+Measurement time (sec):	120.00
+Scattering on 2D detector (photons/sec):	219.8
+Dark current subtracted (cps):	1.990360e-005
+Empty beam FSN:	108
+Injection between Empty beam and sample measurements?:	n
+Glassy carbon FSN:	110
+Glassy carbon thickness (cm):	0.0500
+Injection between Glassy carbon and sample measurements?:	n
+Energy (eV):	15643.99
+Calibrated energy (eV):	15660.31
+Beam x y for integration:	55.95 464.12
+Normalisation factor (to absolute units):	4.910767e-006
+Relative error of normalisation factor (percentage):	0.06
+Beam size X Y (mm):	0.30 1.80
+Pixel size of 2D detector (mm):	0.1720
+Primary intensity at monitor (counts/sec):	3073.5
+Primary intensity calculated from GC (photons/sec/mm^2):	1.159021e+009
