@@ -8,134 +8,41 @@
 
 #define HC 12398.419 /*eV*Angstrom*/
 
-typedef struct {
-    double *q;
-    double *Intensity;
-    double *Error;
-    double *Area;
-    double *Weight;
-    unsigned long N;
-} RadintResult;
 
-
-void freeRadintResult(RadintResult *rr)
-{
-    if (rr)
-        {
-            free(rr->q); free(rr->Intensity); free(rr->Error); free(rr->Area);
-            free(rr->Weight);
-            free(rr);
-        }
-}
-
-RadintResult *doradint(double *data,
-                      double *error,
-                      unsigned short *mask,
-                      unsigned long Nrow,
-                      unsigned long Ncol,
-                      double energy,
-                      double distance,
-                      double xresol,
-                      double yresol,
-                      double bcx,
-                      double bcy,
-                      double *q,
-                      unsigned long Nq)
+int doradint(double *data, double *error, unsigned short *mask,
+            unsigned long Nrow, unsigned long Ncol,
+            double energy, double distance, double xresol, double yresol,
+            double bcx, double bcy, 
+            double *q, double *Intensity, double *Error, double *Area, double *Weight,
+            unsigned long Nq)
 {
     unsigned long x,y;
-    RadintResult *res;
+    union {
+            double *ptr;
+            unsigned char chr[4];
+        } tmp;
+    tmp.ptr=q;
+    fprintf(stderr,"q pointer: %02x %02x %02x %02x\n",tmp.chr[0],tmp.chr[1],tmp.chr[2],tmp.chr[3]);
+    tmp.ptr=Intensity;
+    fprintf(stderr,"Intensity pointer: %02x %02x %02x %02x\n",tmp.chr[0],tmp.chr[1],tmp.chr[2],tmp.chr[3]);
+    tmp.ptr=Error;
+    fprintf(stderr,"Error pointer: %02x %02x %02x %02x\n",tmp.chr[0],tmp.chr[1],tmp.chr[2],tmp.chr[3]);
+    tmp.ptr=Area;
+    fprintf(stderr,"Area pointer: %02x %02x %02x %02x\n",tmp.chr[0],tmp.chr[1],tmp.chr[2],tmp.chr[3]);
+    tmp.ptr=Weight;
+    fprintf(stderr,"Weight pointer: %02x %02x %02x %02x\n",tmp.chr[0],tmp.chr[1],tmp.chr[2],tmp.chr[3]);
     
-    if ((data==NULL) || (error==NULL) || (mask==NULL))
+    if ((data==NULL) || (error==NULL) || (mask==NULL) || (q==NULL) || 
+        (Intensity==NULL) || (Error=NULL) || (Area==NULL) || (Weight==NULL))
         {
 #ifdef DEBUG
-            fprintf(stderr,"radint_ng.c: data or error or mask was NULL\n");
+            fprintf(stderr,"radint_ng.c: data or error or mask or q or intensity or error or area or weight was NULL\n");
 #endif
-            return NULL;
+            return 0;
         }
-    if (q!=NULL)
-        { /*make a copy of q*/
-            double *q2;
-            q2=(double*)malloc(sizeof(double)*Nq);
-            for (x=0; x<Nq; x++)
-                q2[x]=q[x];
-            q=q2;
-        }
-    if (q==NULL)
-        {
-            double dmax=0;
-            double dmin=(Nrow+Ncol)*1000;
-            double qmin=4*M_PI*sin(0.5*atan(dmin/distance))*energy/HC;
-            double qmax=4*M_PI*sin(0.5*atan(dmax/distance))*energy/HC;
-            double r;
-            for (x=0; x<Nrow; x++)
-                for (y=0; y<Ncol; y++)
-                    if (!mask[y*Nrow+x])
-                        {
-                            double qval;
-                            r=sqrt((x-(bcx-1))*(x-(bcx-1))+(y-(bcy-1))*(y-(bcy-1)));
-                            qval=4*M_PI*sin(0.5*atan(sqrt(xresol*xresol*(x-(bcx-1))*(x-(bcx-1))+
-                                                          yresol*yresol*(y-(bcy-1))*(y-(bcy-1)))/distance))*energy/HC;
-                            if (r<dmin) dmin=r;
-                            if (r>dmax) dmax=r;
-                            if (qval<qmin) qmin=qval;
-                            if (qval>qmax) qmax=qval;
-                        }
-            if (dmax<=dmin)  /*not enough non-masked points*/
-                return NULL;
-            if (Nq<=0)
-                Nq=ceil(dmax-dmin)*3;
-            q=(double *)malloc(Nq*sizeof(double));
-            for (x=0; x<Nq; x++)
-                q[x]=qmin+(double)((qmax-qmin)/Nq*x);
-        }
-    /*we now have q, which is _ours_.*/
-    res=(RadintResult *)malloc(sizeof(RadintResult));
-    if (!res)
-        {
-            free(q);
 #ifdef DEBUG
-            fprintf(stderr,"radint_ng.c: cannot allocate res\n");
+    fprintf(stderr,"Before integrating\n");
 #endif
-            return NULL;
-        }
-    res->Intensity=(double*)calloc(Nq,sizeof(double));
-    if (!(res->Intensity))
-        {
-#ifdef DEBUG
-            fprintf(stderr,"radint_ng.c: cannot allocate res->Intensity\n");
-#endif
-            free(q); free(res);
-            return NULL;
-        }
-    res->Error=(double*)calloc(Nq,sizeof(double));
-    if (!(res->Error))
-        {
-#ifdef DEBUG
-            fprintf(stderr,"radint_ng.c: cannot allocate res->Error\n");
-#endif
-            free(q); free(res->Intensity); free(res);
-            return NULL;
-        }
-    res->Area=(double*)calloc(Nq,sizeof(double));
-    if (!(res->Area))
-        {
-#ifdef DEBUG
-            fprintf(stderr,"radint_ng.c: cannot allocate res->Area\n");
-#endif
-            free(q); free(res->Intensity); free(res->Error); free(res);
-            return NULL;
-        }
-    res->Weight=(double*)calloc(Nq,sizeof(double));
-    if (!(res->Weight))
-        {
-#ifdef DEBUG
-            fprintf(stderr,"radint_ng.c: cannot allocate res->Weight\n");
-#endif
-            free(q); free(res->Intensity); free(res->Error); free(res->Area); free(res);
-            return NULL;
-        }
-    res->N=Nq;
-    res->q=q;
     for(x=0; x<Nrow; x++)
         for(y=0; y<Ncol; y++)
             {
@@ -156,7 +63,7 @@ RadintResult *doradint(double *data,
                         if (qval>=lowborder)
                             break;
                     }
-                if (qind>=res->N)
+                if (qind>=Nq)
                     continue;
                 /*now qind contains the index of the q-bin where the current pixel belongs*/
                 curweight=1;
@@ -166,20 +73,29 @@ RadintResult *doradint(double *data,
 #ifdef WEIGHTBYQDQ2
                 curweight=curweight*qdq2val;
 #endif                
-                res->Weight[qind]+=curweight;
-                res->Intensity[qind]+=data[y*Nrow+x]*curweight;
-                res->Area[qind]+=1;
+                Weight[qind]+=curweight;
+                Intensity[qind]+=data[y*Nrow+x]*curweight;
+                Area[qind]+=1;
             }
-    for(x=0; x<res->N; x++)
+#ifdef DEBUG
+    fprintf(stderr,"Integration succeeded. Normalizing...\n");
+#endif
+    for(x=0; x<Nq; x++)
         {
-            if (res->Weight[x]!=0)
+#ifdef DEBUG
+            fprintf(stderr,"Normalizing element %lu...\n",x);
+#endif
+            if (Weight[x]!=0)
                 {
-                    res->Intensity[x]/=res->Weight[x];                    
-                    res->Error[x]=1/res->Weight[x];
+                    fprintf(stderr,"Weight is not zero\n");
+                    Intensity[x]=Intensity[x]/=Weight[x];  
+                    fprintf(stderr,"Calculating error\n");
+                    Error[x]=1.0/Weight[x];
+                    fprintf(stderr,"Error has been calculated\n");
                 }
         }
 #ifdef DEBUG
     fprintf(stderr,"radint_ng.c: now returning with results.\n");
 #endif
-    return res;
+    return 1;
 }

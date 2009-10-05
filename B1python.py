@@ -1,5 +1,76 @@
+"""B1python: various Pythonic functions for Small-Angle X-ray Scattering
+analysis. Created by Andras Wacha for beamline B1 @HASYLAB/DESY, Hamburg,
+Germany, but hopefully other scientists can benefit from these too. These
+functions are partially based on Ulla Vainio's Matlab(R) scripts for B1 data
+analysis.
+
+Legal note: I donate these scripts to the public. You may freely use,
+    distribute, modify the sources, as long as the legal notices remain in
+    place, and no functionality is removed. However, using it as a main part
+    for commercial (ie. non-free) software is not allowed (you got it free,
+    you should give it free). The author(s) take no warranty on this program,
+    nor on the outputs (like the copyleft from GNU). However, if you modify
+    this, find a bug, suggest a new feature to be implemented, please feel
+    free to contact the authors (Andras Wacha: awacha at gmail dot com).
+
+Note for developers: If you plan to enhance this program, please be so kind to
+    contact the original author (Andras Wacha: awacha at gmail dot com). I ask
+    this because I am happy when I hear that somebody finds my work useful for
+    his/her tasks. And for the coding style: please comment every change by
+    your monogram/nickname and the date. And you should add your name,
+    nickname and e-mail address to the authors clause in this notice as well.
+    You deserve it.
+
+General concepts:
+
+    As it was already said, these functions are based on Matlab(R) scripts.
+        It was kept iln mind therefore to retain Compatibility to the Matlab(R)
+        version more or less. However, we are in Python and it would be
+        foolish not to use the possibilities and tools it provides. In the
+        next lines I note the differences.
+    
+    the numbering of the pixels of the detector starts from 1, in case of the
+        beam coordinates, thus the values from the Matlab(R)-style
+        intnorm*.log files are usable without modification. On contrary to
+        Matlab(R), Python counts the indices from 0, so to get the real value
+        of the beam coordinates, one should look at the pixel bcx-1,bcy-1. All
+        functions in this file which need the beam coordinates as input or
+        supply them as output, handle this automatically.
+    
+    the radially averaged datasets are in a data dictionary with fields 'q',
+        'Intensity', 'Error' and possible 'Area'. The approach is similar to
+        that of the Matlab(R) version, however in Python, dictionary is the
+        best suited container.
+        
+    the mask matrices and corrected 2D data are saved to and loaded from mat
+        files.
+        
+    if a function classifies measurements depending on energies, it uses
+        always the uncalibrated (apparent) energies, which were set up in the
+        measurement program at the beamline.
+        
+    the difference between header and param structures (dictionaries in
+        Python) are planned to be completely removed. In the Matlab(R) version
+        the fields of a header structure consist a subset of the ones of the
+        param structure. When the data evaluation routines get implemented,
+        the header dictionary extracted from the input datasets will get
+        extended during the evaluation run by newly calculated values.
+
+Dependencies:
+    This set of functions depend---apart from the standard Python library---on
+    various 3rd party modules. A complete list of these:
+        matplotlib (pylab)
+        scipy
+    
+A final note: functions labelled by EXPERIMENTAL!!!! in the online help-text
+    are REALLY experimental. When I say experimental, I mean experimental,
+    possibly not fully implemented code. No kidding. They are not thoroughly
+    tested, so use on your own risk. They may not do what you expect, or they
+    won't do anything at all. You have been warned. But if you are really
+    curious, you can look at their source code... :-)
+"""
+
 import string
-import matplotlib
 import pylab
 import scipy
 import scipy.io
@@ -16,8 +87,82 @@ import matplotlib.nxutils
 from scipy.optimize.minpack import leastsq
 from scipy.optimize import fmin
 import scipy.special
+import scipy.stats.stats
+import scipy.interpolate
+import radint_ng
 
 HC=12396.4 #Planck's constant times speed of light, in eV*Angstrom units
+def theorspheres(qrange, spheres):
+    """Calculate the theoretical scattering intensity of the sphere structure
+    
+    Inputs:
+        qrange: vector of q values or just a single value
+        spheres: sphere structure. Could be:
+            1) a single number: it is then assumed that the scattering of a single
+                sphere with this radius is the scatterer
+            2) a python list of numbers: a sphere population with these radii is assumed
+            3) a numpy array: the columns correspond to x, y, z, R respectively.
+                If supplied, the 5th column is the real, the 6th is the imaginary
+                part of the scattering length density.
+            
+    Output:
+        a vector of the same size that of qrange. It contains the scattering
+        intensities.
+    """
+    def fsphere(q,R):
+        return 1/q**3*(pylab.sin(q*R)-q*R*pylab.cos(q*R))
+    
+    if (type(qrange)!=types.ListType) and (type(qrange)!=pylab.ndarray):
+        qrange=[qrange]
+    if (type(spheres)!=types.ListType) and (type(spheres)!=pylab.ndarray):
+        spheres=[spheres]
+    Intensity=pylab.zeros(qrange.size)
+    if (type(spheres)==types.ListType):
+        for i in len(spheres):
+            Intensity=Intensity+fsphere(qrange,spheres[i])**2
+    if (type(spheres)==pylab.ndarray):
+        if spheres.shape[1]<4:
+            raise ValueError("Not enough columns in spheres structure")
+        if spheres.shape[1]<5:
+            s1=pylab.zeros((spheres.shape[0],6))
+            s1[:,0:4]=spheres
+            s1[:,4]=1;
+            s1[:,5]=0;
+            spheres=s1;
+        for i in range(spheres.shape[0]):
+            f1=fsphere(qrange,spheres[i,3])
+            Intensity+=(spheres[i,4]**2+spheres[i,5]**2)*f1**2;
+            for j in range(i+1,spheres.shape[0]):
+                f2=fsphere(qrange,spheres[j,3])
+                dist=pylab.sqrt((spheres[i,0]-spheres[j,0])**2+(spheres[i,1]-spheres[j,1])**2+(spheres[i,2]-spheres[j,2])**2)
+                if dist!=0:
+                    fact=pylab.sin(qrange*dist)/(qrange*dist)
+                else:
+                    fact=1;
+                Intensity+=2*(spheres[i,4]*spheres[j,4]+spheres[i,5]*spheres[j,5])*f1*f2*fact;
+    return Intensity            
+                
+def polartransform(data,r,phi,origx,origy):
+    """Calculates a matrix of a polar representation of the image.
+    
+    Inputs:
+        data: the 2D matrix
+        r: vector of polar radii
+        phi: vector of polar angles
+        origx: the x (row) coordinate of the origin
+        origy: the y (column) coordinate of the origin
+    Outputs:
+        pdata: a matrix of len(phi) rows and len(r) columns which contains the
+            polar representation of the image.
+    """
+    pdata=pylab.zeros((len(phi),len(r)))
+    for i in range(len(phi)):
+        for j in range(len(r)):
+            x=origx-1+r[j]*pylab.cos(phi[i]);
+            y=origy-1+r[j]*pylab.sin(phi[i]);
+            if (x>=0) and (y>=0) and (x<data.shape[0]) and (y<data.shape[1]):
+                pdata[i,j]=data[x,y];
+    return pdata
 def energycalibration(energymeas,energycalib,energy1):
     """Do energy calibration.
     
@@ -41,6 +186,16 @@ def energycalibration(energymeas,energycalib,energy1):
     else:
         return a*energy1+b
 def rebin(data,qrange):
+    """Rebin 1D data. Note: if 2D data is present, reintegrateB1 is more accurate.
+    
+    Inputs:
+        data: one or more (=list) of scattering data dictionaries (with fields
+            'q', 'Intensity' and 'Error')
+        qrange: the new q-range to which the binning should be carried out.
+    
+    Outputs:
+        the re-binned dataset in a scattering data dictionary
+    """
     qrange=pylab.array(qrange)
     if type(data)!=types.ListType:
         data=[data]
@@ -55,23 +210,25 @@ def rebin(data,qrange):
         tmp['Error']=pylab.interp(qrange,d['q'],d['Error'])
         data2.append(tmp)
     return data2;
-def stackdata(tup):
-    data={}
-    data['q']=pylab.vstack(tuple([t['q'].reshape(t['q'].size,1) for t in tup]))
-    data['Intensity']=pylab.vstack(tuple([t['Intensity'].reshape(t['Intensity'].size,1) for t in tup]))
-    data['Error']=pylab.vstack(tuple([t['Error'].reshape(t['Error'].size,1) for t in tup]))
-    tmp=pylab.vstack((data['q'].reshape(1,data['q'].size),data['Intensity'].reshape(1,data['Intensity'].size),data['Error'].reshape(1,data['Error'].size)))
-    tmp=tmp.transpose()
-    #tmp.sort(0)
-    data['q']=tmp[:,0]
-    data['Intensity']=tmp[:,1]
-    data['Error']=tmp[:,2]
-    #print data['q'].min()
-    #print data['q'].max()
-    return data
 def energiesfromparam(param):
+    """Return the (uncalibrated) energies from the measurement files
+    
+    Inputs:
+        param dictionary
+        
+    Outputs:
+        a list of sorted energies
+    """
     return unique([p['Energy'] for p in param],lambda a,b:(abs(a-b)<2))
 def samplenamesfromparam(param):
+    """Return the sample names
+    
+    Inputs:
+        param dictionary
+        
+    Output:
+        a list of sorted sample titles
+    """
     return unique([p['Title'] for p in param])
 def findbeam(data,orig_initial,mask=None,maxiter=20):
     """Find beam center
@@ -110,6 +267,8 @@ def imageint(data,orig,mask,fi=None,dfi=None):
     Outputs:
         vector of integrated values
         vector of effective areas
+        
+    Note: based on the work of Mika Torkkeli
     """
     Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),pylab.arange(data.shape[0]))
     X=X-orig[0]+1
@@ -141,6 +300,8 @@ def sectint(data,fi,orig,mask):
     Outputs:
         vector of integrated values
         vector of effective areas
+        
+    Note: based on the work of Mika Torkkeli
     """
     fi=pylab.array(fi)
     return imageint(data,orig,mask,fi=fi.min(),dfi=fi.max()-fi.min())
@@ -149,7 +310,8 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,shutup=True):
     
     Inputs:
         data: the intensity matrix
-        dataerr: the error matrix (of the same size as data)
+        dataerr: the error matrix (of the same size as data). Should not be
+            zero!
         energy: the (calibrated) beam energy (eV)
         distance: the distance from the sample to the detector (mm)
         res: pixel size in mm-s. Both x and y (row and column) direction can
@@ -238,14 +400,12 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,shutup=True):
     # go through every q-bin
     for l in range(len(q)):
         indices=((q1<=qmax[l])&(q1>qmin[l])) # the indices of the pixels which belong to this q-bin
-        Intensity[l]=pylab.sum(data[indices]) # sum the intensities
-        Error[l]=pylab.sum(dataerr[indices]) # sum the errors
+        Intensity[l]=pylab.sum((data[indices])/(dataerr[indices]**2)) # sum the intensities weighted by 1/sigma**2
+        Error[l]=1/pylab.sum(1/(dataerr[indices]**2)) # error of the weighted average
         Area[l]=pylab.sum(indices) # collect the area
-        if Area[l]!=0:
-            # normalization by the area
-            Intensity[l]=Intensity[l]/Area[l]
-            Error[l]=Error[l]/(Area[l]*Area[l])
-    Error=pylab.sqrt(Error) # square root of the error
+        # normalization by the area
+        Intensity[l]=Intensity[l]*Error[l] # Error[l] is 1/sum_i(1/sigma^2_i)
+        Error[l]=pylab.sqrt(Error[l])
     if not shutup:
         print "done"
         
@@ -347,54 +507,175 @@ def scalewaxs(fsns,mask2d):
         pylab.ylabel('Scattering cross-section (1/cm)')
         pylab.savefig('scalewaxs%d.eps' % param[0]['FSN'],dpi=300,transparent='True',format='eps')
         pylab.close(pylab.gcf())
-def shullroess(data,r0min,r0max,r0stepping,qmin=None,qmax=None):
-    Iexp=pylab.array(data['Intensity'])
-    qexp=pylab.array(data['q'])
-    errexp=pylab.array(data['Error'])
-    if qmin is not None:
-        len0=len(qexp)
-        Iexp=Iexp[qexp>=qmin]
-        errexp=errexp[qexp>=qmin]
-        qexp=qexp[qexp>=qmin]
-        len1=len(qexp)
-        print '%d points have been cut from the beginning.' % (len0-len1)
-    if qmax is not None:
-        len0=len(qexp)
-        Iexp=Iexp[qexp<=qmax]
-        errexp=errexp[qexp<=qmax]
-        qexp=qexp[qexp<=qmax]
-        len1=len(qexp)
-        print '%d points have been cut from the end.' % (len0-len1)
-    logIexp=pylab.log(Iexp)
-    errlogIexp=errexp/Iexp
-    r0s=pylab.arange(r0min,r0max,r0stepping,dtype=float)
-    chi2=pylab.zeros(r0s.shape)
-    for i in range(len(r0s)):
-        xdata=pylab.log(qexp**2+3/r0s[i]**2)
-        a,b,aerr,berr=linfit(xdata,logIexp,errlogIexp)
-        chi2[i]=pylab.sum(((xdata*a+b)-logIexp)**2)
-    pylab.subplot(2,2,1)
-    pylab.plot(r0s,chi2)
-    bestindex=(chi2==chi2.min())
-    xdata=pylab.log(qexp**2+3/r0s[bestindex]**2)
-    a,b,aerr,berr=linfit(xdata,logIexp,errlogIexp)
-    n=-(a*2.0+4.0)
-    print 'best fit: r0=', r0s[bestindex][0], ', n=',n,'with chi2: ',chi2[bestindex]
-    print a
-    print b
-    print 'Guinier approximation: ',r0s[bestindex]*qexp.max(),'?<<? 1'
-    pylab.subplot(2,2,2)
-    pylab.plot(xdata,logIexp,'.',label='Measured')
-    pylab.plot(xdata,a*xdata+b,label='Fitted')
-    pylab.legend()
-    pylab.subplot(2,2,3)
-    pylab.plot(r0s,maxwellian(n,r0s[bestindex],r0s))
-
-
+#XANES and EXAFS analysis
+def smoothabt(muddict,smoothing):
+    """Smooth mu*d data with splines
+    
+    Inputs:
+        muddict: mu*d dictionary
+        smoothing: smoothing parameter for scipy.interpolate.splrep.
+        
+    Outputs:
+        a mud dictionary with the smoothed data.
+    """
+    tck=scipy.interpolate.splrep(muddict['Energy'],muddict['Mud'],s=smoothing);
+    return {'Energy':muddict['Energy'][:],
+            'Mud':scipy.interpolate.splev(muddict['Energy'],tck),
+            'Title':("%s_smooth%lf" % (muddict['Title'],smoothing)),
+            'scan':muddict['scan']}
+def execchooch(mud,element,edge,choochexecutable='/opt/chooch/chooch/bin/chooch',resolution=None):
+    """Execute CHOOCH
+    
+    Inputs:
+        mud: mu*d dictionary.
+        element: the name of the element, eg. 'Cd'
+        edge: the absorption edge to use, eg. 'K' or 'L1'
+        choochexecutable: the path where the CHOOCH executable can be found.
+        resolution: the resolution of the monochromator, if you want to take
+            this into account.
+    
+    Outputs:
+        f1f2 matrix. An exception is raised if running CHOOCH fails.
+    """
+    writechooch(mud,'choochin.tmp');
+    if resolution is None:
+        cmd='%s -v 0 -e %s -a %s -o choochout.tmp choochin.tmp' % (choochexecutable, element, edge)
+    else:
+        cmd='%s -v 0 -e %s -a %s -r %lf -o choochout.tmp choochin.tmp' % (choochexecutable, element, edge, resolution)
+    print 'Running CHOOCH with command: ', cmd
+    a=os.system(cmd);
+    if (a==32512):
+        raise IOError( "The chooch executable cannot be found at %s. Please supply another path." % choochexecutable)
+    tmp=pylab.loadtxt('choochout.tmp');
+    data=pylab.zeros((tmp.shape[0],3))
+    data[:,0]=tmp[:,0];
+    data[:,1]=tmp[:,2];
+    data[:,2]=tmp[:,1];
+    return data;
+def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-pylab.inf,endpoint=pylab.inf,postsmoothing=[]):
+    """Calculate anomalous correction factors from a XANES scan.
+    
+    Inputs:
+        mud: mud dictionary
+        smoothing: smoothing parameter for smoothabt().
+        element: the short name of the element, as 'Cd'...
+        edge: the absorption edge (eg. 'K', 'L1', ...)
+        title: the title for saving files
+        substitutepoints: a list of energy values, at which the mud value should
+            be substituted by the average of the two neighbours. Use this to get
+            rid of outiler points...
+        startpoint: lower cutoff energy
+        endpoint: upper cutoff energy.
+        postsmoothing: list of 3-tuples. Each 3-tuple will be interpreted as
+            (lower energy, upper energy, smoothing parameter). Apply this for
+            elimination of non-physical oscillations from the curve.
+        
+    Outputs:
+        the calculated anomalous scattering factors (f' and f'')
+        files xanes_smoothing_<title>.png and xanes_chooch_<title>.png will be
+            saved, as well as f1f2_<title>.dat with the f' and f'' values. The
+            external program CHOOCH (by Gwyndaf Evans) is used to convert
+            mu*d data to anomalous scattering factors.
+    """
+    pylab.clf()
+    for p in substitutepoints:
+        index=pylab.find(pylab.absolute(mud['Energy']-p)<1)
+        mud['Mud'][index]=0.5*(mud['Mud'][index-1]+mud['Mud'][index+1])
+    
+    indices=mud['Energy']<endpoint;
+    mud['Energy']=mud['Energy'][indices];
+    mud['Mud']=mud['Mud'][indices];
+    
+    indices=mud['Energy']>startpoint;
+    mud['Energy']=mud['Energy'][indices];
+    mud['Mud']=mud['Mud'][indices];
+    
+    if smoothing is None:
+        smoothing=testsmoothing(mud['Energy'],mud['Mud'],1e-5)
+        print "Using %lf for smoothing parameter" % smoothing
+    pylab.clf()
+    pylab.plot(mud['Energy'],mud['Mud']);
+    B=smoothabt(mud,smoothing)
+    pylab.plot(B['Energy'],B['Mud'])
+    pylab.legend(['$\mu d$ measured','$\mu d$ smoothed'],loc='best');
+    pylab.xlabel('Energy (eV)')
+    pylab.ylabel('$\mu d$')
+    pylab.title(title)
+    pylab.savefig("xanes_smoothing_%s.png" % title,dpi=300,papertype='a4',format='png',transparent=True)
+    pylab.clf()
+    writechooch(B,'choochin.tmp')
+    f1f2=execchooch(B,element,edge)
+    for p in postsmoothing:
+        indices=(f1f2[:,0]<=p[1]) & (f1f2[:,0]>=p[0])
+        x1=f1f2[indices,0]
+        y1=f1f2[indices,1]
+        z1=f1f2[indices,2]
+        s=p[2]
+        if p[2] is None:
+            s=testsmoothing(x1,y1,1e-1,1e-2,1e1)
+        tck=scipy.interpolate.splrep(x1,y1,s=s)
+        f1f2[indices,1]=scipy.interpolate.splev(x1,tck)
+        tck=scipy.interpolate.splrep(x1,z1,s=s)
+        f1f2[indices,2]=scipy.interpolate.splev(x1,tck)
+    
+    pylab.plot(f1f2[:,0],f1f2[:,1:3]);
+    #pylab.legend(['$f^\'$ from CHOOCH','$f^{\'\'}$ from CHOOCH'],loc='best');
+    pylab.xlabel('Energy (eV)')
+    pylab.ylabel('$f^\'$ and $f^{\'\'}$')
+    pylab.title(title)
+    pylab.savefig("xanes_chooch_%s.png" % title,dpi=300,papertype='a4',format='png',transparent=True)
+    writef1f2(f1f2,("f1f2_%s.dat" % title));
+    return f1f2
 #data quality tools
-def testorigin(data,orig,mask):
+def testsmoothing(x,y,smoothing=1e-5,slidermin=1e-6,slidermax=1e-2):
+    ax=pylab.axes((0.2,0.85,0.7,0.05));
+    sl=matplotlib.widgets.Slider(ax,'',pylab.log10(slidermin),pylab.log10(slidermax),pylab.log10(smoothing));
+    fig=pylab.gcf()
+    fig.smoothingdone=False
+    ax=pylab.axes((0.1,0.85,0.1,0.05));
+    def butoff(a=None):
+        pylab.gcf().smoothingdone=True
+    but=matplotlib.widgets.Button(ax,'Ok')
+    but.on_clicked(butoff)
+    pylab.axes((0.1,0.1,0.8,0.7))
+    pylab.cla()
+    pylab.plot(x,y,'.')
+    smoothing=pow(10,sl.val);
+    tck=scipy.interpolate.splrep(x,y,s=smoothing)
+    y1=scipy.interpolate.splev(x,tck)
+    pylab.plot(x,y1,linewidth=2)
+    def fun(a):
+        ax=pylab.axis()
+        pylab.cla()
+        pylab.plot(x,y,'.')
+        smoothing=pow(10,sl.val);
+        tck=scipy.interpolate.splrep(x,y,s=smoothing)
+        y1=scipy.interpolate.splev(x,tck)
+        pylab.plot(x,y1,linewidth=2)
+        pylab.axis(ax)
+    sl.on_changed(fun)
+    fun(1e-5)
+    while not fig.smoothingdone:
+        pylab.waitforbuttonpress()
+    pylab.clf()
+    pylab.plot(x,y,'.')
+    tck=scipy.interpolate.splrep(x,y,s=pow(10,sl.val))
+    y1=scipy.interpolate.splev(x,tck)
+    pylab.plot(x,y1,linewidth=2)
+    pylab.draw()
+    return pow(10,sl.val)
+
+def testorigin(data,orig,mask=None):
+    """Shows several test plots by which the validity of the determined origin
+    can  be tested.
+    
+    Inputs:
+        data: the 2d scattering image
+        orig: the origin [row,column]
+        mask: the mask matrix.
     """
-    """
+    if mask is None:
+        mask=pylab.ones(data.shape)
     pylab.subplot(2,2,1)
     plot2dmatrix(data,mask=mask)
     pylab.plot([0,data.shape[1]],[orig[0],orig[0]],color='white')
@@ -410,7 +691,10 @@ def testorigin(data,orig,mask):
     pylab.plot(c2,marker='.',color='red',markersize=3)
     pylab.plot(c4,marker='o',color='red',markersize=6)
     pylab.subplot(2,2,3)
-    
+    maxr=max([len(c1),len(c2),len(c3),len(c4)])
+    pdata=polartransform(data,pylab.arange(0,maxr),pylab.linspace(0,4*pylab.pi,600),orig[0],orig[1])
+    pmask=polartransform(mask,pylab.arange(0,maxr),pylab.linspace(0,4*pylab.pi,600),orig[0],orig[1])
+    plot2dmatrix(pdata,mask=pmask)
 def assesstransmission(fsns,titleofsample,mode='Gabriel'):
     """Plot transmission, beam center and Doris current vs. FSNs of the given
     sample.
@@ -512,7 +796,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None):
     Inputs:
         fsnrange: FSN-s of measurements. Measurement files around only one edge
             should be given.
-        mask: mask matrix. Zero means non-masked, nonzero means masked.
+        mask: mask matrix. Zero means masked, nonzero means non-masked.
         qrange [optional]: If it has more than one elements, then the q-points
             in which the intensity is requested. If a single value, the number
             of q-bins between the minimal and maximal q-value determined auto-
@@ -530,9 +814,10 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None):
         should reside in the current directory
     """
     if qrange is not None:
-        if type(qrange)!=types.ListType:
+        if type(qrange)!=types.ListType and type(qrange)!=pylab.ndarray:
             qrange=[qrange]
-            original_qrange=qrange[:]; # take a copy of it
+        qrange=pylab.array(qrange)
+        original_qrange=qrange.copy(); # take a copy of it
     else:
         original_qrange=None
     if type(fsnrange)!=types.ListType:
@@ -559,7 +844,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None):
             sdparams=[p for p in sparams if p['Dist']==d];
             print 'Evaluating measurements with distance %f' %d
             if qrange is not None:
-                if type(qrange) != types.ListType:
+                if (type(qrange) != types.ListType) and (type(qrange) != pylab.ndarray):
                     qrange=[qrange];
             if (qrange is None) or (len(qrange)<2) :
                 print 'Generating common q-range'
@@ -568,7 +853,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None):
                 Y,X=pylab.meshgrid(pylab.arange(mask.shape[1]),pylab.arange(mask.shape[0]));
                 D=pylab.sqrt((sdparams[0]['PixelSize']*(X-sdparams[0]['BeamPosX']-1))**2+
                             (sdparams[0]['PixelSize']*(Y-sdparams[0]['BeamPosY']-1))**2)
-                Dlin=D[mask==0]
+                Dlin=D[mask!=0]
                 qmin=4*pylab.pi*pylab.sin(0.5*pylab.arctan(Dlin.min()/d))*energymax/HC;
                 qmax=4*pylab.pi*pylab.sin(0.5*pylab.arctan(Dlin.max()/d))*energymin/HC;
                 print 'Auto-determined qmin:',qmin
@@ -590,7 +875,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None):
                 print 'Re-integrating...'
                 qs,ints,errs,areas=radint(data[0],dataerr[0],p['EnergyCalibrated'],
                                         p['Dist'],p['PixelSize'],p['BeamPosX']-1,
-                                        p['BeamPosY']-1,mask,qrange);
+                                        p['BeamPosY']-1,1-mask,qrange);
                 writeintfile(qs,ints,errs,p,areas,filetype='intbinned')
                 print 'done.'
                 del data
@@ -599,7 +884,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None):
                 del ints
                 del errs
                 del areas
-def asaxsbasicfunctions(I,Errors,f1,f2,df1=None,df2=None):
+def asaxsbasicfunctions(I,Errors,f1,f2,df1=None,df2=None,element=0):
     """Calculate the basic functions (nonresonant, mixed, resonant)
     
     Inputs:
@@ -609,7 +894,11 @@ def asaxsbasicfunctions(I,Errors,f1,f2,df1=None,df2=None):
             shape as I.
         f1: vector of the f' values for the corresponding columns of I.
         f2: vector of the f'' values for the corresponding columns of I.
-        
+        element: the atomic number of the resonant atom. If zero (default),
+            derive the basic functions according to Stuhrmann. If nonzero, the
+            partial structure factors of the nonresonant part (N), and the
+            resonant part (R) are returned, along with the cross-term S_{NR}.
+            
     Outputs:
         N: vector of the nonresonant term
         M: vector of the mixed term
@@ -634,18 +923,19 @@ def asaxsbasicfunctions(I,Errors,f1,f2,df1=None,df2=None):
     DR=pylab.zeros((Ilen,1));
 
     A=pylab.ones((Nenergies,3));
-    A[:,1]=2*f1;
-    A[:,2]=f1**2+f2**2;
+    A[:,1]=2*(element+f1);
+    A[:,2]=(element+f1)**2+f2**2;
     DA=pylab.zeros(A.shape)
     if df1 is not None:
         DA[:,1]=2*df1;
-        DA[:,2]=pylab.sqrt(4*f1**2*df1**2+4*f2**2*df2**2)
+        DA[:,2]=pylab.sqrt(4*(element+f1)**2*df1**2+4*f2**2*df2**2)
     B=pylab.dot(pylab.inv(pylab.dot(A.T,A)),A.T);
     ATA=pylab.dot(A.T,A)
     ATAerr=dot_error(A.T,A,DA.T,DA)
     invATA=pylab.inv(ATA)
     invATAerr=inv_error(ATA,ATAerr)
     Berror=dot_error(invATA,A.T,invATAerr,DA.T)
+    print Berror
     print "Condition number of inv(A'*A)*A' is ",pylab.cond(B)
     for j in range(0,Ilen):
         tmp=pylab.dot(B,I[j,:])
@@ -684,7 +974,7 @@ def asaxspureresonant(I1,I2,I3,DI1,DI2,DI3,f11,f12,f13,f21,f22,f23):
     dsep12=pylab.absolute(pylab.sqrt((DI1*DI1)+(DI2*DI2))/(f11-f12))
     dsep23=pylab.absolute(pylab.sqrt((DI2*DI2)+(DI3*DI3))/(f12-f13))
     return sep12,dsep12,sep23,dsep23,R,DR
-def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqname=None):
+def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqname=None,element=0):
     """Evaluate an ASAXS sequence, derive the basic functions
     
     Inputs:
@@ -713,6 +1003,9 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
             seqname_samplename_separation.eps: separated curves, I_0 and pure
                 resonant displayed
             seqname.log: logging
+        element [optional]: if nonzero, this is the atomic number of the
+            resonant element. If zero (default), the evaluation is carried out
+            according to Stuhrmann. Nonzero yields the PSFs.
     """
     if samples is None:
         samples=unique([param[i]['Title'] for i in range(0,len(data))]);
@@ -724,7 +1017,8 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
         logfile.write('ASAXS sequence name: %s\n' % seqname)
         logfile.write('Time: %s' % time.asctime())
     asaxsecalib=[];
-    asaxsenergies=pylab.array(unique(asaxsenergies,lambda a,b:(abs(a-b)<2)))
+    #asaxsenergies=pylab.array(unique(asaxsenergies,lambda a,b:(abs(a-b)<2)))
+    asaxsenergies=pylab.array(asaxsenergies);
     for j in range(0,len(asaxsenergies)):
         asaxsecalib.append([param[i]['EnergyCalibrated']
                              for i in range(0,len(data)) 
@@ -744,6 +1038,7 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
         for i in range(len(asaxsenergies)):
             logfile.write("%f -> %f\tf1=%f\tf2=%f\n" % (asaxsenergies[i],asaxsecalib[i],asaxsf1[i],asaxsf2[i]))
         logfile.write('Chemical shift (eV): %f\n' % chemshift)
+        logfile.write('Atomic number supplied by the user: %d\n' % element)
         logfile.write('fprime file: %s\n' % fprimefile)
     pylab.plot(asaxsecalib-chemshift,asaxsf1,'b.',markersize=10);
     pylab.plot(asaxsecalib-chemshift,asaxsf2,'r.',markersize=10);
@@ -800,7 +1095,7 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
                 datatosave[:,2*i+2]=Errors[:,i]
             pylab.savetxt('%s_%s_ie.txt' % (seqname, s),datatosave,delimiter='\t')
         # now we have the Intensity and Error matrices fit to feed to asaxsbasicfunctions()
-        N,M,R,DN,DM,DR=asaxsbasicfunctions(Intensity,Errors,asaxsf1,asaxsf2);
+        N,M,R,DN,DM,DR=asaxsbasicfunctions(Intensity,Errors,asaxsf1,asaxsf2,element=element);
         sep12,dsep12,sep23,dsep23,R1,dR1=asaxspureresonant(Intensity[:,0],Intensity[:,1],Intensity[:,2],
                                                            Errors[:,0],Errors[:,1],Errors[:,2],
                                                            asaxsf1[0],asaxsf1[1],asaxsf1[2],
@@ -830,7 +1125,7 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
         pylab.title("ASAXS basic functions for sample %s" % s)
         pylab.xlabel(u"q (1/%c)" % 197)
         pylab.ylabel("Scattering cross-section (1/cm)")
-        #pylab.gca().set_xscale('log');
+        pylab.gca().set_xscale('log');
         pylab.gca().set_yscale('log');
         pylab.legend();
         pylab.savefig('%s_%s_basicfun.eps'%(seqname,s),dpi=300,format='eps',transparent=True)
@@ -847,7 +1142,7 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
         pylab.title("ASAXS separated and pure resonant terms for sample %s" % s)
         pylab.xlabel(u"q (1/%c)" % 197)
         pylab.ylabel("Scattering cross-section (1/cm)")
-        #pylab.gca().set_xscale('log');
+        pylab.gca().set_xscale('log');
         pylab.gca().set_yscale('log');
         pylab.legend();
         pylab.savefig('%s_%s_separation.eps'%(seqname,s),dpi=300,format='eps',transparent=True)
@@ -882,6 +1177,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled'):
                 edsparams=[p for p in esparams if p['Dist']==d]
                 counter=0
                 q=None
+                w=None
                 Isum=None
                 Esum=None
                 for p in edsparams:
@@ -891,8 +1187,8 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled'):
                         continue
                     if counter==0:
                         q=intdata['q']
-                        Isum=intdata['Intensity']
-                        Esum=intdata['Error']**2
+                        w=1/(intdata['Error']**2)
+                        Isum=intdata['Intensity']/(intdata['Error']**2)
                     else:
                         if q.size!=intdata['q'].size:
                             print 'q-range of file %s differs from the others read before. Skipping.' % filename
@@ -900,19 +1196,19 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled'):
                         if pylab.sum(q-intdata['q'])!=0:
                             print 'q-range of file %s differs from the others read before. Skipping.' % filename
                             continue
-                        Isum=Isum+intdata['Intensity']
-                        Esum=Esum+intdata['Error']**2
+                        Isum=Isum+intdata['Intensity']/(intdata['Error']**2)
+                        w=w+1/(intdata['Error']**2)
                     counter=counter+1
                 if counter>0:
-                    Esum=pylab.sqrt(Esum)/float(counter)
-                    Isum=Isum/float(counter)
+                    Esum=1/w
+                    Isum=Isum/w
                     writeintfile(q,Isum,Esum,edsparams[0],filetype='summed')
                 else:
                     print 'No files were found for summing.'
             waxscounter=0
             qwaxs=None
             Iwaxs=None
-            Ewaxs=None
+            wwaxs=None
             print 'Processing waxs files for energy %f for sample %s' % (e,s)
             for p in esparams:
                 waxsfilename='%s%d.dat' % (waxsfiletype,p['FSN'])
@@ -921,8 +1217,8 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled'):
                     continue
                 if waxscounter==0:
                     qwaxs=waxsdata['q']
-                    Iwaxs=waxsdata['Intensity']
-                    Ewaxs=waxsdata['Error']**2
+                    Iwaxs=waxsdata['Intensity']/(waxsdata['Error']**2)
+                    wwaxs=1/(waxsdata['Error']**2)
                 else:
                     if qwaxs.size!=waxsdata['q'].size:
                         print 'q-range of file %s differs from the others read before. Skipping.' % waxsfilename
@@ -930,12 +1226,12 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled'):
                     if pylab.sum(qwaxs-waxsdata['q'])!=0:
                         print 'q-range of file %s differs from the others read before. Skipping.' % waxsfilename
                         continue
-                    Iwaxs=Iwaxs+waxsdata['Intensity']
-                    Ewaxs=Ewaxs+waxsdata['Error']**2
+                    Iwaxs=Iwaxs+waxsdata['Intensity']/(waxsdata['Error']**2)
+                    wwaxs=wwaxs+1/(waxsdata['Error']**2)
                 waxscounter=waxscounter+1
             if waxscounter>0:
-                Ewaxs=pylab.sqrt(Ewaxs)/float(waxscounter)
-                Iwaxs=Iwaxs/float(waxscounter)
+                Ewaxs=1/wwaxs
+                Iwaxs=Iwaxs/wwaxs
                 writeintfile(qwaxs,Iwaxs,Ewaxs,esparams[0],filetype='waxssummed')
             else:
                 print 'No waxs file was found'
@@ -1027,6 +1323,20 @@ def makemask(mask,A,savefile=None):
                     fig.mydata['selection'][ptsin.reshape(Col.shape)]=True
                     fig.mydata['selectdata']=[]
                     fig.mydata['mode']=None
+            elif fig.mydata['mode']=='PHUNT':
+                fig.mydata['mask'][pylab.floor(event.ydata+.5),pylab.floor(event.xdata+.5)]=not(fig.mydata['mask'][pylab.floor(event.ydata+.5),pylab.floor(event.xdata+.5)])
+                fig.mydata['redrawneeded']=True
+                return
+        elif event.inaxes==fig.mydata['bax9']: # pixel hunting
+            if fig.mydata['mode']!='PHUNT':
+                fig.mydata['ax'].set_title('Mask/unmask pixels by clicking them!')
+                fig.mydata['bhunt'].label.set_text('End pixel hunting')
+                fig.mydata['mode']='PHUNT'
+            else:
+                fig.mydata['ax'].set_title('')
+                fig.mydata['bhunt'].label.set_text('Pixel hunt')
+                fig.mydata['mode']=None
+                return
         elif event.inaxes==fig.mydata['bax8']: # select rectangle
             fig.mydata['ax'].set_title('Select rectangle with its two opposite corners!')
             fig.mydata['mode']='RECT0'
@@ -1086,8 +1396,9 @@ def makemask(mask,A,savefile=None):
     fig=pylab.figure();
     fig.mydata={}
     fig.mydata['ax']=fig.add_axes((0.3,0.1,0.6,0.8))
-    for i in range(9):
-        fig.mydata['bax%d' % i]=fig.add_axes((0.05,0.1*i+0.1,0.2,0.05))
+    for i in range(10):
+        fig.mydata['bax%d' % i]=fig.add_axes((0.05,0.07*i+0.1,0.2,0.05))
+    fig.mydata['bhunt']=matplotlib.widgets.Button(fig.mydata['bax9'],'Pixel hunt')
     fig.mydata['brect']=matplotlib.widgets.Button(fig.mydata['bax8'],'Rectangle')
     fig.mydata['bcirc']=matplotlib.widgets.Button(fig.mydata['bax7'],'Circle')
     fig.mydata['bpoly']=matplotlib.widgets.Button(fig.mydata['bax6'],'Polygon')
@@ -1106,13 +1417,19 @@ def makemask(mask,A,savefile=None):
     conn_id=fig.canvas.mpl_connect('button_press_event',clickevent)
     fig.toexit=False
     fig.show()
+    firstdraw=1;
     while fig.toexit==False:
         if fig.mydata['redrawneeded']:
+            if not firstdraw:
+                ax=fig.mydata['ax'].axis();
             fig.mydata['redrawneeded']=False
             fig.mydata['ax'].cla()
             pylab.axes(fig.mydata['ax'])
             plot2dmatrix(A,mask=fig.mydata['mask'])
             fig.mydata['ax'].set_title('')
+            if not firstdraw:
+                fig.mydata['ax'].axis(ax);
+            firstdraw=0;
         pylab.draw()
         fig.waitforbuttonpress()
     #ax.imshow(maskplot)
@@ -1126,7 +1443,7 @@ def makemask(mask,A,savefile=None):
     
 
 #display routines
-def plotints(data,param,samplename,energies,symboll='-',mult=1,gui=False):
+def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
     """Plot intensities
     
     Inputs:
@@ -1137,10 +1454,10 @@ def plotints(data,param,samplename,energies,symboll='-',mult=1,gui=False):
             can be supplied if multiple samples are to be plotted.
         energies: one or more energy values in a list. This decides which 
             energies should be plotted
-        symboll [optional] : the line symbol of the plot. Possible values are '-', '--',
-            '-.' and ':'. If plotting of multiple samples is requested
+        marker [optional] : the marker symbol of the plot. Possible values are '.', 'o',
+            'x'... If plotting of multiple samples is requested
             (parameter <samplenames> is a list) then this can also be a list,
-            but of the same size as samplenames. Default value is '-'
+            but of the same size as samplenames. Default value is '.'.
         mult [optional]: multiplicate the intensity by this number when plotting. The same
             applies as to symboll. Default value is 1.
         gui [optional]: display graphical user interface to show/hide plotted
@@ -1151,15 +1468,15 @@ def plotints(data,param,samplename,energies,symboll='-',mult=1,gui=False):
     colors=['blue','green','red','black','magenta'];
     if type(samplename)==types.StringType:
         samplename=[samplename]
-    if type(symboll)!=types.ListType:
-        symboll=[symboll]
+    if type(marker)!=types.ListType:
+        marker=[marker]
     if type(mult)!=types.ListType:
         mult=[mult]
-    if len(symboll)==1:
-        symboll=symboll*len(samplename)
+    if len(marker)==1:
+        marker=marker*len(samplename)
     if len(mult)==1:
         mult=mult*len(samplename)
-    if (len(symboll)!=len(samplename)) or (len(mult) !=len(samplename)):
+    if (len(marker)!=len(samplename)) or (len(mult) !=len(samplename)):
         raise ValueError
     if gui==True:
         fig=pylab.figure()
@@ -1178,15 +1495,16 @@ def plotints(data,param,samplename,energies,symboll='-',mult=1,gui=False):
         handles=[]
     else:
         fig=pylab.gcf()
-        ax.pylab.gca()
+        ax=pylab.gca()
     for k in range(len(data)):
         for s in range(len(samplename)):
             if param[k]['Title']==samplename[s]:
                 for e in range(min(len(colors),len(energies))):
                     if abs(param[k]['Energy']-energies[e])<2:
+                        print 'plotints', e, param[k]['FSN'], param[k]['Title'],k
                         h=ax.loglog(data[k]['q'],
                                        data[k]['Intensity']*mult[s],
-                                       marker=symboll[s],
+                                       marker=marker[s],
                                        color=colors[e])
                         #h=ax.semilogy(data[k]['q'],
                         #                data[k]['Intensity']*mult[s],
@@ -1216,7 +1534,7 @@ def plotints(data,param,samplename,energies,symboll='-',mult=1,gui=False):
         while len(fig.axes)==3:
             fig.waitforbuttonpress()
             pylab.draw()
-def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=None):
+def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True):
     """Plots the matrix A in log-log plot
     
     Inputs:
@@ -1230,6 +1548,7 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=None):
             axes will display the q-range
         qs: q-values for which concentric circles will be drawn. To use this
             option, header should be given.
+        showqscale: show q-scale on both the horizontal and vertical axes
     """
     tmp=A.copy(); # this is needed as Python uses the pass-by-object method,
                   # so A is the SAME as the version of the caller. tmp=A would
@@ -1246,7 +1565,7 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=None):
     tmp[tmp<=0]=tmp[tmp>0].min()
     tmp=pylab.log(tmp);
     tmp[pylab.isnan(tmp)]=0;
-    if header is not None:
+    if (header is not None) and (showqscale):
         xmin=0-(header['BeamPosX']-1)*header['PixelSize']
         xmax=(tmp.shape[0]-(header['BeamPosX']-1))*header['PixelSize']
         ymin=0-(header['BeamPosY']-1)*header['PixelSize']
@@ -1258,23 +1577,49 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=None):
         extent=[qymin,qymax,qxmin,qxmax]
     else:
         extent=None
-    pylab.imshow(tmp,extent=extent);
+    pylab.imshow(tmp,extent=extent,interpolation='nearest');
     if mask is not None:
         white=pylab.ones((mask.shape[0],mask.shape[1],4))
         white[:,:,3]=pylab.array(1-mask).astype('float')*0.7
-        pylab.imshow(white,extent=extent)
-    if qs is not None:
-        if (type(qs)!=pylab.ndarray) and (type(qs)!=types.ListType):
-            qs=[qs]
-        for q in qs:
-            a=pylab.gca().axis()
-            pylab.plot(q*pylab.cos(pylab.linspace(0,2*pylab.pi,2000)),
-                       q*pylab.sin(pylab.linspace(0,2*pylab.pi,2000)),
-                       color='white',linewidth=3)
-            pylab.gca().axis(a)
+        pylab.imshow(white,extent=extent,interpolation='nearest')
+    for q in qs:
+        a=pylab.gca().axis()
+        pylab.plot(q*pylab.cos(pylab.linspace(0,2*pylab.pi,2000)),
+                   q*pylab.sin(pylab.linspace(0,2*pylab.pi,2000)),
+                   color='white',linewidth=3)
+        pylab.gca().axis(a)
             
 #Miscellaneous routines
+def derivative(x,y=None):
+    """Approximate the derivative by finite difference
+    
+    Inputs:
+        x: x data
+        y: y data. If None, x is differentiated.
+        
+    Outputs:
+        x1, dx/dy or dx
+    """
+    x=pylab.array(x);
+    if y is None:
+        return x[1:]-x[:-1]
+    else:
+        y=pylab.array(y)
+        return (0.5*(x[1:]+x[:-1])),(y[1:]-y[:-1])
 def maxwellian(n,r0,x):
+    """Evaluate a Maxwellian-like function
+    
+    Inputs:
+        r0: the center
+        n: the order
+        x: points in which to evaluate.
+        
+    Output:
+        the values at x.
+        
+    Note: the function looks like:
+        M(x)= 2/(x^(n+1)*gamma((n+1)/2))*x^n*exp(-x^2/r0^2)
+    """
     return 2.0/(x**(n+1.0)*scipy.special.gamma((n+1.0)/2.0))*(x**n)**pylab.exp(-x**2/r0**2);
 def errtrapz(x,yerr):
     """Error of the trapezoid formula
@@ -1429,7 +1774,7 @@ def lorentzian(x0,gamma,x):
     Outputs:
         a vector of the same size as x.
     """
-    return 1/(pylab.pi*gamma*(1+(x-x0)/gamma)**2)
+    return gamma/(gamma**2+(x-x0)**2)
 #IO routines
 def readheader(filename,fsn=None,fileend=None):
     """Reads header data from measurement files
@@ -2102,15 +2447,562 @@ def readenergyfio(filename,files,fileend):
             print 'Cannot find file %s.' % fname
     return (energies,samples,muds)
 def readf1f2(filename):
-    fprimes=pylab.load(filename)
+    """Load fprime files created by Hephaestus
+    
+    Input: 
+        filename: the name (and path) of the file
+    
+    Output:
+        an array. Each row contain Energy, f', f''
+    """
+    fprimes=pylab.loadtxt(filename)
     return fprimes
 def getsequences(headers,ebname='Empty_beam'):
+    """Separate measurements made at different energies in an ASAXS sequence
+    
+    Inputs:
+        header: header (or param) dictionary
+        ebname: the title of the empty beam measurements.
+    
+    Output:
+        a list of lists. Each sub-list in this list contains the indices in the
+        supplied header structure which correspond to the sub-sequence.
+    
+    Example:
+        If measurements were carried out:
+        EB_E1, Ref_before_E1, Sample1_E1, Sample2_E1, Ref_after_E1, EB_E2,...
+        Ref_after_EN then the function will return:
+        [[0,1,2,3,4],[5,6,7,8,9],...[(N-1)*5,(N-1)*5+1...N*5-1]].
+        
+        It is allowed that the last sequence is incomplete. However, all other
+        sequences must have the same amount of measurements (references are 
+        treated as samples in this case).
+    """
     seqs=[]
     ebnums=[x for x in range(len(headers)) if headers[x]['Title']==ebname]
     for i in range(len(ebnums)-1):
         seqs.append(range(ebnums[i],ebnums[i+1]))
     seqs.append(range(ebnums[-1],len(headers)))
     return seqs
+def mandelbrot(real,imag,iters):
+    """Calculate the Mandelbrot set
+    
+    Inputs:
+        real: a vector of the real values (x coordinate). pylab.linspace(-2,2)
+            is a good choice.
+        imag: a vector of the imaginary values (y coordinate). pylab.linspace(-2,2)
+            is a good choice.
+        iters: the number of iterations.
+        
+    Output:
+        a matrix. Each element is the number of iterations which made the corresponding
+            point to become larger than 2 in absolute value. 0 if no divergence
+            up to the number of simulations
+            
+    Note:
+        You may be curious how comes this function to this file. Have you ever
+        heard of easter eggs? ;-D Btw it can be a good sample data for radial
+        integration routines.
+    """
+    R,I=pylab.meshgrid(real,imag)
+    C=R.astype('complex')
+    C.imag=I
+    Z=pylab.zeros(C.shape,'complex')
+    N=pylab.zeros(C.shape)
+    Z=C*C+C
+    for n in range(iters):
+        indices=(Z*Z.conj()>=4)
+        N[indices]=n
+        Z[indices]=0
+        C[indices]=0
+        Z=Z*Z+C
+    return N              
+
+def writechooch(mud,filename):
+    """Saves the data read by readxanes to a format which can be recognized
+    by CHOOCH
+    
+    Inputs:
+        mud: a muds dictionary
+        filename: the filename to write the datasets to
+    
+    Outputs:
+        a file with filename will be saved
+    """
+    f=open(filename,'wt')
+    f.write('%s\n' % mud['Title'])
+    f.write('%d\n' % len(mud['Energy']))
+    for i in range(len(mud['Energy'])):
+        f.write('%f\t%f\n' % (mud['Energy'][i],pylab.exp(-mud['Mud'][i])))
+    f.close()
+def readxanes(filebegin,files,fileend,energymeas,energycalib):
+    """Read energy scans from abt_*.fio files by readenergyfio() then
+    put them on a correct energy scale.
+    
+    Inputs:
+        filebegin: the beginning of the filename, like 'abt_'
+        files: FSNs, like range(2,36)
+        fileend: the end of the filename, like '.fio'
+        energymeas: list of the measured energies
+        energycalib: list of the true energies corresponding to the measured
+            ones
+    
+    Output:
+        a list of mud dictionaries. Each dict will have the following items:
+            'Energy', 'Mud', 'Title', 'scan'. The first three are
+            self-describing. The last will be the FSN.
+    """
+    muds=[];
+    if type(files)!=types.ListType:
+        files=[files]
+    for f in files:
+        energy,sample,mud=readenergyfio(filebegin,f,fileend)
+        if len(energy)>0:
+            d={}
+            d['Energy']=energycalibration(energymeas,energycalib,pylab.array(energy[0]))
+            d['Mud']=pylab.array(mud[0])
+            d['Title']=sample[0]
+            d['scan']=f
+            muds.append(d);
+    return muds
+def writef1f2(f1f2,filename):
+    """Saves f1f2 data to file
+    
+    Inputs:
+        f1f2: matrix of anomalous correction terms
+        filename: file name
+    """
+    pylab.savetxt(filename,f1f2,delimiter='\t')
+def readabt(filename):
+    """Read abt_*.fio type files.
+    
+    Input:
+        filename: the name of the file.
+        
+    Output:
+        A dictionary with the following fields:
+            'title': the sample title
+            'mode': 'Energy' or 'Motor'
+            'columns': the description of the columns in 'data'
+            'data': the data found in the file, in a matrix.
+    """
+    try:
+        f=open(filename,'rt');
+    except IOError:
+        print 'Cannot open file %s' % filename
+        return None
+    rows=0;
+    a=f.readline(); rows=rows+1;
+    while a[:2]!='%c' and len(a)>0:
+        a=f.readline();  rows=rows+1;
+    if len(a)<=0:
+        print 'Invalid format: %c not found'
+        f.close()
+        return None
+    a=f.readline(); rows=rows+1;
+    if a[:7]==' ENERGY':
+        mode='Energy'
+    elif a[:4]==' MOT':
+        mode='Motor'
+    else:
+        print 'Unknown scan type: %s' % a
+        f.close()
+        return None
+    f.readline(); rows=rows+1;
+    title=f.readline()[:-1]; rows=rows+1;
+    while a[:2]!='%d' and len(a)>0:
+        a=f.readline(); rows=rows+1;
+    if len(a)<=0:
+        print 'Invalid format: %d not found'
+        f.close()
+        return None
+    columns=[];
+    a=f.readline(); rows=rows+1;
+    while a[:4]==' Col':
+        columns.append(a.split('  ')[0][17:]);
+        a=f.readline(); rows=rows+1;
+        #print a
+    #print a[:4]
+    f.seek(-len(a),1)
+    rows=rows-1;
+    #print rows
+    matrix=pylab.loadtxt(f)
+    f.close()
+    return {'title':title,'mode':mode,'columns':columns,'data':matrix}
+
+#EXPERIMENTAL (DANGER ZONE)
+def shullroess(data,r0min,r0max,r0stepping,qmin=None,qmax=None):
+    """Do a Shull-Roess fitting on the scattering data dictionary.
+    
+    Inputs:
+        data: scattering data dictionary
+        r0min: the minimal value of r0
+        r0max: the maximal value of r0
+        r0stepping: the stepping of r0
+        qmin, qmax (optional): borders of ROI
+        
+    Output:
+        r0: the fitted value of r0
+        n: the fitted value of n
+    Note: This first searches sfor r0, which best linearizes the
+            log(Intensity) vs. log(q**2+3/r0**2) relation.
+            After this is found, the parameters of the fitted line give the
+            parameters of a Maxwellian-like particle size distribution function.
+            
+    EXPERIMENTAL!!!!!
+    """
+    print "BIG FAT WARNING: shullroess() is an EXPERIMENTAL function. You may not get what you expect!"
+    Iexp=pylab.array(data['Intensity'])
+    qexp=pylab.array(data['q'])
+    errexp=pylab.array(data['Error'])
+    if qmin is not None:
+        len0=len(qexp)
+        Iexp=Iexp[qexp>=qmin]
+        errexp=errexp[qexp>=qmin]
+        qexp=qexp[qexp>=qmin]
+        len1=len(qexp)
+        print '%d points have been cut from the beginning.' % (len0-len1)
+    if qmax is not None:
+        len0=len(qexp)
+        Iexp=Iexp[qexp<=qmax]
+        errexp=errexp[qexp<=qmax]
+        qexp=qexp[qexp<=qmax]
+        len1=len(qexp)
+        print '%d points have been cut from the end.' % (len0-len1)
+    logIexp=pylab.log(Iexp)
+    errlogIexp=errexp/Iexp
+    r0s=pylab.arange(r0min,r0max,r0stepping,dtype=float)
+    chi2=pylab.zeros(r0s.shape)
+    for i in range(len(r0s)):
+        xdata=pylab.log(qexp**2+3/r0s[i]**2)
+        a,b,aerr,berr=linfit(xdata,logIexp,errlogIexp)
+        chi2[i]=pylab.sum(((xdata*a+b)-logIexp)**2)
+    pylab.subplot(2,2,1)
+    pylab.plot(r0s,chi2)
+    bestindex=(chi2==chi2.min())
+    xdata=pylab.log(qexp**2+3/r0s[bestindex]**2)
+    a,b,aerr,berr=linfit(xdata,logIexp,errlogIexp)
+    n=-(a*2.0+4.0)
+    print 'best fit: r0=', r0s[bestindex][0], ', n=',n,'with chi2: ',chi2[bestindex]
+    print a
+    print b
+    print 'Guinier approximation: ',r0s[bestindex]*qexp.max(),'?<<? 1'
+    pylab.subplot(2,2,2)
+    pylab.plot(xdata,logIexp,'.',label='Measured')
+    pylab.plot(xdata,a*xdata+b,label='Fitted')
+    pylab.legend()
+    pylab.subplot(2,2,3)
+    pylab.plot(r0s,maxwellian(n,r0s[bestindex],r0s))
+    return r0s[bestindex],n
+
+def findpeak(xdata,ydata):
+    """GUI tool for locating peaks by zooming on them
+    
+    Inputs:
+    
+    EXPERIMENTAL!!!!
+    """
+    print "BIG FAT WARNING: findpeak() is an EXPERIMENTAL function. You may not get what you expect!"
+
 def convolutef1f2(f1f2,width):
+    """Convolute f1f2 value with a Lorentzian of a given width.
+    
+    Input:
+        f1f2: f1f2 structure as read by readf1f2().
+        width: the FWHM of the Lorentzian in eV-s
+        
+    Output:
+        the convolved f1f2 dataset.
+        
+    Note:
+        EXPERIMENTAL!!!!
+    """
+    print "BIG FAT WARNING: convolutef1f2() is an EXPERIMENTAL function. You may not get what you expect!"
+    
+    #it is assumed that the f1f2 data consists of EQUIDISTANT points!
+    Espacing=pylab.absolute(f1f2[1,0]-f1f2[0,0])
+    #the smearing function will be placed to the origin. It will be cut off at
+    # +/- width/2.0*100, as outside this interval the value of the lorentzian
+    # is smaller than 0.01*peak value (at origin)
+    
+    Espread1=pylab.arange(0,width/2.0*100,Espacing)
+    Espread2=-Espread1
+    Espread=unique(pylab.hstack((Espread1,Espread2)))   
+    spread=lorentzian(0,width/2.0,Espread)
+    f1conv=pylab.convolve(f1f2[:,1],spread,'full')
+    pass
+def radint2(data,dataerr,energy,distance,res,bcx,bcy,mask,q):
+    """EXPERIMENTAL!!!!!
+    """
+    print "BIG FAT WARNING: radint2() is an EXPERIMENTAL function. You may not get what you expect!"
+    print "Preprocessing..."
+    radata1=data.flatten()
+    raerror1=dataerr.flatten()
+    ramask1=mask.flatten()
+    radata=radint_ng.radintArray(data.size)
+    raerror=radint_ng.radintArray(data.size)
+    ramask=radint_ng.radintmaskArray(data.size)
+    raq=radint_ng.radintArray(len(q))
+    raIntensity=radint_ng.radintArray(len(q))
+    raError=radint_ng.radintArray(len(q))
+    raArea=radint_ng.radintArray(len(q))
+    raWeight=radint_ng.radintArray(len(q))
+    for x in range(len(q)):
+        raq[x]=q[x]
+    for x in range(data.shape[0]):
+        for y in range(data.shape[1]):
+            radata[x+y*data.shape[0]]=data[x,y];
+            raerror[x+y*data.shape[0]]=dataerr[x,y];
+            ramask[x+y*data.shape[0]]=int(mask[x,y]);
+    print "Calling doradint..."
+    res=radint_ng.doradint(radata,raerror,ramask,data.shape[0],data.shape[1],energy,distance,res,res,bcx,bcy,raq,raIntensity,raError,raArea,raWeight,len(q));
+    print "Postprocessing..."
+    if res:
+        Intensity=pylab.zeros(len(q))
+        Error=pylab.zeros(len(q))
+        Area=pylab.zeros(len(q))
+        Weight=pylab.zeros(len(q))
+        for x in range(len(q)):
+            Intensity[x]=raIntensity[x]
+            Error[x]=raError[x]
+            Area[x]=raArea[x]
+            Weight[x]=raWeight[x]
+        print "Returning with success"
+        return (Intensity,Error,Area,Weight)
+    else:
+        print "Returning with error"
+        return None
+def stackdata(tup):
+    """Stack two or more scattering data dictionaries above each other.
+    
+    Inputs:
+        tup: a tuple containing the dictionaries
+    
+    Output:
+        a scattering data dictionary of the output
+        
+    NOTE: EXPERIMENTAL!!!!
+    """
+    print "BIG FAT WARNING: stackdata() is an EXPERIMENTAL function. You may not get what you expect!"
+    data={}
+    data['q']=pylab.vstack(tuple([t['q'].reshape(t['q'].size,1) for t in tup]))
+    data['Intensity']=pylab.vstack(tuple([t['Intensity'].reshape(t['Intensity'].size,1) for t in tup]))
+    data['Error']=pylab.vstack(tuple([t['Error'].reshape(t['Error'].size,1) for t in tup]))
+    tmp=pylab.vstack((data['q'].reshape(1,data['q'].size),data['Intensity'].reshape(1,data['Intensity'].size),data['Error'].reshape(1,data['Error'].size)))
+    tmp=tmp.transpose()
+    #tmp.sort(0)
+    data['q']=tmp[:,0]
+    data['Intensity']=tmp[:,1]
+    data['Error']=tmp[:,2]
+    #print data['q'].min()
+    #print data['q'].max()
+    return data
+def selectasaxsenergies(f1f2,energymin,energymax,Nenergies=3,kT=1000,NITERS=30000,energydistance=0,stepsize=0.5):
+    """Select energies for ASAXS measurement by minimizing the condition number of the ASAXS matrix.
+    
+    Inputs:
+        f1f2: a numpy array of 3 columns and N rows. Each row should be: energy, f1, f2
+        energymin: smallest energy
+        energymax: largest energy
+        Nenergies: the number of energies
+        kT: the temperature times Boltzmann's constant, for the Metropolis algorithm
+        NITERS: how much iterations should we do
+        energydistance: if two energies are nearer than this value, they are considered
+            the same
+        stepsize: the step size for the energies. This should be larger than
+            energydistance.
+            
+    Returns:
+        energies: array of the chosen energies
+        
+        also two graphs will be plotted
+    """
+    
+    def matrixcond(f1f2,energies,atomicnumber=0):
+        """Calculate the condition number of the ASAXS matrix
+        
+        Inputs:
+            f1f2: matrix for the anomalous dispersion coefficients
+            energies: the chosen energies
+            atomicnumber: the atomic number of the resonant atom. Set it zero
+                if you want the evaluation according to Stuhrmann.
+             
+        Outputs:
+            the condition number. If f1 denotes the column vector of the f1
+            values and f2 for the f2 values, then the ASAXS matrix is
+            calculated as:
+            
+            B=inv(A^T.A).A^T
+            
+            where
+            
+            A=[1, 2* (Z+f1), (Z+f1)^2+f2^2]
+            
+            and Z is the atomic  number.
+            
+            The 2nd order (=euclidean) condition number of B will be returned.
+            The pylab.cond() function is used to determine this.  If the matrix
+            is non-square (ie. rectangular), this type of condition number can
+            still be determined from the singular value decomposition.
+             
+        """
+        f1=pylab.interp(energies,f1f2[:,0],f1f2[:,1])
+        f2=pylab.interp(energies,f1f2[:,0],f1f2[:,2])
+        A=pylab.ones((len(energies),3));
+        A[:,1]=2*(f1+atomicnumber);
+        A[:,2]=(f1+atomicnumber)**2+f2**2;
+        B=pylab.dot(pylab.inv(pylab.dot(A.T,A)),A.T);
+        return pylab.cond(B)
+
+    pylab.np.random.seed()
+    f1f2=f1f2[f1f2[:,0]<=(energymax+100),:]
+    f1f2=f1f2[f1f2[:,0]>=(energymin-100),:]
+    energies=pylab.rand(Nenergies)*(energymax-energymin)+energymin
+    c=matrixcond(f1f2,energies)
+    ok=False
+    oldenergies=energies.copy()
+    oldc=c
+    cs=pylab.zeros(NITERS)
+    drops=0
+    eidx=0
+    sign=0
+    badmovements=0
+    condmin=c
+    energiesmin=energies
+    print 'Initial energies: ',energies
+    for i in range(NITERS):
+        oldenergies=energies.copy()
+        oldc=c
+        ok=False
+        while not ok:
+            #which energy to modify?
+            eidx=int(pylab.rand()*Nenergies)
+            #modify energy in which direction?
+            sign=2*pylab.floor(pylab.rand()*2)-1
+            #modify energy
+            energies[eidx]=energies[eidx]+sign*stepsize
+            # if the modified energy is inside the bounds and the current
+            # energies are different, go on.
+            if energies.min()>=energymin and energies.max()<=energymax and len(unique(energies,lambda a,b:(abs(a-b)<energydistance)))==Nenergies:
+                ok=True
+            else: # if not, drop this and re-calculate new energy
+                energies=oldenergies.copy()
+                badmovements=badmovements+1
+#                print 'bad: i=',i,'energies: ',energies
+#        print energies
+#        print oldenergies
+        #calculate the condition number of the ASAXS eval. matrix with these energies.
+        try:
+            c=matrixcond(f1f2,energies)
+        except pylab.np.linalg.LinAlgError:
+            energies=oldenergies
+            c=oldc
+            drops=drops+1
+        else:
+            if c>oldc: #if the condition number is larger than the old one,
+                if pylab.rand()>(pylab.exp(c-oldc)/kT): # drop with some probability
+                    energies=oldenergies
+                    c=oldc
+                    drops=drops+1
+        cs[i]=c # save the current value for the condition number
+        if pylab.mod(i,1000)==0: # printing is slow, only print every 1000th step
+#            print i
+            pass
+        if c<condmin:
+            condmin=c;
+            energiesmin=energies.copy()
+    energies=energiesmin
+    f1end=pylab.interp(energies,f1f2[:,0],f1f2[:,1])
+    f2end=pylab.interp(energies,f1f2[:,0],f1f2[:,2])
+    pylab.semilogx(cs)
+    pylab.xlabel('Step number')
+    pylab.ylabel('Condition number of the matrix')
+    a=pylab.gca().axis()
+    pylab.gca().axis((a[0],a[1],a[2],cs[0]))
+    pylab.figure()
+    pylab.plot(f1f2[:,0],f1f2[:,1])
+    pylab.plot(f1f2[:,0],f1f2[:,2])
+    pylab.plot(energies,f1end,markersize=10,marker='o',linestyle='')
+    pylab.plot(energies,f2end,markersize=10,marker='o',linestyle='')
+    ax=pylab.gca().axis()
+    pylab.plot([energymin,energymin],[ax[2],ax[3]],color='black',linestyle='--')
+    pylab.plot([energymax,energymax],[ax[2],ax[3]],color='black',linestyle='--')
+    pylab.xlabel('Energy (eV)')
+    pylab.ylabel('f1 and f2')
+    pylab.title('f1 and f2 values from Monte Carlo simulation.\nkT=%f, N=%d, cond_opt=%f' % (kT,Nenergies,condmin))
+    print 'Drops: ',drops
+    print 'Bad movements: ',badmovements
+    print 'Energies: ',energies
+    print 'f1 values: ',f1end
+    print 'f2 values: ',f2end
+    print 'Optimal condition number: ',condmin
+    print 'Step size: ',stepsize
+    print 'kT: ',kT
+    return energies
+def radhist(data,energy,distance,res,bcx,bcy,mask,q,I):
+    """Do radial histogramming on 2D scattering images, according to the idea
+    of Teemu Ikonen
+    
+    Inputs:
+        data: the intensity matrix
+        energy: the (calibrated) beam energy (eV)
+        distance: the distance from the sample to the detector (mm)
+        res: pixel size in mm-s. Both x and y (row and column) direction can
+            be given if wished, in a list with two elements. A scalar value
+            means that the pixel size is equal in both directions
+        bcx: the coordinate of the beam center in the x (row) direction,
+            starting from ZERO
+        bcy: the coordinate of the beam center in the y (column) direction,
+            starting from ZERO
+        mask: the mask matrix (of the same size as data). Nonzero is masked,
+            zero is not masked
+        q: the q bins at which the histogram is requested. It should be 
+            defined in 1/Angstroems.
+        I: the intensity bins
+        
+    Output:
+        the histogram matrix
+    """
+    if type(res)!=types.ListType:
+        res=[res,res];
+    if len(res)==1:
+        res=[res[0], res[0]]
+    if len(res)>2:
+        raise ValueError('res should be a scalar or a nonempty vector of length<=2')
+    if data.shape!=mask.shape:
+        raise ValueError('data and mask should be of the same shape')
+    M=data.shape[0] # number of rows
+    N=data.shape[1] # number of columns
+    
+    # Creating D matrix which is the distance of the sub-pixels from the origin.
+    Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),pylab.arange(data.shape[0]));
+    D=pylab.sqrt((res[0]*(X-bcx))**2+
+                 (res[1]*(Y-bcy))**2)
+    # Q-matrix is calculated from the D matrix
+    q1=4*pylab.pi*pylab.sin(0.5*pylab.arctan(D/float(distance)))*energy/float(HC)
+    # eliminating masked pixels
+    data=data[mask==0]
+    q1=q1[mask==0]
+    q=pylab.array(q)
+    q1=q1[pylab.isfinite(data)]
+    data=data[pylab.isfinite(data)]
+    # initialize the output matrix
+    hist=pylab.zeros((len(I),len(q)))
+    # set the bounds of the q-bins in qmin and qmax
+    qmin=map(lambda a,b:(a+b)/2.0,q[1:],q[:-1])
+    qmin.insert(0,q[0])
+    qmin=pylab.array(qmin)
+    qmax=map(lambda a,b:(a+b)/2.0,q[1:],q[:-1])
+    qmax.append(q[-1])
+    qmax=pylab.array(qmax)
+    # go through every pixel
+    for l in range(len(q)):
+        indices=((q1<=qmax[l])&(q1>qmin[l])) # the indices of the pixels which belong to this q-bin
+        hist[:,l]=scipy.stats.stats.histogram2(data[indices],I)/pylab.sum(indices.astype('float'))
+    return hist
+def directdesmear(data,smoothing,x0,pixelsize,dist,beamlength):
+    data1=data[(x0-1):];
+    tck=scipy.interpolate.splrep(pylab.arange(len(data1)),data1,1/(data1**2),s=smoothing)
+    
     pass
 
