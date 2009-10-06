@@ -3060,6 +3060,6 @@ def radhist(data,energy,distance,res,bcx,bcy,mask,q,I):
 def directdesmear(data,smoothing,x0,pixelsize,dist,beamlength):
     data1=data[(x0-1):];
     tck=scipy.interpolate.splrep(pylab.arange(len(data1)),data1,1/(data1**2),s=smoothing)
-    
+     
     pass
 
