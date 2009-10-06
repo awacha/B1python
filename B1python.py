@@ -2760,7 +2760,7 @@ def findpeak(xdata,ydata):
     EXPERIMENTAL!!!!
     """
     print "BIG FAT WARNING: findpeak() is an EXPERIMENTAL function. You may not get what you expect!"
-
+    pylab.plot(xdata,ydata)
 def convolutef1f2(f1f2,width):
     """Convolute f1f2 value with a Lorentzian of a given width.
     
@@ -3057,9 +3057,43 @@ def radhist(data,energy,distance,res,bcx,bcy,mask,q,I):
         indices=((q1<=qmax[l])&(q1>qmin[l])) # the indices of the pixels which belong to this q-bin
         hist[:,l]=scipy.stats.stats.histogram2(data[indices],I)/pylab.sum(indices.astype('float'))
     return hist
-def directdesmear(data,smoothing,x0,pixelsize,dist,beamlength):
+def directdesmear(data,smoothing,x0,pixelsize,dist,beam):
     data1=data[(x0-1):];
     tck=scipy.interpolate.splrep(pylab.arange(len(data1)),data1,1/(data1**2),s=smoothing)
      
     pass
-
+def tweakfit(xdata,ydata,modelfun,fitparams):
+    def redraw(keepzoom=True):
+        if keepzoom:
+            ax=pylab.gca().axis()
+        pylab.cla()
+        pylab.loglog(xdata,ydata,'.',color='blue')
+        pylab.loglog(xdata,modelfun(xdata,*(pylab.gcf().params)),color='red')
+        pylab.draw()
+        if keepzoom:
+            pylab.gca().axis(ax)
+    fig=pylab.figure()
+    ax=[]
+    sl=[]
+    fig.params=[]
+    for i in range(len(fitparams)):
+        print i
+        ax.append(pylab.axes((0.1,0.1+i*0.8/len(fitparams),0.3,0.75/len(fitparams))))
+        if fitparams[i]['mode']=='lin':
+            sl.append(matplotlib.widgets.Slider(ax[-1],fitparams[i]['Label'],fitparams[i]['Min'],fitparams[i]['Max'],fitparams[i]['Val']))
+        elif fitparams[i]['mode']=='log':
+            sl.append(matplotlib.widgets.Slider(ax[-1],fitparams[i]['Label'],pylab.log10(fitparams[i]['Min']),pylab.log10(fitparams[i]['Max']),pylab.log10(fitparams[i]['Val'])))
+        else:
+            raise ValueError('Invalid mode %s in fitparams' % fitparams[i]['mode']);
+        fig.params.append(fitparams[i]['Val'])
+        def setfun(val,parnum=i,sl=sl[-1],mode=fitparams[i]['mode']):
+            if mode=='lin':
+                pylab.gcf().params[parnum]=sl.val;
+            elif mode=='log':
+                pylab.gcf().params[parnum]=pow(10,sl.val);
+            else:
+                pass
+            redraw()
+        sl[-1].on_changed(setfun)
+    pylab.axes((0.5,0.1,0.4,0.8))
+    redraw(False)
