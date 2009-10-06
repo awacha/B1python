@@ -1775,6 +1775,21 @@ def lorentzian(x0,gamma,x):
         a vector of the same size as x.
     """
     return gamma/(gamma**2+(x-x0)**2)
+def unifiedscattering(q,B,G,Rg,P=4):
+    """Evaluate the unified equation from G. Beaucage 
+        (J. Appl. Cryst. (1995) 28, pp717-728)
+    
+    Inputs:
+        q: vector of momentum transfer values
+        B: prefactor for the power-law.
+        G: exponential (Guinier) prefactor
+        Rg: radius of gyration
+        P: exponent for power-law (4 for Porod)
+        
+    Output:
+        a vector of the same size as of q.
+    """
+    return G*pylab.exp(-q**2*Rg**2/3.0)+B*pow(pow(scipy.special.erf(q*Rg/pylab.sqrt(6)),3)/q,P)
 #IO routines
 def readheader(filename,fsn=None,fileend=None):
     """Reads header data from measurement files
@@ -2631,6 +2646,48 @@ def readabt(filename):
     return {'title':title,'mode':mode,'columns':columns,'data':matrix}
 
 #EXPERIMENTAL (DANGER ZONE)
+def trimq(data,qmin=-pylab.inf,qmax=pylab.inf):
+    indices=(data['q']<=qmax) & (data['q']>=qmin)
+    data1={}
+    for k in data.keys():
+        data1[k]=data[k][indices]
+    return data1
+def guinierfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    data=trimq(data,qmin,qmax)
+    x1=data['q']**2;
+    err1=pylab.absolute(data['Error']/data['Intensity']);
+    y1=pylab.log(data['Intensity']);
+    Rg,G,dRg,dG=linfit(x1,y1,err1)
+    if testimage:
+        pylab.plot(data['q']**2,pylab.log(data['Intensity']),'.');
+        pylab.plot(data['q']**2,Rg*data['q']**2+G,'-',color='red');
+        pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
+        pylab.ylabel('ln I');
+    return pylab.sqrt(-Rg*3),G,1.5/pylab.sqrt(-Rg*3)*dRg,dG
+def porodfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    data=trimq(data,qmin,qmax)
+    x1=data['q']**4;
+    err1=data['Error']*x1;
+    y1=data['Intensity']*x1;
+    a,b,aerr,berr=linfit(x1,y1,err1)
+    if testimage:
+        pylab.plot(data['q']**4,data['Intensity']*data['q']**4,'.');
+        pylab.plot(data['q']**4,a*data['q']**4+b,'-',color='red');
+        pylab.xlabel('$q^4$ (1/%c$^4$)' % 197)
+        pylab.ylabel('I$q^4$');
+    return a,b,aerr,berr
+def subconstbg(data,bg,bgerror):
+    return {'q':data['q'].copy(),
+           'Intensity':data['Intensity']-bg,
+           'Error':pylab.sqrt(data['Error']**2+bgerror**2)};
+def unifiedfit(data,B,G,Rg,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
+    data=trimq(data,qmin,qmax)
+    def fitfun(data,x,y,err):
+        G=data[0]
+        B=data[1]
+        Rg=data[2]
+        return pylab.sum((unifiedscattering(x,B,G,Rg,4)-y)**2/err**2)
+    return fmin(fitfun,pylab.array([B,G,Rg]),args=(data['q'],data['Intensity'],data['Error']),maxiter=maxiter,disp=True)
 def shullroess(data,r0min,r0max,r0stepping,qmin=None,qmax=None):
     """Do a Shull-Roess fitting on the scattering data dictionary.
     
