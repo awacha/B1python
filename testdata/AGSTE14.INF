@@ -1,0 +1,28 @@
+10-04-2004  21:31:46
+
+Resolution [channels]:
+     Energy: 1024
+     Position: 1024
+
+Energy Window :
+     PSD1 Lower Limit: 494
+     PSD1 Upper Limit: 698
+     PSD2 Lower Limit: 500
+     PSD2 Upper Limit: 800
+
+
+Multiplexer :
+     PSD1: 2000 msec.
+     PSD2: 0 msec.
+
+Stop Condition:  600 s Realtime
+
+Realtime: 600,0 s
+Lifetime: 593,1 s
+PSD1 Energy Counts: 1264711
+PSD1 Position Counts: 764100
+PSD2 Energy Counts: 0
+PSD2 Position Counts: 0
+
+Comment :
+

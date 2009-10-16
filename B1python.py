@@ -91,6 +91,8 @@ import scipy.interpolate
 import radint_ng
 
 HC=12396.4 #Planck's constant times speed of light, in eV*Angstrom units
+def savespheres(spheres,filename):
+    pylab.savetxt(filename,spheres,delimiter='\t')
 def theorspheres(qrange, spheres):
     """Calculate the theoretical scattering intensity of the sphere structure
     
@@ -99,7 +101,8 @@ def theorspheres(qrange, spheres):
         spheres: sphere structure. Could be:
             1) a single number: it is then assumed that the scattering of a single
                 sphere with this radius is the scatterer
-            2) a python list of numbers: a sphere population with these radii is assumed
+            2) a python list of numbers or a numpy array with one columns: a 
+                sphere population with these radii is assumed
             3) a numpy array: the columns correspond to x, y, z, R respectively.
                 If supplied, the 5th column is the real, the 6th is the imaginary
                 part of the scattering length density.
@@ -108,8 +111,6 @@ def theorspheres(qrange, spheres):
         a vector of the same size that of qrange. It contains the scattering
         intensities.
     """
-    def fsphere(q,R):
-        return 1/q**3*(pylab.sin(q*R)-q*R*pylab.cos(q*R))
     
     if (type(qrange)!=types.ListType) and (type(qrange)!=pylab.ndarray):
         qrange=[qrange]
@@ -117,12 +118,16 @@ def theorspheres(qrange, spheres):
         spheres=[spheres]
     Intensity=pylab.zeros(qrange.size)
     if (type(spheres)==types.ListType):
-        for i in len(spheres):
+        for i in range(len(spheres)):
             Intensity=Intensity+fsphere(qrange,spheres[i])**2
     if (type(spheres)==pylab.ndarray):
-        if spheres.shape[1]<4:
+        if spheres.ndim==1:
+            for i in range(len(spheres)):
+                Intensity=Intensity+fsphere(qrange,spheres[i])**2
+            return Intensity
+        elif spheres.shape[1]<4:
             raise ValueError("Not enough columns in spheres structure")
-        if spheres.shape[1]<5:
+        elif spheres.shape[1]<5:
             s1=pylab.zeros((spheres.shape[0],6))
             s1[:,0:4]=spheres
             s1[:,4]=1;
@@ -551,7 +556,7 @@ def execchooch(mud,element,edge,choochexecutable='/opt/chooch/chooch/bin/chooch'
     data[:,1]=tmp[:,2];
     data[:,2]=tmp[:,1];
     return data;
-def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-pylab.inf,endpoint=pylab.inf,postsmoothing=[]):
+def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-pylab.inf,endpoint=pylab.inf,postsmoothing=[],prechoochcutoff=[-pylab.inf,pylab.inf]):
     """Calculate anomalous correction factors from a XANES scan.
     
     Inputs:
@@ -568,6 +573,9 @@ def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-
         postsmoothing: list of 3-tuples. Each 3-tuple will be interpreted as
             (lower energy, upper energy, smoothing parameter). Apply this for
             elimination of non-physical oscillations from the curve.
+        prechoochcutoff: A vector of two. It determines the interval which should
+            be supplied to CHOOCH. You can use this to eliminate truncation
+            effects introduced by spline smoothing.
         
     Outputs:
         the calculated anomalous scattering factors (f' and f'')
@@ -595,15 +603,24 @@ def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-
     pylab.clf()
     pylab.plot(mud['Energy'],mud['Mud']);
     B=smoothabt(mud,smoothing)
+    #pre-chooch cutoff
+    indices=(B['Energy']<=prechoochcutoff[1]) & (B['Energy']>=prechoochcutoff[0])
+    B['Energy']=B['Energy'][indices]
+    B['Mud']=B['Mud'][indices]
+    #plotting
     pylab.plot(B['Energy'],B['Mud'])
     pylab.legend(['$\mu d$ measured','$\mu d$ smoothed'],loc='best');
     pylab.xlabel('Energy (eV)')
     pylab.ylabel('$\mu d$')
     pylab.title(title)
-    pylab.savefig("xanes_smoothing_%s.png" % title,dpi=300,papertype='a4',format='png',transparent=True)
-    pylab.clf()
+    #saving figure of the smoothed dataset
+    pylab.savefig("xanes_smoothing_%s.svg" % title,dpi=300,papertype='a4',format='svg',transparent=True)
+    pylab.gcf().show()
+    pylab.figure()
+    # CHOOCH-ing
     writechooch(B,'choochin.tmp')
     f1f2=execchooch(B,element,edge)
+    # post-CHOOCH smoothing
     for p in postsmoothing:
         indices=(f1f2[:,0]<=p[1]) & (f1f2[:,0]>=p[0])
         x1=f1f2[indices,0]
@@ -616,13 +633,12 @@ def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-
         f1f2[indices,1]=scipy.interpolate.splev(x1,tck)
         tck=scipy.interpolate.splrep(x1,z1,s=s)
         f1f2[indices,2]=scipy.interpolate.splev(x1,tck)
-    
+    #plotting
     pylab.plot(f1f2[:,0],f1f2[:,1:3]);
-    #pylab.legend(['$f^\'$ from CHOOCH','$f^{\'\'}$ from CHOOCH'],loc='best');
     pylab.xlabel('Energy (eV)')
     pylab.ylabel('$f^\'$ and $f^{\'\'}$')
     pylab.title(title)
-    pylab.savefig("xanes_chooch_%s.png" % title,dpi=300,papertype='a4',format='png',transparent=True)
+    pylab.savefig("xanes_chooch_%s.svg" % title,dpi=300,papertype='a4',format='svg',transparent=True)
     writef1f2(f1f2,("f1f2_%s.dat" % title));
     return f1f2
 #data quality tools
@@ -789,7 +805,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel'):
     
 
 #ASAXS evaluation and post-processing
-def reintegrateB1(fsnrange,mask,qrange=None,samples=None):
+def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned'):
     """Re-integrate (re-bin) 2d intensity data
     
     Inputs:
@@ -875,7 +891,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None):
                 qs,ints,errs,areas=radint(data[0],dataerr[0],p['EnergyCalibrated'],
                                         p['Dist'],p['PixelSize'],p['BeamPosX']-1,
                                         p['BeamPosY']-1,1-mask,qrange);
-                writeintfile(qs,ints,errs,p,areas,filetype='intbinned')
+                writeintfile(qs,ints,errs,p,areas,filetype=savefiletype)
                 print 'done.'
                 del data
                 del dataerr
@@ -1452,8 +1468,8 @@ def basicfittinggui(data):
         None, this leaves a figure open for further user interactions.
     """
     fig=pylab.figure()
-    buttons=['Guinier','Guinier thickness','Guinier cross-section','Porod']
-    fitfuns=[guinierfit,guinierthicknessfit,guiniercrosssectionfit,porodfit]
+    buttons=['Guinier','Guinier thickness','Guinier cross-section','Porod','Power law']
+    fitfuns=[guinierfit,guinierthicknessfit,guiniercrosssectionfit,porodfit,powerfit]
     for i in range(len(buttons)):
         ax=pylab.axes((0.05,0.9-(i+1)*(0.8)/len(buttons),0.3,0.7/len(buttons)))
         but=matplotlib.widgets.Button(ax,buttons[i])
@@ -1559,7 +1575,7 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
         while len(fig.axes)==3:
             fig.waitforbuttonpress()
             pylab.draw()
-def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None):
+def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1):
     """Plots the matrix A in log-log plot
     
     Inputs:
@@ -1577,7 +1593,7 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         contour: if this is None, plot a colour-mapped image of the matrix. If
             this is a positive integer, plot that much automatically selected
             contours. If a list (sequence), draw contour lines at the elements
-            of the sequence. 
+            of the sequence.
     """
     tmp=A.copy(); # this is needed as Python uses the pass-by-object method,
                   # so A is the SAME as the version of the caller. tmp=A would
@@ -1589,8 +1605,6 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
                   # matrix were modified.
     if maxval is not None:
         tmp[tmp>maxval]=max(tmp[tmp<=maxval])
-    else:
-        print 'maxval is None'
     tmp[tmp<=0]=tmp[tmp>0].min()
     tmp=pylab.log(tmp);
     tmp[pylab.isnan(tmp)]=0;
@@ -1607,7 +1621,7 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
     else:
         extent=None
     if contour is None:
-        pylab.imshow(tmp,extent=extent,interpolation='nearest');
+        pylab.imshow(tmp,extent=extent,interpolation='nearest',vmin=pmin*tmp.max(),vmax=pmax*tmp.max());
     else:
         if extent is None:
             extent1=[1,tmp.shape[0],1,tmp.shape[1]]
@@ -1626,8 +1640,11 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
                    q*pylab.sin(pylab.linspace(0,2*pylab.pi,2000)),
                    color='white',linewidth=3)
         pylab.gca().axis(a)
-            
+    if header is not None:
+        pylab.title("#%s: %s" % (header['FSN'], header['Title']))
 #Miscellaneous routines
+def fsphere(q,R):
+    return 1/q**3*(pylab.sin(q*R)-q*R*pylab.cos(q*R))
 def derivative(x,y=None):
     """Approximate the derivative by finite difference
     
@@ -2682,8 +2699,13 @@ def readabt(filename):
     matrix=pylab.loadtxt(f)
     f.close()
     return {'title':title,'mode':mode,'columns':columns,'data':matrix}
-
 #fitting
+def sanitizeint(data):
+    indices=(data['Intensity']>0)
+    data1={}
+    for k in data.keys():
+        data1[k]=data[k][indices]
+    return data1
 def findpeak(xdata,ydata,prompt=None,mode='Lorentz'):
     """GUI tool for locating peaks by zooming on them
     
@@ -2756,67 +2778,137 @@ def subconstbg(data,bg,bgerror):
     return {'q':data['q'].copy(),
            'Intensity':data['Intensity']-bg,
            'Error':pylab.sqrt(data['Error']**2+bgerror**2)};
-def shullroess(data,r0min,r0max,r0stepping,qmin=None,qmax=None):
+def shullroess(data,qmin=-pylab.inf,qmax=pylab.inf,gui=False):
     """Do a Shull-Roess fitting on the scattering data dictionary.
     
     Inputs:
         data: scattering data dictionary
-        r0min: the minimal value of r0
-        r0max: the maximal value of r0
-        r0stepping: the stepping of r0
         qmin, qmax (optional): borders of ROI
+        gui: if true, allows the user to interactively choose the ROI
         
     Output:
         r0: the fitted value of r0
         n: the fitted value of n
-    Note: This first searches sfor r0, which best linearizes the
+        
+    Note: This first searches for r0, which best linearizes the
             log(Intensity) vs. log(q**2+3/r0**2) relation.
             After this is found, the parameters of the fitted line give the
             parameters of a Maxwellian-like particle size distribution function.
-            
+            After it a proper least squares fitting is carried out, using the
+            obtained values as initial parameters.
     """
-    Iexp=pylab.array(data['Intensity'])
-    qexp=pylab.array(data['q'])
-    errexp=pylab.array(data['Error'])
-    if qmin is not None:
-        len0=len(qexp)
-        Iexp=Iexp[qexp>=qmin]
-        errexp=errexp[qexp>=qmin]
-        qexp=qexp[qexp>=qmin]
-        len1=len(qexp)
-        print '%d points have been cut from the beginning.' % (len0-len1)
-    if qmax is not None:
-        len0=len(qexp)
-        Iexp=Iexp[qexp<=qmax]
-        errexp=errexp[qexp<=qmax]
-        qexp=qexp[qexp<=qmax]
-        len1=len(qexp)
-        print '%d points have been cut from the end.' % (len0-len1)
-    logIexp=pylab.log(Iexp)
-    errlogIexp=errexp/Iexp
-    r0s=pylab.arange(r0min,r0max,r0stepping,dtype='double')
-    chi2=pylab.zeros(r0s.shape)
-    for i in range(len(r0s)):
-        xdata=pylab.log(qexp**2+3/r0s[i]**2)
+    leftborder=0.1
+    topborder=0.075
+    rightborder=0.05
+    bottomborder=0.1
+    hdistance=0.12
+    vdistance=0.12
+    if gui:
+        bottomborder=0.25
+    width=(1-leftborder-rightborder-hdistance)/2.0
+    height=(1-topborder-bottomborder-vdistance)/2.0
+    ax1=pylab.axes((leftborder,1-topborder-height,width,height))
+    ax2=pylab.axes(((1-rightborder-width),1-topborder-height,width,height))
+    ax3=pylab.axes((leftborder,bottomborder,width,height))
+    ax4=pylab.axes(((1-rightborder-width),bottomborder,width,height))
+    
+    data1=trimq(data,qmin,qmax)
+
+    if gui:
+        axq1=pylab.axes((leftborder,bottomborder/7.0,1-rightborder-leftborder-0.1,bottomborder/7.0))
+        axq2=pylab.axes((leftborder,3*bottomborder/7.0,1-rightborder-leftborder-0.1,bottomborder/7.0))
+        qsl2=matplotlib.widgets.Slider(axq1,'q_max',data1['q'].min(),data1['q'].max(),data1['q'].max(),valfmt='%1.4f')
+        qsl1=matplotlib.widgets.Slider(axq2,'q_min',data1['q'].min(),data1['q'].max(),data1['q'].min(),valfmt='%1.4f')
+    
+    def dofitting(data,qmin,qmax):
+        ax1.clear()
+        ax2.clear()
+        ax3.clear()
+        ax4.clear()
+        data1=trimq(data,qmin,qmax)
+        Iexp=pylab.array(data1['Intensity'])
+        qexp=pylab.array(data1['q'])
+        errexp=pylab.array(data1['Error'])
+        print "---Shull-Roess-fitting-with-qmin:-%lf-and-qmax:-%lf----" % (qexp.min(),qexp.max())
+        logIexp=pylab.log(Iexp)
+        errlogIexp=errexp/Iexp
+    
+        r0s=pylab.linspace(1,2*pylab.pi/qexp.min(),200)
+        chi2=pylab.zeros(r0s.shape)
+        for i in range(len(r0s)): # calculate the quality of the line for each r0.
+            xdata=pylab.log(qexp**2+3/r0s[i]**2)
+            a,b,aerr,berr=linfit(xdata,logIexp,errlogIexp)
+            chi2[i]=pylab.sum(((xdata*a+b)-logIexp)**2)
+        # display the results
+        pylab.axes(ax1)
+        pylab.title('Quality of linear fit vs. r0')
+        pylab.xlabel('r0 (%c)' % 197)
+        pylab.ylabel('Quality')
+        pylab.plot(r0s,chi2)
+        # this is the index of the best fit.
+        print chi2.min()
+        tmp=pylab.find(chi2==chi2.min())
+        print tmp
+        bestindex=tmp[0]
+    
+        xdata=pylab.log(qexp**2+3/r0s[bestindex]**2)
         a,b,aerr,berr=linfit(xdata,logIexp,errlogIexp)
-        chi2[i]=pylab.sum(((xdata*a+b)-logIexp)**2)
-    pylab.subplot(2,2,1)
-    pylab.plot(r0s,chi2)
-    bestindex=pylab.find(chi2==chi2.min())[0]
-    xdata=pylab.log(qexp**2+3/r0s[bestindex]**2)
-    a,b,aerr,berr=linfit(xdata,logIexp,errlogIexp)
-    n=-(a*2.0+4.0)
-    print 'best fit: r0=', r0s[bestindex], ', n=',n,'with chi2: ',chi2[bestindex]
-    print a
-    print b
-    print 'Guinier approximation: ',r0s[bestindex]*qexp.max(),'?<<? 1'
-    pylab.subplot(2,2,2)
-    pylab.plot(xdata,logIexp,'.',label='Measured')
-    pylab.plot(xdata,a*xdata+b,label='Fitted')
-    pylab.legend()
-    pylab.subplot(2,2,3)
-    pylab.plot(r0s,maxwellian(n,r0s[bestindex],r0s))
-    return r0s[bestindex],n
+        n=-(a*2.0+4.0)
+        #display the measured and the fitted curves
+        pylab.axes(ax2)
+        pylab.title('First approximation')
+        pylab.xlabel('q (1/%c)' %197)
+        pylab.ylabel('Intensity')
+        pylab.plot(xdata,logIexp,'.',label='Measured')
+        pylab.plot(xdata,a*xdata+b,label='Fitted')
+        pylab.legend()
+        #display the maxwellian.
+        pylab.axes(ax3)
+        pylab.title('Maxwellian size distributions')
+        pylab.xlabel('r (%c)' % 197)
+        pylab.ylabel('prob. dens.')
+        pylab.plot(r0s,maxwellian(n,r0s[bestindex],r0s))
+        print "First approximation:"
+        print "r0: ",r0s[bestindex]
+        print "n: ",n
+        print "K: ",b
+        # do a proper least squares fitting
+        def fitfun(p,x,y,err): # p: K,n,r0
+            return (y-pylab.exp(p[0])*(x**2+3/p[2]**2)**(-(p[1]+4)/2.0))/err
+        res=scipy.optimize.leastsq(fitfun,pylab.array([1,2,100]),#pylab.array([b,n,r0s[bestindex]]), 
+                                    args=(qexp,Iexp,errexp),maxfev=1000,full_output=1)
+        K,n,R0=res[0]
+        print "After lsq fit:"
+        print "r0: ",R0
+        print "n: ",n
+        print "K: ",K
+        print "Covariance matrix:",res[1]
+        dR0=pylab.sqrt(res[1][2][2])
+        dn=pylab.sqrt(res[1][1][1])
+        # plot the measured and the fitted curves
+        pylab.axes(ax4)
+        pylab.title('After LSQ fit')
+        pylab.xlabel('q (1/%c)'%197)
+        pylab.ylabel('Intensity')
+        pylab.plot(pylab.log(qexp**2+3/R0**2),-(n+4)/2.0*pylab.log(qexp**2+3/R0**2)+K,label='Fitted')
+        pylab.plot(pylab.log(qexp**2+3/R0**2),logIexp,'.',label='Measured')
+        pylab.legend()
+        # plot the new maxwellian
+        pylab.axes(ax3)
+        pylab.plot(r0s,maxwellian(n,R0,r0s))
+        print "R0:",R0,"+/-",dR0
+        print "n:",n,"+/-",dn
+        return R0,n,dR0,dn
+    if not gui:
+        return dofitting(data,qmin,qmax)
+    else:
+        dofitting(data,qmin,qmax)
+        def callbackfun(A,data=data,sl1=qsl1,sl2=qsl2):
+            pylab.gcf().show()
+            dofitting(data,sl1.val,sl2.val)
+            pylab.gcf().show()
+        qsl1.on_changed(callbackfun)
+        qsl2.on_changed(callbackfun)
 def tweakfit(xdata,ydata,modelfun,fitparams):
     """"Fit" an arbitrary model function on the given dataset.
     
@@ -2928,13 +3020,26 @@ def porodfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         pylab.xlabel('$q^4$ (1/%c$^4$)' % 197)
         pylab.ylabel('I$q^4$');
     return a,b,aerr,berr
+def powerfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    data1=trimq(data,qmin,qmax)
+    x1=pylab.log(data1['q']);
+    err1=pylab.absolute(data1['Error']/data1['Intensity']);
+    y1=pylab.log(data1['Intensity']);
+    a,b,aerr,berr=linfit(x1,y1,err1)
+    if testimage:
+        pylab.loglog(data['q'],data['Intensity'],'.');
+        pylab.loglog(data['q'],pylab.exp(b)*pow(data['q'],a),'-',color='red');
+        pylab.xlabel('$q$ (1/%c)' % 197)
+        pylab.ylabel('I');
+    return a,b,aerr,berr
+
 def unifiedfit(data,B,G,Rg,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
     data=trimq(data,qmin,qmax)
     def fitfun(data,x,y,err):
         G=data[0]
         B=data[1]
         Rg=data[2]
-        return pylab.sum((unifiedscattering(x,B,G,Rg,4)-y)**2/err**2)
+        return (unifiedscattering(x,B,G,Rg,4)-y)/err
     return scipy.optimize.leastsq(fitfun,pylab.array([B,G,Rg]),args=(data['q'],data['Intensity'],data['Error']))[0]
 def convolutef1f2(f1f2,width):
     """Convolute f1f2 value with a Lorentzian of a given width.
@@ -3232,8 +3337,232 @@ def radhist(data,energy,distance,res,bcx,bcy,mask,q,I):
         indices=((q1<=qmax[l])&(q1>qmin[l])) # the indices of the pixels which belong to this q-bin
         hist[:,l]=scipy.stats.stats.histogram2(data[indices],I)/pylab.sum(indices.astype('float'))
     return hist
-def directdesmear(data,smoothing,x0,pixelsize,dist,beam):
-    data1=data[(x0-1):];
-    tck=scipy.interpolate.splrep(pylab.arange(len(data1)),data1,1/(data1**2),s=smoothing)
-     
+def testsmoothing(data,smoothing):
+    tck=scipy.interpolate.splrep(pylab.arange(len(data)),data,s=smoothing)
+    data1=scipy.interpolate.splev(pylab.arange(len(data)),tck)
+    pylab.plot(data,'.')
+    pylab.plot(data1,'-')
+def directdesmearmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbase,lengthtop,beamnum=1024):
+    # coordinates of the pixels in mm.
+    pixels=pylab.arange(pixelmin,pixelmax+1)
+    x=(pylab.arange(len(pixels))-beamcenter)*pixelsize*1e-3;
+    # coordinates of the beam-profile in mm.
+    y=pylab.linspace(0,lengthbase/2.0,beamnum)
+    #beam profile matrix
+    H=pylab.zeros(y.shape)
+    indslope=(y>=lengthtop/2.0)
+    indtop=(y<=lengthtop/2.0)
+    H[indslope]=-4.0/(lengthbase**2-lengthtop**2)*y[indslope]+lengthbase/2.0*4.0/(lengthbase**2-lengthtop**2)
+    H[indtop]=2.0/(lengthbase+lengthtop)
+    delta=lengthbase*0.5/beamnum
+    # scale y to detector pixel units
+    y=y/pixelsize*1e3
+    #Smearing matrix
+    A=pylab.zeros((len(x),len(x)))
+    for i in range(len(x)):
+        A[i,i]+=H[0]*delta
+        for j in range(len(y)):
+            tmp=pylab.sqrt(i**2+y[j]**2)
+            ind1=int(pylab.floor(tmp))
+            prop=tmp-pylab.floor(tmp)
+            if ind1<len(pixels):
+                A[i,ind1]+=delta*(2*H[j])*(1-prop)
+            if (ind1+1)<len(pixels):
+                A[i,ind1+1]+=delta*(2*H[j])*prop
+    #pylab.imshow(A)
+    #pylab.colorbar()
+    return A
+def directdesmear(data,smoothing,pixelmin,pixelmax,beamcenter,pixelsize,lengthbase,lengthtop,beamnum=1024,gui=False,smoothlow=0.0001,smoothhi=1,smoothingmode='log'):
+    # calculate the matrix
+    if gui:
+        print "Calculating desmear matrix..."
+    A=directdesmearmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbase,lengthtop,beamnum)
+    if gui:
+        print "Done."
+    #x coordinates in pixels
+    pixels=pylab.arange(len(data))
+    
+    def smooth_and_desmear(pixels,data,pixelmin,pixelmax,smoothing,A):
+        # smoothing the dataset. Errors of the data are sqrt(data), weight will be therefore 1/data
+        if gui:
+            print "Desmearing..."
+        tck=scipy.interpolate.splrep(pixels,data,s=smoothing)
+        data1=scipy.interpolate.splev(pixels,tck)
+        indices=(pixels<=pixelmax) & (pixels>=pixelmin)
+        data1=data1[indices]
+        pixels=pixels[indices]
+        ret=pixels,pylab.solve(A,data1.reshape(len(data1),1)),data1
+        if gui:
+            print "Done."
+        return ret
+    if not gui:
+        return smooth_and_desmear(pixels,data,pixelmin,pixelmax,smoothing,A)
+    else:
+        f=pylab.figure()
+        f.donedesmear=False
+        axsl=pylab.axes((0.08,0.02,0.7,0.05))
+        axb=pylab.axes((0.85,0.02,0.08,0.05))
+        ax=pylab.axes((0.1,0.12,0.8,0.78))
+        b=matplotlib.widgets.Button(axb,'Ok')
+        def buttclick(a=None,f=f):
+            f.donedesmear=True
+        b.on_clicked(buttclick)
+        if smoothingmode=='log':
+            sl=matplotlib.widgets.Slider(axsl,'Smoothing',pylab.log(smoothlow),pylab.log(smoothhi),pylab.log(smoothing))
+        elif smoothingmode=='lin':
+            sl=matplotlib.widgets.Slider(axsl,'Smoothing',smoothlow,smoothhi,smoothing)
+        else:
+            raise ValueError('Invalid value for smoothingmode: %s',smoothingmode)
+        def sliderfun(a=None,sl=sl,ax=ax,mode=smoothingmode,x=pixels,y=data,p0=pixelmin,p1=pixelmax,A=A):
+            if smoothingmode=='lin':
+                [x1,y1,ysm]=smooth_and_desmear(x,y,p0,p1,sl.val,A)
+            else:
+                [x1,y1,ysm]=smooth_and_desmear(x,y,p0,p1,pylab.exp(sl.val),A)
+            a=ax.axis()
+            ax.cla()
+            ax.plot(x,y,'.',label='Original')
+            ax.plot(x1,ysm,'-',label='Smoothed')
+            ax.plot(x1,y1,'-',label='Desmeared')
+            ax.legend(loc='best')
+            ax.axis(a)
+            pylab.gcf().show()
+        sl.on_changed(sliderfun)
+        [x1,y1,ysm]=smooth_and_desmear(pixels,data,pixelmin,pixelmax,smoothing,A)
+        ax.plot(pixels,data,'.',label='Original')
+        ax.plot(x1,ysm,'-',label='Smoothed')
+        ax.plot(x1,y1,'-',label='Desmeared')
+        ax.legend(loc='best')
+        while not f.donedesmear:
+            pylab.waitforbuttonpress()
+        if smoothingmode=='lin':
+            return smooth_and_desmear(pixels,data,pixelmin,pixelmax,sl.val,A)
+        elif smoothingmode=='log':
+            return smooth_and_desmear(pixels,data,pixelmin,pixelmax,pylab.exp(sl.val),A)
+        else:
+            return None
+        
+def fitspheredistribution(data,distfun,R,params,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    data1=trimq(data,qmin,qmax)
+    q=data1['q']
+    Int=data1['Intensity']
+    Err=data1['Error']
+    params=list(params)
+    params.append(1)
+    params1=tuple(params)
+    tsI=pylab.zeros((len(q),len(R)))
+    for i in range(len(R)):
+        tsI[:,i]=fsphere(q,R[i])
+    R.reshape((len(R),1))
+    def fitfun(params,R,q,I,Err,dist=distfun,tsI=tsI):
+        return (params[-1]*pylab.dot(tsI,dist(R,*(params[:-1])))-I)/Err
+    res=scipy.optimize.leastsq(fitfun,params1,args=(R,q,Int,Err),full_output=1)
+    print "Fitted values:",res[0]
+    print "Covariance matrix:",res[1]
+    if testimage:
+        pylab.semilogy(data['q'],data['Intensity'],'.');
+        tsIfull=pylab.zeros((len(data['q']),len(R)))
+        for i in range(len(R)):
+            tsIfull[:,i]=fsphere(data['q'],R[i])
+        print data['q'].shape
+        print pylab.dot(tsIfull,distfun(R,*(res[0][:-1]))).shape
+        pylab.semilogy(data['q'],res[0][-1]*pylab.dot(tsIfull,distfun(R,*(res[0][:-1]))),'-',color='red');
+        pylab.xlabel('$q$ (1/%c)' % 197)
+        pylab.ylabel('I');
+    
+def lognormdistrib(x,mu,sigma):
+    return 1/(x*sigma*pylab.sqrt(2*pylab.pi))*pylab.exp(-(pylab.log(x)-mu)**2/(2*sigma**2))
+def tweakplot2d(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,pmin=0,pmax=1):
+    f=pylab.figure()
+    f.donetweakplot=False
+    a2=pylab.axes((0.1,0.05,0.65,0.02))
+    a1=pylab.axes((0.1,0.08,0.65,0.02))
+    ab=pylab.axes((0.85,0.05,0.1,0.1))
+    ax=pylab.axes((0.1,0.15,0.8,0.75))
+    button=matplotlib.widgets.Button(ab,'OK')
+    def finish(a=None,fig=f):
+        f.donetweakplot=True
+    button.on_clicked(finish)
+    sl1=matplotlib.widgets.Slider(a1,'vmin',0,1,pmin)
+    sl2=matplotlib.widgets.Slider(a2,'vmax',0,1,pmax)
+    def redraw(tmp=None,ax=ax,sl1=sl1,sl2=sl2):
+        ax.cla()
+        plot2dmatrix(A,maxval,mask,header,qs,showqscale,pmin=sl1.val,pmax=sl2.val)
+        pylab.gcf().show()    
+    sl1.on_changed(redraw)
+    sl2.on_changed(redraw)
+    redraw()
+    while not f.donetweakplot:
+        f.waitforbuttonpress()
+    pylab.close(f)
+    print sl1.val,sl2.val
+    return (sl1.val,sl2.val)
+def readasa(basename):
+    try:
+        p00=pylab.loadtxt('%s.P00' % basename)
+    except IOError:
+        try:
+            p00=pylab.loadtxt('%s.p00' % basename)
+        except:
+            raise IOError('Cannot find %s.p00, neither %s.P00.' % (basename,basename))
+    if p00 is not None:
+        p00=p00[1:] # cut the leading -1
+    try:
+        e00=pylab.loadtxt('%s.E00' % basename)
+    except IOError:
+        try:
+            e00=pylab.loadtxt('%s.e00' % basename)
+        except:
+            e00=None
+    if e00 is not None:
+        e00=e00[1:] # cut the leading -1
+    try:
+        inffile=open('%s.inf' % basename)
+    except IOError:
+        try:
+            inffile=open('%s.Inf' % basename)
+        except IOError:
+            try:
+                inffile=open('%s.INF' % basename)
+            except:
+                inffile=None
+                params=None
+    if inffile is not None:
+        params={}
+        l=inffile.readlines()
+        def getdate(str):
+            try:
+                month=int(str.split()[0].split('-')[0])
+                day=int(str.split()[0].split('-')[1])
+                year=int(str.split()[0].split('-')[2])
+                hour=int(str.split()[1].split(':')[0])
+                minute=int(str.split()[1].split(':')[1])
+                second=int(str.split()[1].split(':')[2])
+            except:
+                return None
+            return {'Month':month,'Day':day,'Year':year,'Hour':hour,'Minute':minute,'Second':second}
+        if getdate(l[0]) is None:
+            params['Title']=l[0].strip()
+            offset=1
+        else:
+            params['Title']=basename
+            offset=0
+        d=getdate(l[offset])
+        params.update(d)
+        for line in l:
+            if line.strip().startswith('PSD1 Lower Limit'):
+                params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
+            elif line.strip().startswith('PSD1 Upper Limit'):
+                params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
+            elif line.strip().startswith('Realtime'):
+                params['Realtime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
+            elif line.strip().startswith('Lifetime'):
+                params['Livetime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
+            elif line.strip().startswith('Lower Limit'):
+                params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
+            elif line.strip().startswith('Upper Limit'):
+                params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
+            elif line.strip().startswith('Stop Condition'):
+                params['Stopcondition']=line.strip().split(':')[1].strip().replace(',','.')
+    return {'position':p00,'energy':e00,'params':params}
+def agstcalib(data,peaks):
     pass

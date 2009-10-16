@@ -1,0 +1,19 @@
+02-29-2008  15:56:15
+
+Resolution [channels]:
+     Energy: 1024
+     Position: 1024
+
+Energy Window :
+     Lower Limit: 365
+     Upper Limit: 508
+
+Stop Condition:  600 s Realtime
+
+Realtime: 600,0 s
+Lifetime: 543,0 s
+Energy Counts: 8547460
+Position Counts: 4962850
+
+Comment :
+
