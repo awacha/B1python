@@ -92,6 +92,12 @@ import radint_ng
 
 HC=12396.4 #Planck's constant times speed of light, in eV*Angstrom units
 def savespheres(spheres,filename):
+    """Save sphere structure in a file.
+    
+    Inputs:
+        spheres: sphere matrix
+        filename: filename
+    """
     pylab.savetxt(filename,spheres,delimiter='\t')
 def theorspheres(qrange, spheres):
     """Calculate the theoretical scattering intensity of the sphere structure
@@ -803,7 +809,6 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel'):
     pylab.subplot(4,1,4)
     pylab.legend(legend4,loc=(1.03,0))
     
-
 #ASAXS evaluation and post-processing
 def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned'):
     """Re-integrate (re-bin) 2d intensity data
@@ -1594,6 +1599,9 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
             this is a positive integer, plot that much automatically selected
             contours. If a list (sequence), draw contour lines at the elements
             of the sequence.
+        pmin: colour-scaling. See parameter pmax for description. 
+        pmax: colour-scaling. imshow() will be called with vmin=A.max()*pmin,
+            vmax=A.max()*pmax
     """
     tmp=A.copy(); # this is needed as Python uses the pass-by-object method,
                   # so A is the SAME as the version of the caller. tmp=A would
@@ -1644,6 +1652,15 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         pylab.title("#%s: %s" % (header['FSN'], header['Title']))
 #Miscellaneous routines
 def fsphere(q,R):
+    """Scattering factor of a sphere
+    
+    Inputs:
+        q: q value(s) (scalar or an array of arbitrary size and shape)
+        R: radius (scalar)
+        
+    Output:
+        the values of the scattering factor in an array of the same shape as q
+    """
     return 1/q**3*(pylab.sin(q*R)-q*R*pylab.cos(q*R))
 def derivative(x,y=None):
     """Approximate the derivative by finite difference
@@ -2701,12 +2718,21 @@ def readabt(filename):
     return {'title':title,'mode':mode,'columns':columns,'data':matrix}
 #fitting
 def sanitizeint(data):
+    """Remove points with nonpositive intensity from 1D SAXS dataset
+    
+    Input:
+        data: 1D SAXS dictionary
+        
+    Output:
+        a new dictionary of which the points with nonpositive intensities were
+            omitted
+    """
     indices=(data['Intensity']>0)
     data1={}
     for k in data.keys():
         data1[k]=data[k][indices]
     return data1
-def findpeak(xdata,ydata,prompt=None,mode='Lorentz'):
+def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin'):
     """GUI tool for locating peaks by zooming on them
     
     Inputs:
@@ -2714,6 +2740,7 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz'):
         ydata: y dataset
         prompt: prompt to display as a title
         mode: 'Lorentz' or 'Gauss'
+        scaling: scaling of the y axis. 'lin' or 'log' 
         
     Outputs:
         the peak position
@@ -2721,7 +2748,12 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz'):
     Usage:
         Zoom to the desired peak then press ENTER on the figure.
     """
-    pylab.plot(xdata,ydata,'b.')
+    xdata=xdata.flatten()
+    ydata=ydata.flatten()
+    if scaling=='log':
+        pylab.semilogy(xdata,ydata,'b.')
+    else:
+        pylab.plot(xdata,ydata,'b.')
     if prompt is None:
         prompt='Please zoom to the peak you want to select, then press ENTER'
     pylab.title(prompt)
@@ -2730,19 +2762,37 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz'):
     while (pylab.waitforbuttonpress() is not True):
         pass
     a=pylab.axis()
-    indices=(xdata<=a[1])&(xdata>=a[0])
+    indices=((xdata<=a[1])&(xdata>=a[0]))&((ydata<=a[3])&(ydata>=a[2]))
     x1=xdata[indices]
     y1=ydata[indices]
     def gausscostfun(p,x,y):  #p: A,sigma,x0,y0
-        return y-p[3]-p[0]/(pylab.sqrt(2*pylab.pi)*p[1])*pylab.exp(-(x-p[2])**2/(2*p[1]**2))
+        tmp= y-p[3]-p[0]/(pylab.sqrt(2*pylab.pi)*p[1])*pylab.exp(-(x-p[2])**2/(2*p[1]**2))
+        return tmp
     def lorentzcostfun(p,x,y):
-        return y-p[3]-p[0]*lorentzian(p[2],p[1],x)
+        tmp=y-p[3]-p[0]*lorentzian(p[2],p[1],x)
+        return tmp
     if mode=='Gauss':
-        p1,ier=scipy.optimize.leastsq(gausscostfun,(1,0.5*(x1[-1]-x1[0]),0.5*(x1[-1]+x1[0]),0),args=(x1,y1))
-        pylab.plot(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
+        sigma0=0.25*(x1[-1]-x1[0])
+        p0=((y1.max()-y1.min())/(1/pylab.sqrt(2*pylab.pi*sigma0**2)),
+            sigma0,
+            0.5*(x1[-1]+x1[0]),
+            y1.min())
+        p1,ier=scipy.optimize.leastsq(gausscostfun,p0,args=(x1,y1))
+        if scaling=='log':
+            pylab.semilogy(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
+        else:
+            pylab.plot(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
     elif mode=='Lorentz':
-        p1,ier=scipy.optimize.leastsq(lorentzcostfun,(1,0.5*(x1[-1]-x1[0]),0.5*(x1[-1]+x1[0]),0),args=(x1,y1))
-        pylab.plot(x1,p1[3]+p1[0]*lorentzian(p1[2],p1[1],x1),'r-')
+        sigma0=0.25*(x1[-1]-x1[0])
+        p0=((y1.max()-y1.min())/(1/sigma0),
+            sigma0,
+            0.5*(x1[-1]+x1[0]),
+            y1.min())
+        p1,ier=scipy.optimize.leastsq(lorentzcostfun,p0,args=(x1,y1))
+        if scaling=='log':
+            pylab.semilogy(x1,p1[3]+p1[0]*lorentzian(p1[2],p1[1],x1),'r-')
+        else:
+            pylab.plot(x1,p1[3]+p1[0]*lorentzian(p1[2],p1[1],x1),'r-')
     else:
         raise ValueError('Only Gauss and Lorentz modes are supported in findpeak()')
     pylab.gcf().show()
@@ -2973,6 +3023,20 @@ def tweakfit(xdata,ydata,modelfun,fitparams):
     redraw(False)
 #EXPERIMENTAL (DANGER ZONE)
 def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    """Do a cross-section Guinier fit on the dataset.
+    
+    Inputs:
+        data: 1D scattering data dictionary
+        qmin: lowest q-value to take into account. Default is -infinity
+        qmax: highest q-value to take into account. Default is infinity
+        testimage: if a test image is desired. Default is false.
+    
+    Outputs:
+        the Guinier radius (radius of gyration) of the cross-section
+        the prefactor
+        the calculated error of Rg
+        the calculated error of the prefactor
+    """
     data1=trimq(data,qmin,qmax)
     x1=data1['q']**2;
     err1=pylab.absolute(data1['Error']/data1['Intensity']*x1)
@@ -2985,6 +3049,20 @@ def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         pylab.ylabel('$q\ln I$')
     return pylab.sqrt(-Rgcs*2),Gcs,1/pylab.sqrt(-Rgcs)*dRgcs,dGcs
 def guinierthicknessfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    """Do a thickness Guinier fit on the dataset.
+    
+    Inputs:
+        data: 1D scattering data dictionary
+        qmin: lowest q-value to take into account. Default is -infinity
+        qmax: highest q-value to take into account. Default is infinity
+        testimage: if a test image is desired. Default is false.
+    
+    Outputs:
+        the Guinier radius (radius of gyration) of the thickness
+        the prefactor
+        the calculated error of Rgt
+        the calculated error of the prefactor
+    """
     data1=trimq(data,qmin,qmax)
     x1=data1['q']**2;
     err1=pylab.absolute(data1['Error']/data1['Intensity']*x1*x1)
@@ -2997,6 +3075,20 @@ def guinierthicknessfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         pylab.ylabel('$q^2\ln I$')
     return pylab.sqrt(-Rgt),Gt,0.5/pylab.sqrt(-Rgt)*dRgt,dGt
 def guinierfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    """Do a Guinier fit on the dataset.
+    
+    Inputs:
+        data: 1D scattering data dictionary
+        qmin: lowest q-value to take into account. Default is -infinity
+        qmax: highest q-value to take into account. Default is infinity
+        testimage: if a test image is desired. Default is false.
+    
+    Outputs:
+        the Guinier radius (radius of gyration)
+        the prefactor
+        the calculated error of Rg
+        the calculated error of the prefactor
+    """
     data1=trimq(data,qmin,qmax)
     x1=data1['q']**2;
     err1=pylab.absolute(data1['Error']/data1['Intensity']);
@@ -3009,6 +3101,20 @@ def guinierfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         pylab.ylabel('ln I');
     return pylab.sqrt(-Rg*3),G,1.5/pylab.sqrt(-Rg*3)*dRg,dG
 def porodfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    """Do a Porod fit on the dataset.
+    
+    Inputs:
+        data: 1D scattering data dictionary
+        qmin: lowest q-value to take into account. Default is -infinity
+        qmax: highest q-value to take into account. Default is infinity
+        testimage: if a test image is desired. Default is false.
+    
+    Outputs:
+        the constant background
+        the Porod coefficient
+        the calculated error of the constant background
+        the calculated error of the Porod coefficient
+    """
     data1=trimq(data,qmin,qmax)
     x1=data1['q']**4;
     err1=data1['Error']*x1;
@@ -3021,6 +3127,20 @@ def porodfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         pylab.ylabel('I$q^4$');
     return a,b,aerr,berr
 def powerfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    """Fit a power-law on the dataset (I=e^b*q^a)
+    
+    Inputs:
+        data: 1D scattering data dictionary
+        qmin: lowest q-value to take into account. Default is -infinity
+        qmax: highest q-value to take into account. Default is infinity
+        testimage: if a test image is desired. Default is false.
+    
+    Outputs:
+        the exponent
+        ln(prefactor)
+        the calculated error of the exponent
+        the calculated error of the logarithm of the prefactor
+    """
     data1=trimq(data,qmin,qmax)
     x1=pylab.log(data1['q']);
     err1=pylab.absolute(data1['Error']/data1['Intensity']);
@@ -3032,8 +3152,26 @@ def powerfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
     return a,b,aerr,berr
-
 def unifiedfit(data,B,G,Rg,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
+    """Do a unified fit on the dataset, in the sense of G. Beaucage
+    (J. Appl. Cryst. (1995) 28, 717-728)
+    
+    Inputs:
+        data: 1D scattering data dictionary
+        B: the initial value for the porod prefactor
+        G: the initial value for the Guinier prefactor
+        Rg: the initial value for the Guinier radius
+        qmin: lowest q-value to take into account. Default is -infinity
+        qmax: highest q-value to take into account. Default is infinity
+        testimage: if a test image is desired. Default is false.
+        maxiter: maximum number of Levenberg-Marquardt iterations
+            (scipy.optimize.leastsq)
+        
+    Outputs:
+        the Porod prefactor
+        the Guinier prefactor
+        the radius of gyration
+    """
     data=trimq(data,qmin,qmax)
     def fitfun(data,x,y,err):
         G=data[0]
@@ -3041,33 +3179,6 @@ def unifiedfit(data,B,G,Rg,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
         Rg=data[2]
         return (unifiedscattering(x,B,G,Rg,4)-y)/err
     return scipy.optimize.leastsq(fitfun,pylab.array([B,G,Rg]),args=(data['q'],data['Intensity'],data['Error']))[0]
-def convolutef1f2(f1f2,width):
-    """Convolute f1f2 value with a Lorentzian of a given width.
-    
-    Input:
-        f1f2: f1f2 structure as read by readf1f2().
-        width: the FWHM of the Lorentzian in eV-s
-        
-    Output:
-        the convolved f1f2 dataset.
-        
-    Note:
-        EXPERIMENTAL!!!!
-    """
-    print "BIG FAT WARNING: convolutef1f2() is an EXPERIMENTAL function. You may not get what you expect!"
-    
-    #it is assumed that the f1f2 data consists of EQUIDISTANT points!
-    Espacing=pylab.absolute(f1f2[1,0]-f1f2[0,0])
-    #the smearing function will be placed to the origin. It will be cut off at
-    # +/- width/2.0*100, as outside this interval the value of the lorentzian
-    # is smaller than 0.01*peak value (at origin)
-    
-    Espread1=pylab.arange(0,width/2.0*100,Espacing)
-    Espread2=-Espread1
-    Espread=unique(pylab.hstack((Espread1,Espread2)))   
-    spread=lorentzian(0,width/2.0,Espread)
-    f1conv=pylab.convolve(f1f2[:,1],spread,'full')
-    pass
 def radint2(data,dataerr,energy,distance,res,bcx,bcy,mask,q):
     """EXPERIMENTAL!!!!!
     """
@@ -3337,46 +3448,69 @@ def radhist(data,energy,distance,res,bcx,bcy,mask,q,I):
         indices=((q1<=qmax[l])&(q1>qmin[l])) # the indices of the pixels which belong to this q-bin
         hist[:,l]=scipy.stats.stats.histogram2(data[indices],I)/pylab.sum(indices.astype('float'))
     return hist
-def testsmoothing(data,smoothing):
-    tck=scipy.interpolate.splrep(pylab.arange(len(data)),data,s=smoothing)
-    data1=scipy.interpolate.splev(pylab.arange(len(data)),tck)
-    pylab.plot(data,'.')
-    pylab.plot(data1,'-')
-def directdesmearmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbase,lengthtop,beamnum=1024):
+def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,lengthtoph,lengthbasev,lengthtopv,beamnumh=1024,beamnumv=256):
     # coordinates of the pixels in mm.
     pixels=pylab.arange(pixelmin,pixelmax+1)
     x=(pylab.arange(len(pixels))-beamcenter)*pixelsize*1e-3;
     # coordinates of the beam-profile in mm.
-    y=pylab.linspace(0,lengthbase/2.0,beamnum)
+    y=pylab.linspace(0,lengthbaseh/2.0,beamnumh)
+    if beamnumv is not None:
+        xb=pylab.linspace(0,lengthbasev/2.0,beamnumv)
     #beam profile matrix
     H=pylab.zeros(y.shape)
-    indslope=(y>=lengthtop/2.0)
-    indtop=(y<=lengthtop/2.0)
-    H[indslope]=-4.0/(lengthbase**2-lengthtop**2)*y[indslope]+lengthbase/2.0*4.0/(lengthbase**2-lengthtop**2)
-    H[indtop]=2.0/(lengthbase+lengthtop)
-    delta=lengthbase*0.5/beamnum
+    indslope=(y>=lengthtoph/2.0)
+    indtop=(y<=lengthtoph/2.0)
+    H[indslope]=-4.0/(lengthbaseh**2-lengthtoph**2)*y[indslope]+lengthbaseh/2.0*4.0/(lengthbaseh**2-lengthtoph**2)
+    H[indtop]=2.0/(lengthbaseh+lengthtoph)
+    deltah=lengthbaseh*0.5/beamnumh
+    if beamnumv is not None:
+        P=pylab.zeros(xb.shape)
+        indslope=(xb>=lengthtopv/2.0)
+        indtop=(xb<=lengthtopv/2.0)
+        P[indslope]=-4.0/(lengthbasev**2-lengthtopv**2)*xb[indslope]+lengthbasev/2.0*4.0/(lengthbasev**2-lengthtopv**2)
+        P[indtop]=2.0/(lengthbasev+lengthtopv)
+        deltav=lengthbasev*0.5/beamnumv
     # scale y to detector pixel units
     y=y/pixelsize*1e3
+    if beamnumv is not None:
+        xb=xb/pixelsize*1e3
     #Smearing matrix
-    A=pylab.zeros((len(x),len(x)))
-    for i in range(len(x)):
-        A[i,i]+=H[0]*delta
-        for j in range(len(y)):
-            tmp=pylab.sqrt(i**2+y[j]**2)
-            ind1=int(pylab.floor(tmp))
-            prop=tmp-pylab.floor(tmp)
-            if ind1<len(pixels):
-                A[i,ind1]+=delta*(2*H[j])*(1-prop)
-            if (ind1+1)<len(pixels):
-                A[i,ind1+1]+=delta*(2*H[j])*prop
-    #pylab.imshow(A)
-    #pylab.colorbar()
+    if beamnumv is not None:
+        diag=H[0]*P[0]*deltah*deltav
+        A=pylab.zeros((len(x),len(x)))
+        for i in range(len(x)):
+            A[i,i]+=diag
+            for j in range(len(y)):
+                for k in range (len(xb)):
+                    tmp=pylab.sqrt((i-xb[k])**2+y[j]**2)
+                    ind1=int(pylab.floor(tmp))
+                    prop=tmp-ind1
+                    if ind1<len(pixels):
+                        A[i,ind1]+=deltah*deltav*(4*H[j]*P[k])*(1-prop)
+                    if (ind1+1)<len(pixels):
+                        A[i,ind1+1]+=deltah*deltav*(4*H[j]*P[k])*prop
+    else:
+        diag=H[0]*deltah
+        A=pylab.zeros((len(x),len(x)))
+        for i in range(len(x)):
+            A[i,i]+=diag
+            for j in range(len(y)):
+                tmp=pylab.sqrt((i)**2+y[j]**2)
+                ind1=int(pylab.floor(tmp))
+                prop=tmp-ind1
+                if ind1<len(pixels):
+                    A[i,ind1]+=deltah*(2*H[j])*(1-prop)
+                if (ind1+1)<len(pixels):
+                    A[i,ind1+1]+=deltah*(2*H[j])*prop
+#    pylab.imshow(A)
+#    pylab.colorbar()
+#    pylab.gcf().show()
     return A
-def directdesmear(data,smoothing,pixelmin,pixelmax,beamcenter,pixelsize,lengthbase,lengthtop,beamnum=1024,gui=False,smoothlow=0.0001,smoothhi=1,smoothingmode='log'):
+def directdesmear(data,smoothing,pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,lengthtoph,lengthbasev,lengthtopv,beamnumh=1024,beamnumv=256,gui=False,smoothlow=0.0001,smoothhi=1,smoothingmode='log'):
     # calculate the matrix
     if gui:
         print "Calculating desmear matrix..."
-    A=directdesmearmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbase,lengthtop,beamnum)
+    A=smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,lengthtoph,lengthbasev,lengthtopv,beamnumh,beamnumv)
     if gui:
         print "Done."
     #x coordinates in pixels
@@ -3391,7 +3525,7 @@ def directdesmear(data,smoothing,pixelmin,pixelmax,beamcenter,pixelsize,lengthba
         indices=(pixels<=pixelmax) & (pixels>=pixelmin)
         data1=data1[indices]
         pixels=pixels[indices]
-        ret=pixels,pylab.solve(A,data1.reshape(len(data1),1)),data1
+        ret=pixels,pylab.solve(A,data1.reshape(len(data1),1)),data1,A
         if gui:
             print "Done."
         return ret
@@ -3415,9 +3549,9 @@ def directdesmear(data,smoothing,pixelmin,pixelmax,beamcenter,pixelsize,lengthba
             raise ValueError('Invalid value for smoothingmode: %s',smoothingmode)
         def sliderfun(a=None,sl=sl,ax=ax,mode=smoothingmode,x=pixels,y=data,p0=pixelmin,p1=pixelmax,A=A):
             if smoothingmode=='lin':
-                [x1,y1,ysm]=smooth_and_desmear(x,y,p0,p1,sl.val,A)
+                [x1,y1,ysm,A]=smooth_and_desmear(x,y,p0,p1,sl.val,A)
             else:
-                [x1,y1,ysm]=smooth_and_desmear(x,y,p0,p1,pylab.exp(sl.val),A)
+                [x1,y1,ysm,A]=smooth_and_desmear(x,y,p0,p1,pylab.exp(sl.val),A)
             a=ax.axis()
             ax.cla()
             ax.plot(x,y,'.',label='Original')
@@ -3427,7 +3561,7 @@ def directdesmear(data,smoothing,pixelmin,pixelmax,beamcenter,pixelsize,lengthba
             ax.axis(a)
             pylab.gcf().show()
         sl.on_changed(sliderfun)
-        [x1,y1,ysm]=smooth_and_desmear(pixels,data,pixelmin,pixelmax,smoothing,A)
+        [x1,y1,ysm,A]=smooth_and_desmear(pixels,data,pixelmin,pixelmax,smoothing,A)
         ax.plot(pixels,data,'.',label='Original')
         ax.plot(x1,ysm,'-',label='Smoothed')
         ax.plot(x1,y1,'-',label='Desmeared')
@@ -3564,5 +3698,36 @@ def readasa(basename):
             elif line.strip().startswith('Stop Condition'):
                 params['Stopcondition']=line.strip().split(':')[1].strip().replace(',','.')
     return {'position':p00,'energy':e00,'params':params}
-def agstcalib(data,peaks):
-    pass
+def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68):
+    pcoord=[]
+    for p in peaks:
+        tmp=findpeak(xdata,ydata,('Zoom to peak %d and press ENTER' % p),peakmode,scaling='log')
+        print tmp
+        pcoord.append(tmp)
+    print pcoord
+    pcoord=pylab.array(pcoord)
+    n=pylab.array(peaks)
+    a=(n*wavelength)/(2*d)
+    x=2*a*pylab.sqrt(1-a**2)/(1-2*a**2)
+    LperH,xcent,LperHerr,xcenterr=linfit(x,pcoord)
+    print 'pixelsize/dist:',1/LperH,'+/-',LperHerr/LperH**2
+    print 'beam position:',xcent,'+/-',xcenterr
+    b=(pylab.array(xdata)-xcent)/LperH
+    return 4*pylab.pi*pylab.sqrt(0.5*(b**2+1-pylab.sqrt(b**2+1))/(b**2+1))/wavelength
+def waxscalib(pixels,qs,wavelength=1.54,xcenter=-100,alpha=60/180.0*pylab.pi,L0=150,h=52e-3):
+    pixels=pylab.array(pixels)
+    qs=pylab.array(qs)
+    a,b,aerr,berr=linfit(qs,pixels)
+    print 'a:',a
+    print 'b:',b
+    xcenter=b
+    p0=[alpha,L0,xcenter]
+    def costfun(p,pixels,qs,wavelength,h): #p: alpha,L0,xcenter
+        b=(p[1]-h*(pixels-p[2])*pylab.cos(p[0]))/(h*(pixels-p[2])*pylab.sin(p[0]))
+        return qs-4*pylab.pi*pylab.sqrt(0.5*(b**2+1-pylab.sqrt(b**2+1))/(b**2+1))/wavelength
+    p1=scipy.optimize.leastsq(costfun,p0,args=(pixels,qs,wavelength,h))
+    print 'Alpha:',pylab.fmod(p1[0][0]*180.0/pylab.pi,360)
+    print 'L0:',p1[0][1]
+    print 'Xcenter:',p1[0][2]
+    print p1
+        
