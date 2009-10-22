@@ -3448,22 +3448,49 @@ def radhist(data,energy,distance,res,bcx,bcy,mask,q,I):
         indices=((q1<=qmax[l])&(q1>qmin[l])) # the indices of the pixels which belong to this q-bin
         hist[:,l]=scipy.stats.stats.histogram2(data[indices],I)/pylab.sum(indices.astype('float'))
     return hist
-def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,lengthtoph,lengthbasev,lengthtopv,beamnumh=1024,beamnumv=256):
-    # coordinates of the pixels in mm.
+def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
+                   lengthtoph,lengthbasev=0,lengthtopv=0,beamnumh=1024,
+                   beamnumv=None):
+    """Calculate the smearing matrix for the given geometry.
+    
+    Inputs: (pixels and pixel coordinates are counted from 0. The direction
+        of the detector is assumed to be vertical.)
+        pixelmin: the smallest pixel to take into account
+        pixelmax: the largest pixel to take into account
+        beamcenter: pixel coordinate of the primary beam
+        pixelsize: the size of pixels, in micrometers
+        lengthbaseh: the length of the base of the horizontal beam profile
+        lengthtoph: the length of the top of the horizontal beam profile
+        lengthbasev: the length of the base of the vertical beam profile
+        lengthtopv: the length of the top of the vertical beam profile
+        beamnumh: the number of elementary points of the horizontal beam
+            profile
+        beamnumv: the number of elementary points of the vertical beam profile
+            Give None if you only want to take the length of the slit into
+            account.
+    
+    Output:
+        The smearing matrix. This is an upper triangular matrix. Desmearing
+        of a column vector of the measured intensities can be accomplished by
+        multiplying by the inverse of this matrix.
+    """
+    # coordinates of the pixels
     pixels=pylab.arange(pixelmin,pixelmax+1)
-    x=(pylab.arange(len(pixels))-beamcenter)*pixelsize*1e-3;
-    # coordinates of the beam-profile in mm.
+    # distance of each pixel from the beam in mm.
+    x=pylab.absolute((pylab.arange(len(pixels))-beamcenter)*pixelsize*1e-3);
+    # coordinates of the half of the beam-profile in mm.
     y=pylab.linspace(0,lengthbaseh/2.0,beamnumh)
-    if beamnumv is not None:
+    if beamnumv >0:
         xb=pylab.linspace(0,lengthbasev/2.0,beamnumv)
-    #beam profile matrix
+    #beam profile vector (trapezoid centered at the origin. Only a half of it
+    # is taken into account)
     H=pylab.zeros(y.shape)
     indslope=(y>=lengthtoph/2.0)
     indtop=(y<=lengthtoph/2.0)
     H[indslope]=-4.0/(lengthbaseh**2-lengthtoph**2)*y[indslope]+lengthbaseh/2.0*4.0/(lengthbaseh**2-lengthtoph**2)
     H[indtop]=2.0/(lengthbaseh+lengthtoph)
     deltah=lengthbaseh*0.5/beamnumh
-    if beamnumv is not None:
+    if beamnumv>0:
         P=pylab.zeros(xb.shape)
         indslope=(xb>=lengthtopv/2.0)
         indtop=(xb<=lengthtopv/2.0)
@@ -3472,10 +3499,10 @@ def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,lengthtoph
         deltav=lengthbasev*0.5/beamnumv
     # scale y to detector pixel units
     y=y/pixelsize*1e3
-    if beamnumv is not None:
+    if beamnumv>0:
         xb=xb/pixelsize*1e3
     #Smearing matrix
-    if beamnumv is not None:
+    if beamnumv>0:
         diag=H[0]*P[0]*deltah*deltav
         A=pylab.zeros((len(x),len(x)))
         for i in range(len(x)):
@@ -3506,31 +3533,80 @@ def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,lengthtoph
 #    pylab.colorbar()
 #    pylab.gcf().show()
     return A
-def directdesmear(data,smoothing,pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,lengthtoph,lengthbasev,lengthtopv,beamnumh=1024,beamnumv=256,gui=False,smoothlow=0.0001,smoothhi=1,smoothingmode='log'):
+def directdesmear(data,smoothing,params):
+    """Desmear the scattering data according to the direct desmearing
+    algorithm by Singh, Ghosh and Shannon
+    
+    Inputs:
+        data: measured intensity vector of arbitrary length (numpy array)
+        smoothing: smoothing parameter for scipy.optimize.splrep. A scalar
+            number. If not exactly known, a dictionary may be supplied with
+            the following fields:
+                low: lower threshold
+                high: upper threshold
+                val: initial value
+                mode: 'lin' or 'log'
+            In this case a GUI will be set up. A slider and an Ok button at
+            the bottom of the figure will aid the user to select the optimal
+            smoothing parameter.
+        params: a dictionary with the following fields:
+            pixelmin: left trimming value (default: -infinity)
+            pixelmax: right trimming value (default: infinity)
+            beamcenter: pixel coordinate of the beam (no default value)
+            pixelsize: size of the pixels in micrometers (no default value)
+            lengthbaseh: length of the base of the horizontal beam profile
+                (millimetres, no default value)
+            lengthtoph: length of the top of the horizontal beam profile
+                (millimetres, no default value)
+            lengthbasev: length of the base of the vertical beam profile
+                (millimetres, no default value)
+            lengthtopv: length of the top of the vertical beam profile
+                (millimetres, no default value)
+            beamnumh: the number of elementary points for the horizontal beam
+                profile (default: 1024)
+            beamnumv: the number of elementary points for the vertical beam
+                profile (default: 0)
+            matrix: if this is supplied, all but the 
+                
+    Outputs: (pixels,desmeared,smoothed,mat,params,smoothing)
+        pixels: the pixel coordinates for the resulting curves
+        desmeared: the desmeared curve
+        smoothed: the smoothed curve
+        mat: the desmearing matrix
+        params: the desmearing parameters
+        smoothing: smoothing parameter
+    """
+    #default values
+    dparams={'pixelmin':-pylab.inf,'pixelmax':pylab.inf,
+             'beamnumh':1024,'beamnumv':0}
+    dparams.update(params)
+    params=dparams
+    
     # calculate the matrix
-    if gui:
-        print "Calculating desmear matrix..."
-    A=smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,lengthtoph,lengthbasev,lengthtopv,beamnumh,beamnumv)
-    if gui:
-        print "Done."
+    if params.has_key('matrix') and type(params['matrix'])==pylab.ndarray:
+        A=params['matrix']
+    else:
+        A=smearingmatrix(params['pixelmin'],params['pixelmax'],
+                         params['beamcenter'],params['pixelsize'],
+                         params['lengthbaseh'],params['lengthtoph'],
+                         params['lengthbasev'],params['lengthtopv'],
+                         params['beamnumh'],params['beamnumv'])
+        params['matrix']=A
     #x coordinates in pixels
     pixels=pylab.arange(len(data))
-    
-    def smooth_and_desmear(pixels,data,pixelmin,pixelmax,smoothing,A):
+    def smooth_and_desmear(pixels,data,params,smoothing):
         # smoothing the dataset. Errors of the data are sqrt(data), weight will be therefore 1/data
-        if gui:
-            print "Desmearing..."
         tck=scipy.interpolate.splrep(pixels,data,s=smoothing)
         data1=scipy.interpolate.splev(pixels,tck)
-        indices=(pixels<=pixelmax) & (pixels>=pixelmin)
+        indices=(pixels<=params['pixelmax']) & (pixels>=params['pixelmin'])
         data1=data1[indices]
         pixels=pixels[indices]
-        ret=pixels,pylab.solve(A,data1.reshape(len(data1),1)),data1,A
-        if gui:
-            print "Done."
+        ret=(pixels,pylab.solve(params['matrix'],data1.reshape(len(data1),1)),
+             data1,params['matrix'],params,smoothing)
         return ret
-    if not gui:
-        return smooth_and_desmear(pixels,data,pixelmin,pixelmax,smoothing,A)
+    if type(smoothing)!=type({}):
+        res=smooth_and_desmear(pixels,data,params,smoothing)
+        return res
     else:
         f=pylab.figure()
         f.donedesmear=False
@@ -3541,40 +3617,51 @@ def directdesmear(data,smoothing,pixelmin,pixelmax,beamcenter,pixelsize,lengthba
         def buttclick(a=None,f=f):
             f.donedesmear=True
         b.on_clicked(buttclick)
-        if smoothingmode=='log':
-            sl=matplotlib.widgets.Slider(axsl,'Smoothing',pylab.log(smoothlow),pylab.log(smoothhi),pylab.log(smoothing))
-        elif smoothingmode=='lin':
-            sl=matplotlib.widgets.Slider(axsl,'Smoothing',smoothlow,smoothhi,smoothing)
+        if smoothing['mode']=='log':
+            sl=matplotlib.widgets.Slider(axsl,'Smoothing',
+                                         pylab.log(smoothing['low']),
+                                         pylab.log(smoothing['high']),
+                                         pylab.log(smoothing['val']))
+        elif smoothing['mode']=='lin':
+            sl=matplotlib.widgets.Slider(axsl,'Smoothing',
+                                         smoothing['low'],
+                                         smoothing['high'],
+                                         smoothing['val'])
         else:
-            raise ValueError('Invalid value for smoothingmode: %s',smoothingmode)
-        def sliderfun(a=None,sl=sl,ax=ax,mode=smoothingmode,x=pixels,y=data,p0=pixelmin,p1=pixelmax,A=A):
-            if smoothingmode=='lin':
-                [x1,y1,ysm,A]=smooth_and_desmear(x,y,p0,p1,sl.val,A)
+            raise ValueError('Invalid value for smoothingmode: %s',
+                             smoothing['mode'])
+        def sliderfun(a=None,sl=sl,ax=ax,mode=smoothing['mode'],x=pixels,
+                      y=data,p=params):
+            if mode=='lin':
+                sm=sl.val
             else:
-                [x1,y1,ysm,A]=smooth_and_desmear(x,y,p0,p1,pylab.exp(sl.val),A)
+                sm=pylab.exp(sl.val)
+            [x1,y1,ysm,A]=smooth_and_desmear(x,y,p,sm)
             a=ax.axis()
             ax.cla()
             ax.plot(x,y,'.',label='Original')
-            ax.plot(x1,ysm,'-',label='Smoothed')
+            ax.plot(x1,ysm,'-',label='Smoothed (%lg)'%sm)
             ax.plot(x1,y1,'-',label='Desmeared')
             ax.legend(loc='best')
             ax.axis(a)
             pylab.gcf().show()
         sl.on_changed(sliderfun)
-        [x1,y1,ysm,A]=smooth_and_desmear(pixels,data,pixelmin,pixelmax,smoothing,A)
+        [x1,y1,ysm,A]=smooth_and_desmear(pixels,data,params,smoothing['val'])
         ax.plot(pixels,data,'.',label='Original')
-        ax.plot(x1,ysm,'-',label='Smoothed')
+        ax.plot(x1,ysm,'-',label='Smoothed (%lg)'%smoothing['val'])
         ax.plot(x1,y1,'-',label='Desmeared')
         ax.legend(loc='best')
         while not f.donedesmear:
             pylab.waitforbuttonpress()
         if smoothingmode=='lin':
-            return smooth_and_desmear(pixels,data,pixelmin,pixelmax,sl.val,A)
+            sm=sl.val
         elif smoothingmode=='log':
-            return smooth_and_desmear(pixels,data,pixelmin,pixelmax,pylab.exp(sl.val),A)
+            sm=pylab.exp(sl.val)
         else:
-            return None
-        
+            raise ValueError('Invalid value for smoothingmode: %s',
+                             smoothing['mode'])
+        res=smooth_and_desmear(pixels,data,params,sm)
+        return res        
 def fitspheredistribution(data,distfun,R,params,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     data1=trimq(data,qmin,qmax)
     q=data1['q']
