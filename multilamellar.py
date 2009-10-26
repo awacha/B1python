@@ -1,12 +1,12 @@
 from B1python import *
 
-modegenerate=False
+modegenerate=True
 modeplot=True
 
-Nrepetitions=60
+Nrepetitions=200
 
-coreradius0=10000000
-layerdistance=48.68
+coreradius0=10000
+layerdistance=60
 layerthickness0=5
 qrange=pylab.linspace(0.01,0.5,500)
 nlayersmin=10
@@ -14,7 +14,7 @@ nlayersmax=100
 corefluctuation=coreradius0*0.1
 radiusfluctuation=3
 thicknessfluctuation=0
-shakecenter=1
+shakecenter=0
 
 if modegenerate:
     Ints=pylab.zeros(qrange.shape)
@@ -45,12 +45,14 @@ if modegenerate:
             spheres[2*i+1,3]=coreradius+i*layerdistance+0.5*layerthickness+radfluct
             spheres[2*i+1,4]=1
             spheres[2*i+1,5]=0;
-        savespheres(spheres,'multilamellar_%03d.txt'%j)
-        os.system('saxs multilamellar_%03d.txt saxs_lab1.imp multilamellar_%03d.calc.txt 2'% (j,j))
+        indices=spheres[:,3]>0
+        spheres=spheres[indices,:]    
+        savespheres(spheres,'multi%03d.txt'%j)
+        os.system('saxs multi%03d.txt 1d.imp multi%03d.calc.txt 2'% (j,j))
 if modeplot:
     Ints=None
     for j in range(Nrepetitions):
-        A=pylab.loadtxt('multilamellar_%03d.calc.txt' % j)
+        A=pylab.loadtxt('multi%03d.calc.txt' % j)
         if Ints is None:
             Ints=A[:,1]
             qs=2*pylab.pi*A[:,0]
@@ -58,5 +60,5 @@ if modeplot:
             Ints+=A[:,1]
     print qs.shape
     print Ints.shape
-    pylab.semilogy(qs,Ints)
+    pylab.semilogy(qs/2/pylab.pi,Ints)
     pylab.show()

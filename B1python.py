@@ -517,6 +517,20 @@ def scalewaxs(fsns,mask2d):
         pylab.ylabel('Scattering cross-section (1/cm)')
         pylab.savefig('scalewaxs%d.eps' % param[0]['FSN'],dpi=300,transparent='True',format='eps')
         pylab.close(pylab.gcf())
+def flatten1dsasdict(data):
+    """Flattens 1D SAXS dictionaries
+    
+    Input:
+        data: 1D SAXS dictionary
+    
+    Output:
+        The same dictionary, but every element ('q', 'Intensity', ...) gets
+        flattened into 1D.
+    """
+    d1={}
+    for k in data.keys():
+        d1[k]=data[k].flatten()
+    return d1
 #XANES and EXAFS analysis
 def smoothabt(muddict,smoothing):
     """Smooth mu*d data with splines
@@ -1472,6 +1486,7 @@ def basicfittinggui(data):
     Output:
         None, this leaves a figure open for further user interactions.
     """
+    data=flatten1dsasdict(data)
     fig=pylab.figure()
     buttons=['Guinier','Guinier thickness','Guinier cross-section','Porod','Power law']
     fitfuns=[guinierfit,guinierthicknessfit,guiniercrosssectionfit,porodfit,powerfit]
@@ -1480,9 +1495,11 @@ def basicfittinggui(data):
         but=matplotlib.widgets.Button(ax,buttons[i])
         def onclick(A=None,B=None,data=data,type=buttons[i],fitfun=fitfuns[i]):
             a=pylab.axis()
-            print a
             pylab.figure()
-            A,B,Aerr,Berr=fitfun(data,a[0],a[1],testimage=True)
+            intindices=(data['Intensity']>=a[2])&(data['Intensity']<=a[3])
+            qmin=max(a[0],data['q'][intindices].min())
+            qmax=min(a[1],data['q'][intindices].max())
+            A,B,Aerr,Berr=fitfun(data,qmin,qmax,testimage=True)
             pylab.title('%s fit on dataset. Parameters: %lg +/- %lg ; %lg +/- %lg' % (type,A,Aerr,B,Berr))
             pylab.gcf().show()
         but.on_clicked(onclick)
@@ -1744,8 +1761,8 @@ def linfit(xdata,ydata,errdata=None):
         aerr: the error of "a", calculated by error propagation (sqrt(variance))
         berr: the error of "b"
     """
-    xdata=pylab.array(xdata,dtype='float');
-    ydata=pylab.array(ydata,dtype='float');
+    xdata=pylab.array(xdata);
+    ydata=pylab.array(ydata);
     if xdata.size != ydata.size:
         print "The sizes of xdata and ydata should be the same."
         return
@@ -1753,14 +1770,14 @@ def linfit(xdata,ydata,errdata=None):
         if ydata.size !=errdata.size:
             print "The sizes of ydata and errdata should be the same."
             return
-        errdata=pylab.array(errdata,dtype='float');
+        errdata=pylab.array(errdata);
         S=pylab.sum(1.0/(errdata**2))
         Sx=pylab.sum(xdata/(errdata**2))
         Sy=pylab.sum(ydata/(errdata**2))
         Sxx=pylab.sum(xdata*xdata/(errdata**2))
         Sxy=pylab.sum(xdata*ydata/(errdata**2))
     else:
-        S=float(xdata.size)
+        S=xdata.size
         Sx=pylab.sum(xdata)
         Sy=pylab.sum(ydata)
         Sxx=pylab.sum(xdata*xdata)
@@ -2264,7 +2281,17 @@ def writeintfile(qs, ints, errs, header, areas=None, filetype='intnorm'):
         else:
             fid.write('%e %e %e %e\n' % (qs[i],ints[i],errs[i],areas[i]))
     fid.close();
+def write1dsasdict(data, filename):
+    """Save 1D scattering data to file
     
+    Inputs:
+        data: 1D SAXS dictionary
+        filename: filename
+    """
+    fid=open(filename,'wt');
+    for i in range(len(data['q'])):
+        fid.write('%e %e %e\n' % (data['q'][i],data['Intensity'][i],data['Error'][i]))
+    fid.close();
 def readintnorm(fsns, filetype='intnorm'):
     """Read intnorm*.dat files along with their headers
     
@@ -3141,14 +3168,18 @@ def powerfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         the calculated error of the exponent
         the calculated error of the logarithm of the prefactor
     """
+    print qmin
+    print qmax
+    print len(data['q'])
     data1=trimq(data,qmin,qmax)
+    print len(data1['q'])
     x1=pylab.log(data1['q']);
     err1=pylab.absolute(data1['Error']/data1['Intensity']);
     y1=pylab.log(data1['Intensity']);
-    a,b,aerr,berr=linfit(x1,y1,err1)
+    a,b,aerr,berr=linfit(x1,y1)
     if testimage:
-        pylab.loglog(data['q'],data['Intensity'],'.');
-        pylab.loglog(data['q'],pylab.exp(b)*pow(data['q'],a),'-',color='red');
+        pylab.loglog(data1['q'],data1['Intensity'],'.');
+        pylab.loglog(data1['q'],pylab.exp(b)*pow(data1['q'],a),'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
     return a,b,aerr,berr
@@ -3450,7 +3481,7 @@ def radhist(data,energy,distance,res,bcx,bcy,mask,q,I):
     return hist
 def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
                    lengthtoph,lengthbasev=0,lengthtopv=0,beamnumh=1024,
-                   beamnumv=None):
+                   beamnumv=1):
     """Calculate the smearing matrix for the given geometry.
     
     Inputs: (pixels and pixel coordinates are counted from 0. The direction
@@ -3466,7 +3497,7 @@ def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
         beamnumh: the number of elementary points of the horizontal beam
             profile
         beamnumv: the number of elementary points of the vertical beam profile
-            Give None if you only want to take the length of the slit into
+            Give 1 if you only want to take the length of the slit into
             account.
     
     Output:
@@ -3474,61 +3505,64 @@ def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
         of a column vector of the measured intensities can be accomplished by
         multiplying by the inverse of this matrix.
     """
+    def trapezoidshapefunction(lengthbase,lengthtop,x):
+        x=pylab.array(x)
+        if len(x)<2:
+            return pylab.array(1)
+        T=pylab.zeros(x.shape)
+        indslopeleft=(x<=-lengthtop/2.0)
+        indsloperight=(x>=lengthtop/2.0)
+        indtop=(x<=lengthtop/2.0)&(x>=-lengthtop/2.0)
+        T[indsloperight]=-4.0/(lengthbase**2-lengthtop**2)*x[indsloperight]+lengthbase*2.0/(lengthbase**2-lengthtop**2)
+        T[indtop]=2.0/(lengthbase+lengthtop)
+        T[indslopeleft]=4.0/(lengthbase**2-lengthtop**2)*x[indslopeleft]+lengthbase*2.0/(lengthbase**2-lengthtop**2)
+        return T
     # coordinates of the pixels
     pixels=pylab.arange(pixelmin,pixelmax+1)
-    # distance of each pixel from the beam in mm.
-    x=pylab.absolute((pylab.arange(len(pixels))-beamcenter)*pixelsize*1e-3);
-    # coordinates of the half of the beam-profile in mm.
-    y=pylab.linspace(0,lengthbaseh/2.0,beamnumh)
-    if beamnumv >0:
-        xb=pylab.linspace(0,lengthbasev/2.0,beamnumv)
+    # distance of each pixel from the beam in pixel units
+    x=pylab.absolute(pixels-beamcenter);
+    # horizontal and vertical coordinates of the beam-profile in mm.
+    if beamnumh>1:
+        yb=pylab.linspace(-max(lengthbaseh,lengthtoph)/2.0,max(lengthbaseh,lengthtoph)/2.0,beamnumh)
+        deltah=(yb[-1]-yb[0])*1.0/beamnumh
+        centerh=2.0/(lengthbaseh+lengthtoph)
+    else:
+        yb=pylab.array([0])
+        deltah=1
+        centerh=1
+    if beamnumv>1:
+        xb=pylab.linspace(-max(lengthbasev,lengthtopv)/2.0,max(lengthbasev,lengthtopv)/2.0,beamnumv)
+        deltav=(xb[-1]-xb[0])*1.0/beamnumv
+        centerv=2.0/(lengthbasev+lengthtopv)
+    else:
+        xb=pylab.array([0])
+        deltav=1
+        centerv=1
+    Xb,Yb=pylab.meshgrid(xb,yb)
     #beam profile vector (trapezoid centered at the origin. Only a half of it
     # is taken into account)
-    H=pylab.zeros(y.shape)
-    indslope=(y>=lengthtoph/2.0)
-    indtop=(y<=lengthtoph/2.0)
-    H[indslope]=-4.0/(lengthbaseh**2-lengthtoph**2)*y[indslope]+lengthbaseh/2.0*4.0/(lengthbaseh**2-lengthtoph**2)
-    H[indtop]=2.0/(lengthbaseh+lengthtoph)
-    deltah=lengthbaseh*0.5/beamnumh
-    if beamnumv>0:
-        P=pylab.zeros(xb.shape)
-        indslope=(xb>=lengthtopv/2.0)
-        indtop=(xb<=lengthtopv/2.0)
-        P[indslope]=-4.0/(lengthbasev**2-lengthtopv**2)*xb[indslope]+lengthbasev/2.0*4.0/(lengthbasev**2-lengthtopv**2)
-        P[indtop]=2.0/(lengthbasev+lengthtopv)
-        deltav=lengthbasev*0.5/beamnumv
+    H=trapezoidshapefunction(lengthbaseh,lengthtoph,yb)
+    V=trapezoidshapefunction(lengthbasev,lengthtopv,xb)
+    P=pylab.kron(H,V)
+    center=centerh*centerv
     # scale y to detector pixel units
-    y=y/pixelsize*1e3
-    if beamnumv>0:
-        xb=xb/pixelsize*1e3
-    #Smearing matrix
-    if beamnumv>0:
-        diag=H[0]*P[0]*deltah*deltav
-        A=pylab.zeros((len(x),len(x)))
-        for i in range(len(x)):
-            A[i,i]+=diag
-            for j in range(len(y)):
-                for k in range (len(xb)):
-                    tmp=pylab.sqrt((i-xb[k])**2+y[j]**2)
-                    ind1=int(pylab.floor(tmp))
-                    prop=tmp-ind1
-                    if ind1<len(pixels):
-                        A[i,ind1]+=deltah*deltav*(4*H[j]*P[k])*(1-prop)
-                    if (ind1+1)<len(pixels):
-                        A[i,ind1+1]+=deltah*deltav*(4*H[j]*P[k])*prop
-    else:
-        diag=H[0]*deltah
-        A=pylab.zeros((len(x),len(x)))
-        for i in range(len(x)):
-            A[i,i]+=diag
-            for j in range(len(y)):
-                tmp=pylab.sqrt((i)**2+y[j]**2)
-                ind1=int(pylab.floor(tmp))
-                prop=tmp-ind1
-                if ind1<len(pixels):
-                    A[i,ind1]+=deltah*(2*H[j])*(1-prop)
-                if (ind1+1)<len(pixels):
-                    A[i,ind1+1]+=deltah*(2*H[j])*prop
+    Yb=Yb/pixelsize*1e3
+    Xb=Xb/pixelsize*1e3
+    A=pylab.zeros((len(x),len(x)))
+    for i in range(len(x)):
+        A[i,i]+=center
+        tmp=pylab.sqrt((i-Xb)**2+Yb**2)
+        ind1=pylab.floor(tmp).astype('int').flatten()
+        prop=tmp.flatten()-ind1
+        indices=(ind1<len(pixels))        
+        ind1=ind1[indices].flatten()
+        prop=prop[indices].flatten()
+        p=P[indices].flatten()
+        for j in range(len(ind1)):
+            A[i,ind1[j]]+=p[j]*(1-prop[j])
+            if ind1[j]<len(pixels)-1:
+                A[i,ind1[j]+1]+=p[j]*prop[j]
+    A=A*deltah*deltav
 #    pylab.imshow(A)
 #    pylab.colorbar()
 #    pylab.gcf().show()
@@ -3566,7 +3600,8 @@ def directdesmear(data,smoothing,params):
                 profile (default: 1024)
             beamnumv: the number of elementary points for the vertical beam
                 profile (default: 0)
-            matrix: if this is supplied, all but the 
+            matrix: if this is supplied, all but pixelmin and pixelmax are
+                disregarded.
                 
     Outputs: (pixels,desmeared,smoothed,mat,params,smoothing)
         pixels: the pixel coordinates for the resulting curves
@@ -3601,6 +3636,8 @@ def directdesmear(data,smoothing,params):
         indices=(pixels<=params['pixelmax']) & (pixels>=params['pixelmin'])
         data1=data1[indices]
         pixels=pixels[indices]
+        print data1.shape
+        print params['matrix'].shape
         ret=(pixels,pylab.solve(params['matrix'],data1.reshape(len(data1),1)),
              data1,params['matrix'],params,smoothing)
         return ret
@@ -3636,7 +3673,7 @@ def directdesmear(data,smoothing,params):
                 sm=sl.val
             else:
                 sm=pylab.exp(sl.val)
-            [x1,y1,ysm,A]=smooth_and_desmear(x,y,p,sm)
+            [x1,y1,ysm,A,par,sm]=smooth_and_desmear(x,y,p,sm)
             a=ax.axis()
             ax.cla()
             ax.plot(x,y,'.',label='Original')
@@ -3646,16 +3683,16 @@ def directdesmear(data,smoothing,params):
             ax.axis(a)
             pylab.gcf().show()
         sl.on_changed(sliderfun)
-        [x1,y1,ysm,A]=smooth_and_desmear(pixels,data,params,smoothing['val'])
+        [x1,y1,ysm,A,par,sm]=smooth_and_desmear(pixels,data,params,smoothing['val'])
         ax.plot(pixels,data,'.',label='Original')
         ax.plot(x1,ysm,'-',label='Smoothed (%lg)'%smoothing['val'])
         ax.plot(x1,y1,'-',label='Desmeared')
         ax.legend(loc='best')
         while not f.donedesmear:
             pylab.waitforbuttonpress()
-        if smoothingmode=='lin':
+        if smoothing['mode']=='lin':
             sm=sl.val
-        elif smoothingmode=='log':
+        elif smoothing['mode']=='log':
             sm=pylab.exp(sl.val)
         else:
             raise ValueError('Invalid value for smoothingmode: %s',
