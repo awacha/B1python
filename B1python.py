@@ -1476,35 +1476,112 @@ def makemask(mask,A,savefile=None):
     return mask
     
 
-def basicfittinggui(data):
+def basicfittinggui(data,title=''):
     """Graphical user interface to carry out basic (Guinier, Porod) fitting
     to 1D scattering data.
     
-    Input:
-        1D dataset
-        
+    Inputs:
+        data: 1D dataset
+        title: title to display
     Output:
         None, this leaves a figure open for further user interactions.
     """
     data=flatten1dsasdict(data)
     fig=pylab.figure()
-    buttons=['Guinier','Guinier thickness','Guinier cross-section','Porod','Power law']
-    fitfuns=[guinierfit,guinierthicknessfit,guiniercrosssectionfit,porodfit,powerfit]
+    plots=['Guinier','Guinier thickness','Guinier cross-section','Porod','lin-lin','lin-log','log-lin','log-log']
+    buttons=['Guinier','Guinier thickness','Guinier cross-section','Porod','Power law','Power law with background']
+    fitfuns=[guinierfit,guinierthicknessfit,guiniercrosssectionfit,porodfit,powerfit,powerfitwithbackground]
     for i in range(len(buttons)):
-        ax=pylab.axes((0.05,0.9-(i+1)*(0.8)/len(buttons),0.3,0.7/len(buttons)))
+        ax=pylab.axes((0.05,0.9-(i+1)*(0.8)/(len(buttons)+len(plots)),0.3,0.7/(len(buttons)+len(plots))))
         but=matplotlib.widgets.Button(ax,buttons[i])
         def onclick(A=None,B=None,data=data,type=buttons[i],fitfun=fitfuns[i]):
             a=pylab.axis()
+            plottype=pylab.gcf().plottype
             pylab.figure()
-            intindices=(data['Intensity']>=a[2])&(data['Intensity']<=a[3])
-            qmin=max(a[0],data['q'][intindices].min())
-            qmax=min(a[1],data['q'][intindices].max())
-            A,B,Aerr,Berr=fitfun(data,qmin,qmax,testimage=True)
-            pylab.title('%s fit on dataset. Parameters: %lg +/- %lg ; %lg +/- %lg' % (type,A,Aerr,B,Berr))
+            if plottype=='Guinier':
+                xt=data['q']**2
+                yt=pylab.log(data['Intensity'])
+            elif plottype=='Guinier thickness':
+                xt=data['q']**2
+                yt=pylab.log(data['Intensity'])*xt
+            elif plottype=='Guinier cross-section':
+                xt=data['q']**2
+                yt=pylab.log(data['Intensity'])*data['q']
+            elif plottype=='Porod':
+                xt=data['q']**4
+                yt=data['Intensity']*xt
+            else:
+                xt=data['q']
+                yt=data['Intensity']
+            intindices=(yt>=a[2])&(yt<=a[3])
+            qindices=(xt>=a[0])&(xt<=a[1])
+            indices=intindices&qindices
+            qmin=min(data['q'][indices])
+            qmax=max(data['q'][indices])
+            res=fitfun(data,qmin,qmax,testimage=True)
+            if len(res)==4:
+                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg' % (type,res[0],res[2],res[1],res[3]))
+            elif len(res)==6:
+                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg' % (type,res[0],res[3],res[1],res[4],res[2],res[5]))
+            elif len(res)==8:
+                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg; %lg +/- %lg' % (type,res[0],res[4],res[1],res[5],res[2],res[6],res[3],res[7]))
             pylab.gcf().show()
         but.on_clicked(onclick)
+    ax=pylab.axes((0.05,0.9-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),0.3,0.7/(len(buttons)+len(plots))*len(plots) ))
+    pylab.title('Plot types')
+    rb=matplotlib.widgets.RadioButtons(ax,plots,active=7)
     pylab.axes((0.4,0.1,0.5,0.8))
+    def onselectplottype(plottype,q=data['q'],I=data['Intensity'],title=title):
+        pylab.cla()
+        pylab.gcf().plottype==plottype
+        if plottype=='Guinier':
+            x=q**2
+            y=pylab.log(I)
+            pylab.plot(x,y,'.')
+            pylab.xlabel('q^2')
+            pylab.ylabel('ln I')
+        elif plottype=='Guinier thickness':
+            x=q**2
+            y=pylab.log(I)*q**2
+            pylab.plot(x,y,'.')
+            pylab.xlabel('q^2')
+            pylab.ylabel('ln I*q^2')
+        elif plottype=='Guinier cross-section':
+            x=q**2
+            y=pylab.log(I)*q
+            pylab.plot(x,y,'.')
+            pylab.xlabel('q^2')
+            pylab.ylabel('ln I*q')            
+        elif plottype=='Porod':
+            x=q**4
+            y=I*q**4
+            pylab.plot(x,y,'.')
+            pylab.xlabel('q^4')
+            pylab.ylabel('I*q^4')
+        elif plottype=='lin-lin':
+            pylab.plot(q,I,'.')
+            pylab.xlabel('q')
+            pylab.ylabel('I')
+        elif plottype=='lin-log':
+            pylab.semilogx(q,I,'.')
+            pylab.xlabel('q')
+            pylab.ylabel('I')
+        elif plottype=='log-lin':
+            pylab.semilogy(q,I,'.')
+            pylab.xlabel('q')
+            pylab.ylabel('I')
+        elif plottype=='log-log':
+            pylab.loglog(q,I,'.')
+            pylab.xlabel('q')
+            pylab.ylabel('I')
+        pylab.title(title)
+        pylab.gcf().plottype=plottype
+        pylab.gcf().show()
+    rb.on_clicked(onselectplottype)
+    pylab.title(title)
     pylab.loglog(data['q'],data['Intensity'],'.')
+    pylab.gcf().plottype='log-log'
+    pylab.gcf().show()
 #display routines
 def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
     """Plot intensities
@@ -2759,7 +2836,7 @@ def sanitizeint(data):
     for k in data.keys():
         data1[k]=data[k][indices]
     return data1
-def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin'):
+def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False):
     """GUI tool for locating peaks by zooming on them
     
     Inputs:
@@ -2768,6 +2845,7 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin'):
         prompt: prompt to display as a title
         mode: 'Lorentz' or 'Gauss'
         scaling: scaling of the y axis. 'lin' or 'log' 
+        blind: do everything blindly (no user interaction)
         
     Outputs:
         the peak position
@@ -2777,21 +2855,25 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin'):
     """
     xdata=xdata.flatten()
     ydata=ydata.flatten()
-    if scaling=='log':
-        pylab.semilogy(xdata,ydata,'b.')
+    if not blind:
+        if scaling=='log':
+            pylab.semilogy(xdata,ydata,'b.')
+        else:
+            pylab.plot(xdata,ydata,'b.')
+        if prompt is None:
+            prompt='Please zoom to the peak you want to select, then press ENTER'
+        pylab.title(prompt)
+        pylab.gcf().show()
+        print(prompt)
+        while (pylab.waitforbuttonpress() is not True):
+            pass
+        a=pylab.axis()
+        indices=((xdata<=a[1])&(xdata>=a[0]))&((ydata<=a[3])&(ydata>=a[2]))
+        x1=xdata[indices]
+        y1=ydata[indices]
     else:
-        pylab.plot(xdata,ydata,'b.')
-    if prompt is None:
-        prompt='Please zoom to the peak you want to select, then press ENTER'
-    pylab.title(prompt)
-    pylab.gcf().show()
-    print(prompt)
-    while (pylab.waitforbuttonpress() is not True):
-        pass
-    a=pylab.axis()
-    indices=((xdata<=a[1])&(xdata>=a[0]))&((ydata<=a[3])&(ydata>=a[2]))
-    x1=xdata[indices]
-    y1=ydata[indices]
+        x1=xdata
+        y1=ydata
     def gausscostfun(p,x,y):  #p: A,sigma,x0,y0
         tmp= y-p[3]-p[0]/(pylab.sqrt(2*pylab.pi)*p[1])*pylab.exp(-(x-p[2])**2/(2*p[1]**2))
         return tmp
@@ -2805,10 +2887,11 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin'):
             0.5*(x1[-1]+x1[0]),
             y1.min())
         p1,ier=scipy.optimize.leastsq(gausscostfun,p0,args=(x1,y1))
-        if scaling=='log':
-            pylab.semilogy(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
-        else:
-            pylab.plot(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
+        if not blind:
+            if scaling=='log':
+                pylab.semilogy(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
+            else:
+                pylab.plot(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
     elif mode=='Lorentz':
         sigma0=0.25*(x1[-1]-x1[0])
         p0=((y1.max()-y1.min())/(1/sigma0),
@@ -2816,13 +2899,15 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin'):
             0.5*(x1[-1]+x1[0]),
             y1.min())
         p1,ier=scipy.optimize.leastsq(lorentzcostfun,p0,args=(x1,y1))
-        if scaling=='log':
-            pylab.semilogy(x1,p1[3]+p1[0]*lorentzian(p1[2],p1[1],x1),'r-')
-        else:
-            pylab.plot(x1,p1[3]+p1[0]*lorentzian(p1[2],p1[1],x1),'r-')
+        if not blind:
+            if scaling=='log':
+                pylab.semilogy(x1,p1[3]+p1[0]*lorentzian(p1[2],p1[1],x1),'r-')
+            else:
+                pylab.plot(x1,p1[3]+p1[0]*lorentzian(p1[2],p1[1],x1),'r-')
     else:
         raise ValueError('Only Gauss and Lorentz modes are supported in findpeak()')
-    pylab.gcf().show()
+    if not blind:
+        pylab.gcf().show()
     return p1[2]
 def trimq(data,qmin=-pylab.inf,qmax=pylab.inf):
     """Trim the 1D scattering data to a given q-range
@@ -2952,7 +3037,7 @@ def shullroess(data,qmin=-pylab.inf,qmax=pylab.inf,gui=False):
         # do a proper least squares fitting
         def fitfun(p,x,y,err): # p: K,n,r0
             return (y-pylab.exp(p[0])*(x**2+3/p[2]**2)**(-(p[1]+4)/2.0))/err
-        res=scipy.optimize.leastsq(fitfun,pylab.array([1,2,100]),#pylab.array([b,n,r0s[bestindex]]), 
+        res=scipy.optimize.leastsq(fitfun,pylab.array([b,n,r0s[bestindex]]), 
                                     args=(qexp,Iexp,errexp),maxfev=1000,full_output=1)
         K,n,R0=res[0]
         print "After lsq fit:"
@@ -3048,7 +3133,6 @@ def tweakfit(xdata,ydata,modelfun,fitparams):
         sl[-1].on_changed(setfun)
     pylab.axes((0.5,0.1,0.4,0.8))
     redraw(False)
-#EXPERIMENTAL (DANGER ZONE)
 def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     """Do a cross-section Guinier fit on the dataset.
     
@@ -3066,8 +3150,8 @@ def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     """
     data1=trimq(data,qmin,qmax)
     x1=data1['q']**2;
-    err1=pylab.absolute(data1['Error']/data1['Intensity']*x1)
-    y1=pylab.log(data1['Intensity'])*x1
+    err1=pylab.absolute(data1['Error']/data1['Intensity']*data1['q'])
+    y1=pylab.log(data1['Intensity'])*data1['q']
     Rgcs,Gcs,dRgcs,dGcs=linfit(x1,y1,err1)
     if testimage:
         pylab.plot(data['q']**2,pylab.log(data['Intensity'])*data['q'],'.')
@@ -3092,8 +3176,8 @@ def guinierthicknessfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     """
     data1=trimq(data,qmin,qmax)
     x1=data1['q']**2;
-    err1=pylab.absolute(data1['Error']/data1['Intensity']*x1*x1)
-    y1=pylab.log(data1['Intensity'])*x1*x1
+    err1=pylab.absolute(data1['Error']/data1['Intensity']*data1['q']**2)
+    y1=pylab.log(data1['Intensity'])*data1['q']**2
     Rgt,Gt,dRgt,dGt=linfit(x1,y1,err1)
     if testimage:
         pylab.plot(data['q']**2,pylab.log(data['Intensity'])*data['q']**2,'.')
@@ -3168,11 +3252,7 @@ def powerfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         the calculated error of the exponent
         the calculated error of the logarithm of the prefactor
     """
-    print qmin
-    print qmax
-    print len(data['q'])
     data1=trimq(data,qmin,qmax)
-    print len(data1['q'])
     x1=pylab.log(data1['q']);
     err1=pylab.absolute(data1['Error']/data1['Intensity']);
     y1=pylab.log(data1['Intensity']);
@@ -3183,7 +3263,41 @@ def powerfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
     return a,b,aerr,berr
-def unifiedfit(data,B,G,Rg,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
+def powerfitwithbackground(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    """Fit a power-law on the dataset (I=B*q^A+C)
+    
+    Inputs:
+        data: 1D scattering data dictionary
+        qmin: lowest q-value to take into account. Default is -infinity
+        qmax: highest q-value to take into account. Default is infinity
+        testimage: if a test image is desired. Default is false.
+    
+    Outputs:
+        the exponent
+        the prefactor
+        the constant background
+        the calculated error of the exponent
+        the calculated error of the prefactor
+        the calculated error of the constant background
+    """
+    data1=trimq(data,qmin,qmax)
+    x1=data1['q'];
+    err1=data1['Error'];
+    y1=data1['Intensity'];
+    def costfunc(p,x,y,err):
+        res= (y-x**p[0]*p[1]-p[2])/err
+        return res
+    Cinit=0
+    Ainit=-4
+    Binit=1#(y1[0]-Cinit)/x1[0]**Ainit
+    res=scipy.optimize.leastsq(costfunc,pylab.array([Ainit,Binit,Cinit]),args=(x1,y1,err1),full_output=1)
+    if testimage:
+        pylab.loglog(data1['q'],data1['Intensity'],'.');
+        pylab.loglog(data1['q'],res[0][1]*pow(data1['q'],res[0][0])+res[0][2],'-',color='red');
+        pylab.xlabel('$q$ (1/%c)' % 197)
+        pylab.ylabel('I');
+    return res[0][0],res[0][1],res[0][2],pylab.sqrt(res[1][0][0]),pylab.sqrt(res[1][1][1]),pylab.sqrt(res[1][2][2])    
+def unifiedfit(data,B,G,Rg,P,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
     """Do a unified fit on the dataset, in the sense of G. Beaucage
     (J. Appl. Cryst. (1995) 28, 717-728)
     
@@ -3192,6 +3306,7 @@ def unifiedfit(data,B,G,Rg,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
         B: the initial value for the porod prefactor
         G: the initial value for the Guinier prefactor
         Rg: the initial value for the Guinier radius
+        P: the initial value for the exponent of the power-law
         qmin: lowest q-value to take into account. Default is -infinity
         qmax: highest q-value to take into account. Default is infinity
         testimage: if a test image is desired. Default is false.
@@ -3202,14 +3317,20 @@ def unifiedfit(data,B,G,Rg,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
         the Porod prefactor
         the Guinier prefactor
         the radius of gyration
+        the error of the Porod prefactor
+        the error of the Guinier prefactor
+        the error of the radius of gyration
     """
     data=trimq(data,qmin,qmax)
     def fitfun(data,x,y,err):
         G=data[0]
         B=data[1]
         Rg=data[2]
-        return (unifiedscattering(x,B,G,Rg,4)-y)/err
-    return scipy.optimize.leastsq(fitfun,pylab.array([B,G,Rg]),args=(data['q'],data['Intensity'],data['Error']))[0]
+        P=data[3]
+        return (unifiedscattering(x,B,G,Rg,P)-y)/err
+    res=scipy.optimize.leastsq(fitfun,pylab.array([B,G,Rg,P]),args=(data['q'],data['Intensity'],data['Error']),full_output=1)
+    return res[0][0],res[0][1],res[0][2],res[0][3],pylab.sqrt(res[1][0][0]),pylab.sqrt(res[1][1][1]),pylab.sqrt(res[1][2][2]),pylab.sqrt(res[1][3][3])
+#EXPERIMENTAL (DANGER ZONE)
 def radint2(data,dataerr,energy,distance,res,bcx,bcy,mask,q):
     """EXPERIMENTAL!!!!!
     """

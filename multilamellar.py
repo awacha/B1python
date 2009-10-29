@@ -3,7 +3,7 @@ from B1python import *
 modegenerate=True
 modeplot=True
 
-Nrepetitions=200
+Nrepetitions=60
 
 coreradius0=10000
 layerdistance=60

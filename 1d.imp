@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--2D detector for SAXSSIMPVM. Created by libimageplate 0.1-->
+<ImagePlate>
+  <Type>Linear</Type>
+  <Qmin>0.001</Qmin>
+  <Qmax>1</Qmax>
+  <Qstep>0.0005</Qstep>
+  <Normal>
+    <X>1</X>
+    <Y>0</Y>
+    <Z>0</Z>
+  </Normal>
+  <Incident>
+    <X>1</X>
+    <Y>0</Y>
+    <Z>0</Z>
+  </Incident>
+  <Plate>
+    <X>3e+10</X>
+    <Y>0</Y>
+    <Z>0</Z>
+    <Up>
+      <X>0</X>
+      <Y>0</Y>
+      <Z>1</Z>
+    </Up>
+  </Plate>
+  <Lambda>1.54</Lambda>
+</ImagePlate>
