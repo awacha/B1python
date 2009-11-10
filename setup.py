@@ -1,12 +1,9 @@
 #!/usb/bin/env python
 
-from distutils.core import setup, Extension
+from distutils.core import setup
 
-radint_ng_module = Extension('_radint_ng',
-                             sources=['radint_ng_wrap.c', 'radint_ng.c'],)
-                             
-setup(name='radint_ng',version='0.1', author='Andras Wacha',
-      description='radint, programmed in C',
-      ext_modules=[radint_ng_module],
-      py_modules=['radint_ng']
+setup(name='B1python',version='0.1', author='Andras Wacha',
+      description='Python macros for (A)SAXS evaluation',
+      py_modules=['B1python'],
       )
+      

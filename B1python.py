@@ -88,7 +88,6 @@ import scipy.optimize
 import scipy.special
 import scipy.stats.stats
 import scipy.interpolate
-import radint_ng
 
 HC=12396.4 #Planck's constant times speed of light, in eV*Angstrom units
 def savespheres(spheres,filename):
@@ -2886,7 +2885,7 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False):
             sigma0,
             0.5*(x1[-1]+x1[0]),
             y1.min())
-        p1,ier=scipy.optimize.leastsq(gausscostfun,p0,args=(x1,y1))
+        p1,ier=scipy.optimize.leastsq(gausscostfun,p0,args=(x1,y1),maxfev=10000)
         if not blind:
             if scaling=='log':
                 pylab.semilogy(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
@@ -2898,7 +2897,7 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False):
             sigma0,
             0.5*(x1[-1]+x1[0]),
             y1.min())
-        p1,ier=scipy.optimize.leastsq(lorentzcostfun,p0,args=(x1,y1))
+        p1,ier=scipy.optimize.leastsq(lorentzcostfun,p0,args=(x1,y1),maxfev=10000)
         if not blind:
             if scaling=='log':
                 pylab.semilogy(x1,p1[3]+p1[0]*lorentzian(p1[2],p1[1],x1),'r-')
@@ -3330,6 +3329,448 @@ def unifiedfit(data,B,G,Rg,P,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
         return (unifiedscattering(x,B,G,Rg,P)-y)/err
     res=scipy.optimize.leastsq(fitfun,pylab.array([B,G,Rg,P]),args=(data['q'],data['Intensity'],data['Error']),full_output=1)
     return res[0][0],res[0][1],res[0][2],res[0][3],pylab.sqrt(res[1][0][0]),pylab.sqrt(res[1][1][1]),pylab.sqrt(res[1][2][2]),pylab.sqrt(res[1][3][3])
+def fitspheredistribution(data,distfun,R,params,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    """Fit the scattering data with a sphere distribution function
+    
+    Inputs:
+        data: 1D scattering dictionary
+        distfun: distribution function. Should have the following form:
+            fun(R,param1,param2,...paramN) where N is the length of params
+            (see below). R is a numpy array of radii in Angstroem
+        R: numpy array of radii
+        params: list of initial parameters for the distribution. 
+        qmin: minimum q-value
+        qmax: maximum q-value
+        testimage: if a test image (visual check of the quality of the fit)
+            is desired. Default is False.
+    
+    Outputs:
+        paramsfitted: list of the fitted parameters plus a scaling factor
+            added as the last.
+    """
+    data1=trimq(data,qmin,qmax)
+    q=data1['q']
+    Int=data1['Intensity']
+    Err=data1['Error']
+    params=list(params)
+    params.append(1)
+    params1=tuple(params)
+    tsI=pylab.zeros((len(q),len(R)))
+    for i in range(len(R)):
+        tsI[:,i]=fsphere(q,R[i])
+    R.reshape((len(R),1))
+    def fitfun(params,R,q,I,Err,dist=distfun,tsI=tsI):
+        return (params[-1]*pylab.dot(tsI,dist(R,*(params[:-1])))-I)/Err
+    res=scipy.optimize.leastsq(fitfun,params1,args=(R,q,Int,Err),full_output=1)
+    print "Fitted values:",res[0]
+    print "Covariance matrix:",res[1]
+    if testimage:
+        pylab.semilogy(data['q'],data['Intensity'],'.');
+        tsIfull=pylab.zeros((len(data['q']),len(R)))
+        for i in range(len(R)):
+            tsIfull[:,i]=fsphere(data['q'],R[i])
+        print data['q'].shape
+        print pylab.dot(tsIfull,distfun(R,*(res[0][:-1]))).shape
+        pylab.semilogy(data['q'],res[0][-1]*pylab.dot(tsIfull,distfun(R,*(res[0][:-1]))),'-',color='red');
+        pylab.xlabel('$q$ (1/%c)' % 197)
+        pylab.ylabel('I');
+    return res[0]
+def lognormdistrib(x,mu,sigma):
+    """Evaluate the PDF of the log-normal distribution
+    
+    Inputs:
+        x: the points in which the values should be evaluated
+        mu: parameter mu
+        sigma: parameter sigma
+    
+    Outputs:
+        y: 1/(x*sigma*sqrt(2*pi))*exp(-(log(x)-mu)^2/(2*sigma^2))
+    """
+    return 1/(x*sigma*pylab.sqrt(2*pylab.pi))*pylab.exp(-(pylab.log(x)-mu)**2/(2*sigma**2))
+#1D data treatment
+def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
+                   lengthtoph,lengthbasev=0,lengthtopv=0,beamnumh=1024,
+                   beamnumv=1):
+    """Calculate the smearing matrix for the given geometry.
+    
+    Inputs: (pixels and pixel coordinates are counted from 0. The direction
+        of the detector is assumed to be vertical.)
+        pixelmin: the smallest pixel to take into account
+        pixelmax: the largest pixel to take into account
+        beamcenter: pixel coordinate of the primary beam
+        pixelsize: the size of pixels, in micrometers
+        lengthbaseh: the length of the base of the horizontal beam profile
+        lengthtoph: the length of the top of the horizontal beam profile
+        lengthbasev: the length of the base of the vertical beam profile
+        lengthtopv: the length of the top of the vertical beam profile
+        beamnumh: the number of elementary points of the horizontal beam
+            profile
+        beamnumv: the number of elementary points of the vertical beam profile
+            Give 1 if you only want to take the length of the slit into
+            account.
+    
+    Output:
+        The smearing matrix. This is an upper triangular matrix. Desmearing
+        of a column vector of the measured intensities can be accomplished by
+        multiplying by the inverse of this matrix.
+    """
+    def trapezoidshapefunction(lengthbase,lengthtop,x):
+        x=pylab.array(x)
+        if len(x)<2:
+            return pylab.array(1)
+        T=pylab.zeros(x.shape)
+        indslopeleft=(x<=-lengthtop/2.0)
+        indsloperight=(x>=lengthtop/2.0)
+        indtop=(x<=lengthtop/2.0)&(x>=-lengthtop/2.0)
+        T[indsloperight]=-4.0/(lengthbase**2-lengthtop**2)*x[indsloperight]+lengthbase*2.0/(lengthbase**2-lengthtop**2)
+        T[indtop]=2.0/(lengthbase+lengthtop)
+        T[indslopeleft]=4.0/(lengthbase**2-lengthtop**2)*x[indslopeleft]+lengthbase*2.0/(lengthbase**2-lengthtop**2)
+        return T
+    # coordinates of the pixels
+    pixels=pylab.arange(pixelmin,pixelmax+1)
+    # distance of each pixel from the beam in pixel units
+    x=pylab.absolute(pixels-beamcenter);
+    # horizontal and vertical coordinates of the beam-profile in mm.
+    if beamnumh>1:
+        yb=pylab.linspace(-max(lengthbaseh,lengthtoph)/2.0,max(lengthbaseh,lengthtoph)/2.0,beamnumh)
+        deltah=(yb[-1]-yb[0])*1.0/beamnumh
+        centerh=2.0/(lengthbaseh+lengthtoph)
+    else:
+        yb=pylab.array([0])
+        deltah=1
+        centerh=1
+    if beamnumv>1:
+        xb=pylab.linspace(-max(lengthbasev,lengthtopv)/2.0,max(lengthbasev,lengthtopv)/2.0,beamnumv)
+        deltav=(xb[-1]-xb[0])*1.0/beamnumv
+        centerv=2.0/(lengthbasev+lengthtopv)
+    else:
+        xb=pylab.array([0])
+        deltav=1
+        centerv=1
+    Xb,Yb=pylab.meshgrid(xb,yb)
+    #beam profile vector (trapezoid centered at the origin. Only a half of it
+    # is taken into account)
+    H=trapezoidshapefunction(lengthbaseh,lengthtoph,yb)
+    V=trapezoidshapefunction(lengthbasev,lengthtopv,xb)
+    P=pylab.kron(H,V)
+    center=centerh*centerv
+    # scale y to detector pixel units
+    Yb=Yb/pixelsize*1e3
+    Xb=Xb/pixelsize*1e3
+    A=pylab.zeros((len(x),len(x)))
+    for i in range(len(x)):
+        A[i,i]+=center
+        tmp=pylab.sqrt((i-Xb)**2+Yb**2)
+        ind1=pylab.floor(tmp).astype('int').flatten()
+        prop=tmp.flatten()-ind1
+        indices=(ind1<len(pixels))        
+        ind1=ind1[indices].flatten()
+        prop=prop[indices].flatten()
+        p=P[indices].flatten()
+        for j in range(len(ind1)):
+            A[i,ind1[j]]+=p[j]*(1-prop[j])
+            if ind1[j]<len(pixels)-1:
+                A[i,ind1[j]+1]+=p[j]*prop[j]
+    A=A*deltah*deltav
+#    pylab.imshow(A)
+#    pylab.colorbar()
+#    pylab.gcf().show()
+    return A
+def directdesmear(data,smoothing,params):
+    """Desmear the scattering data according to the direct desmearing
+    algorithm by Singh, Ghosh and Shannon
+    
+    Inputs:
+        data: measured intensity vector of arbitrary length (numpy array)
+        smoothing: smoothing parameter for scipy.optimize.splrep. A scalar
+            number. If not exactly known, a dictionary may be supplied with
+            the following fields:
+                low: lower threshold
+                high: upper threshold
+                val: initial value
+                mode: 'lin' or 'log'
+            In this case a GUI will be set up. A slider and an Ok button at
+            the bottom of the figure will aid the user to select the optimal
+            smoothing parameter.
+        params: a dictionary with the following fields:
+            pixelmin: left trimming value (default: -infinity)
+            pixelmax: right trimming value (default: infinity)
+            beamcenter: pixel coordinate of the beam (no default value)
+            pixelsize: size of the pixels in micrometers (no default value)
+            lengthbaseh: length of the base of the horizontal beam profile
+                (millimetres, no default value)
+            lengthtoph: length of the top of the horizontal beam profile
+                (millimetres, no default value)
+            lengthbasev: length of the base of the vertical beam profile
+                (millimetres, no default value)
+            lengthtopv: length of the top of the vertical beam profile
+                (millimetres, no default value)
+            beamnumh: the number of elementary points for the horizontal beam
+                profile (default: 1024)
+            beamnumv: the number of elementary points for the vertical beam
+                profile (default: 0)
+            matrix: if this is supplied, all but pixelmin and pixelmax are
+                disregarded.
+                
+    Outputs: (pixels,desmeared,smoothed,mat,params,smoothing)
+        pixels: the pixel coordinates for the resulting curves
+        desmeared: the desmeared curve
+        smoothed: the smoothed curve
+        mat: the desmearing matrix
+        params: the desmearing parameters
+        smoothing: smoothing parameter
+    """
+    #default values
+    dparams={'pixelmin':-pylab.inf,'pixelmax':pylab.inf,
+             'beamnumh':1024,'beamnumv':0}
+    dparams.update(params)
+    params=dparams
+    
+    # calculate the matrix
+    if params.has_key('matrix') and type(params['matrix'])==pylab.ndarray:
+        A=params['matrix']
+    else:
+        A=smearingmatrix(params['pixelmin'],params['pixelmax'],
+                         params['beamcenter'],params['pixelsize'],
+                         params['lengthbaseh'],params['lengthtoph'],
+                         params['lengthbasev'],params['lengthtopv'],
+                         params['beamnumh'],params['beamnumv'])
+        params['matrix']=A
+    #x coordinates in pixels
+    pixels=pylab.arange(len(data))
+    def smooth_and_desmear(pixels,data,params,smoothing):
+        # smoothing the dataset. Errors of the data are sqrt(data), weight will be therefore 1/data
+        tck=scipy.interpolate.splrep(pixels,data,s=smoothing)
+        data1=scipy.interpolate.splev(pixels,tck)
+        indices=(pixels<=params['pixelmax']) & (pixels>=params['pixelmin'])
+        data1=data1[indices]
+        pixels=pixels[indices]
+        print data1.shape
+        print params['matrix'].shape
+        ret=(pixels,pylab.solve(params['matrix'],data1.reshape(len(data1),1)),
+             data1,params['matrix'],params,smoothing)
+        return ret
+    if type(smoothing)!=type({}):
+        res=smooth_and_desmear(pixels,data,params,smoothing)
+        return res
+    else:
+        f=pylab.figure()
+        f.donedesmear=False
+        axsl=pylab.axes((0.08,0.02,0.7,0.05))
+        axb=pylab.axes((0.85,0.02,0.08,0.05))
+        ax=pylab.axes((0.1,0.12,0.8,0.78))
+        b=matplotlib.widgets.Button(axb,'Ok')
+        def buttclick(a=None,f=f):
+            f.donedesmear=True
+        b.on_clicked(buttclick)
+        if smoothing['mode']=='log':
+            sl=matplotlib.widgets.Slider(axsl,'Smoothing',
+                                         pylab.log(smoothing['low']),
+                                         pylab.log(smoothing['high']),
+                                         pylab.log(smoothing['val']))
+        elif smoothing['mode']=='lin':
+            sl=matplotlib.widgets.Slider(axsl,'Smoothing',
+                                         smoothing['low'],
+                                         smoothing['high'],
+                                         smoothing['val'])
+        else:
+            raise ValueError('Invalid value for smoothingmode: %s',
+                             smoothing['mode'])
+        def sliderfun(a=None,sl=sl,ax=ax,mode=smoothing['mode'],x=pixels,
+                      y=data,p=params):
+            if mode=='lin':
+                sm=sl.val
+            else:
+                sm=pylab.exp(sl.val)
+            [x1,y1,ysm,A,par,sm]=smooth_and_desmear(x,y,p,sm)
+            a=ax.axis()
+            ax.cla()
+            ax.plot(x,y,'.',label='Original')
+            ax.plot(x1,ysm,'-',label='Smoothed (%lg)'%sm)
+            ax.plot(x1,y1,'-',label='Desmeared')
+            ax.legend(loc='best')
+            ax.axis(a)
+            pylab.gcf().show()
+        sl.on_changed(sliderfun)
+        [x1,y1,ysm,A,par,sm]=smooth_and_desmear(pixels,data,params,smoothing['val'])
+        ax.plot(pixels,data,'.',label='Original')
+        ax.plot(x1,ysm,'-',label='Smoothed (%lg)'%smoothing['val'])
+        ax.plot(x1,y1,'-',label='Desmeared')
+        ax.legend(loc='best')
+        while not f.donedesmear:
+            pylab.waitforbuttonpress()
+        if smoothing['mode']=='lin':
+            sm=sl.val
+        elif smoothing['mode']=='log':
+            sm=pylab.exp(sl.val)
+        else:
+            raise ValueError('Invalid value for smoothingmode: %s',
+                             smoothing['mode'])
+        res=smooth_and_desmear(pixels,data,params,sm)
+        return res        
+def readasa(basename):
+    """Load SAXS/WAXS measurement files from ASA *.INF, *.P00 and *.E00 files.
+    
+    Input:
+        basename: the basename (without extension) of the files
+    
+    Output:
+        An ASA dictionary of the following fields:
+            position: the counts for each pixel (numpy array)
+            energy: the energy spectrum (numpy array)
+            params: parameter dictionary. It has the following fields:
+                Month: The month of the measurement
+                Day: The day of the measurement
+                Year: The year of the measurement
+                Hour: The hour of the measurement
+                Minute: The minute of the measurement
+                Second: The second of the measurement
+                Title: The title. If the user has written something to the
+                    first line of the .INF file, it will be regarded as the
+                    title. Otherwise the basename will be picked for this
+                    field.
+                Basename: The base name of the files (without the extension)
+                Energywindow_Low: the lower value of the energy window
+                Energywindow_High: the higher value of the energy window
+                Stopcondition: stop condition in a string
+                Realtime: real time in seconds
+                Livetime: live time in seconds
+    """
+    try:
+        p00=pylab.loadtxt('%s.P00' % basename)
+    except IOError:
+        try:
+            p00=pylab.loadtxt('%s.p00' % basename)
+        except:
+            raise IOError('Cannot find %s.p00, neither %s.P00.' % (basename,basename))
+    if p00 is not None:
+        p00=p00[1:] # cut the leading -1
+    try:
+        e00=pylab.loadtxt('%s.E00' % basename)
+    except IOError:
+        try:
+            e00=pylab.loadtxt('%s.e00' % basename)
+        except:
+            e00=None
+    if e00 is not None:
+        e00=e00[1:] # cut the leading -1
+    try:
+        inffile=open('%s.inf' % basename)
+    except IOError:
+        try:
+            inffile=open('%s.Inf' % basename)
+        except IOError:
+            try:
+                inffile=open('%s.INF' % basename)
+            except:
+                inffile=None
+                params=None
+    if inffile is not None:
+        params={}
+        l=inffile.readlines()
+        def getdate(str):
+            try:
+                month=int(str.split()[0].split('-')[0])
+                day=int(str.split()[0].split('-')[1])
+                year=int(str.split()[0].split('-')[2])
+                hour=int(str.split()[1].split(':')[0])
+                minute=int(str.split()[1].split(':')[1])
+                second=int(str.split()[1].split(':')[2])
+            except:
+                return None
+            return {'Month':month,'Day':day,'Year':year,'Hour':hour,'Minute':minute,'Second':second}
+        if getdate(l[0]) is None:
+            params['Title']=l[0].strip()
+            offset=1
+        else:
+            params['Title']=basename
+            offset=0
+        d=getdate(l[offset])
+        params.update(d)
+        for line in l:
+            if line.strip().startswith('PSD1 Lower Limit'):
+                params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
+            elif line.strip().startswith('PSD1 Upper Limit'):
+                params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
+            elif line.strip().startswith('Realtime'):
+                params['Realtime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
+            elif line.strip().startswith('Lifetime'):
+                params['Livetime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
+            elif line.strip().startswith('Lower Limit'):
+                params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
+            elif line.strip().startswith('Upper Limit'):
+                params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
+            elif line.strip().startswith('Stop Condition'):
+                params['Stopcondition']=line.strip().split(':')[1].strip().replace(',','.')
+        params['basename']=basename.split(os.sep)[-1]
+    return {'position':p00,'energy':e00,'params':params}
+def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68):
+    """Find q-range from AgSt (or AgBeh) measurements.
+    
+    Inputs:
+        xdata: vector of abscissa values (typically pixel numbers)
+        ydata: vector of scattering data (counts)
+        peaks: list of the orders of peaks (ie. [1,2,3])
+        peakmode: what type of function should be fitted on the peak. Possible
+            values: 'Lorentz' and 'Gauss'
+        wavelength: wavelength of the X-ray radiation. Default is Cu Kalpha,
+            1.54 Angstroems
+        d: the periodicity of the sample (default: 48.68 A for silver
+            stearate)
+            
+    Output:
+        The q-scale in a vector which is of the same size as xdata.
+        
+    Notes:
+        A graphical window will be popped up len(peaks)-times, each prompting
+            the user to zoom on the n-th peak. After the last peak was
+            selected, the q-range will be returned.
+    """
+    pcoord=[]
+    for p in peaks:
+        tmp=findpeak(xdata,ydata,('Zoom to peak %d and press ENTER' % p),peakmode,scaling='log')
+        pcoord.append(tmp)
+    pcoord=pylab.array(pcoord)
+    n=pylab.array(peaks)
+    a=(n*wavelength)/(2*d)
+    x=2*a*pylab.sqrt(1-a**2)/(1-2*a**2)
+    LperH,xcent,LperHerr,xcenterr=linfit(x,pcoord)
+    print 'pixelsize/dist:',1/LperH,'+/-',LperHerr/LperH**2
+    print 'beam position:',xcent,'+/-',xcenterr
+    b=(pylab.array(xdata)-xcent)/LperH
+    return 4*pylab.pi*pylab.sqrt(0.5*(b**2+1-pylab.sqrt(b**2+1))/(b**2+1))/wavelength
+def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*pylab.array([0.21739,0.25641,0.27027])):
+    """Find q-range from Tripalmitine measurements.
+    
+    Inputs:
+        xdata: vector of abscissa values (typically pixel numbers)
+        ydata: vector of scattering data (counts)
+        peakmode: what type of function should be fitted on the peak. Possible
+            values: 'Lorentz' and 'Gauss'
+        wavelength: wavelength of the X-ray radiation. Default is Cu Kalpha,
+            1.54 Angstroems
+        qvals: a list of q-values corresponding to peaks. The default values
+            are for Tripalmitine
+            
+    Output:
+        The q-scale in a vector which is of the same size as xdata.
+        
+    Notes:
+        A graphical window will be popped up len(qvals)-times, each prompting
+            the user to zoom on the n-th peak. After the last peak was
+            selected, the q-range will be returned.
+    """
+    pcoord=[]
+    peaks=range(len(qvals))
+    for p in peaks:
+        tmp=findpeak(xdata,ydata,
+                     ('Zoom to peak %d (q = %f) and press ENTER' % (p,qvals[p])),
+                     peakmode,scaling='lin')
+        pcoord.append(tmp)
+    pcoord=pylab.array(pcoord)
+    n=pylab.array(peaks)
+    a,b,aerr,berr=linfit(pcoord,qvals)
+    return a*xdata+b
 #EXPERIMENTAL (DANGER ZONE)
 def radint2(data,dataerr,energy,distance,res,bcx,bcy,mask,q):
     """EXPERIMENTAL!!!!!
@@ -3600,257 +4041,19 @@ def radhist(data,energy,distance,res,bcx,bcy,mask,q,I):
         indices=((q1<=qmax[l])&(q1>qmin[l])) # the indices of the pixels which belong to this q-bin
         hist[:,l]=scipy.stats.stats.histogram2(data[indices],I)/pylab.sum(indices.astype('float'))
     return hist
-def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
-                   lengthtoph,lengthbasev=0,lengthtopv=0,beamnumh=1024,
-                   beamnumv=1):
-    """Calculate the smearing matrix for the given geometry.
-    
-    Inputs: (pixels and pixel coordinates are counted from 0. The direction
-        of the detector is assumed to be vertical.)
-        pixelmin: the smallest pixel to take into account
-        pixelmax: the largest pixel to take into account
-        beamcenter: pixel coordinate of the primary beam
-        pixelsize: the size of pixels, in micrometers
-        lengthbaseh: the length of the base of the horizontal beam profile
-        lengthtoph: the length of the top of the horizontal beam profile
-        lengthbasev: the length of the base of the vertical beam profile
-        lengthtopv: the length of the top of the vertical beam profile
-        beamnumh: the number of elementary points of the horizontal beam
-            profile
-        beamnumv: the number of elementary points of the vertical beam profile
-            Give 1 if you only want to take the length of the slit into
-            account.
-    
-    Output:
-        The smearing matrix. This is an upper triangular matrix. Desmearing
-        of a column vector of the measured intensities can be accomplished by
-        multiplying by the inverse of this matrix.
-    """
-    def trapezoidshapefunction(lengthbase,lengthtop,x):
-        x=pylab.array(x)
-        if len(x)<2:
-            return pylab.array(1)
-        T=pylab.zeros(x.shape)
-        indslopeleft=(x<=-lengthtop/2.0)
-        indsloperight=(x>=lengthtop/2.0)
-        indtop=(x<=lengthtop/2.0)&(x>=-lengthtop/2.0)
-        T[indsloperight]=-4.0/(lengthbase**2-lengthtop**2)*x[indsloperight]+lengthbase*2.0/(lengthbase**2-lengthtop**2)
-        T[indtop]=2.0/(lengthbase+lengthtop)
-        T[indslopeleft]=4.0/(lengthbase**2-lengthtop**2)*x[indslopeleft]+lengthbase*2.0/(lengthbase**2-lengthtop**2)
-        return T
-    # coordinates of the pixels
-    pixels=pylab.arange(pixelmin,pixelmax+1)
-    # distance of each pixel from the beam in pixel units
-    x=pylab.absolute(pixels-beamcenter);
-    # horizontal and vertical coordinates of the beam-profile in mm.
-    if beamnumh>1:
-        yb=pylab.linspace(-max(lengthbaseh,lengthtoph)/2.0,max(lengthbaseh,lengthtoph)/2.0,beamnumh)
-        deltah=(yb[-1]-yb[0])*1.0/beamnumh
-        centerh=2.0/(lengthbaseh+lengthtoph)
-    else:
-        yb=pylab.array([0])
-        deltah=1
-        centerh=1
-    if beamnumv>1:
-        xb=pylab.linspace(-max(lengthbasev,lengthtopv)/2.0,max(lengthbasev,lengthtopv)/2.0,beamnumv)
-        deltav=(xb[-1]-xb[0])*1.0/beamnumv
-        centerv=2.0/(lengthbasev+lengthtopv)
-    else:
-        xb=pylab.array([0])
-        deltav=1
-        centerv=1
-    Xb,Yb=pylab.meshgrid(xb,yb)
-    #beam profile vector (trapezoid centered at the origin. Only a half of it
-    # is taken into account)
-    H=trapezoidshapefunction(lengthbaseh,lengthtoph,yb)
-    V=trapezoidshapefunction(lengthbasev,lengthtopv,xb)
-    P=pylab.kron(H,V)
-    center=centerh*centerv
-    # scale y to detector pixel units
-    Yb=Yb/pixelsize*1e3
-    Xb=Xb/pixelsize*1e3
-    A=pylab.zeros((len(x),len(x)))
-    for i in range(len(x)):
-        A[i,i]+=center
-        tmp=pylab.sqrt((i-Xb)**2+Yb**2)
-        ind1=pylab.floor(tmp).astype('int').flatten()
-        prop=tmp.flatten()-ind1
-        indices=(ind1<len(pixels))        
-        ind1=ind1[indices].flatten()
-        prop=prop[indices].flatten()
-        p=P[indices].flatten()
-        for j in range(len(ind1)):
-            A[i,ind1[j]]+=p[j]*(1-prop[j])
-            if ind1[j]<len(pixels)-1:
-                A[i,ind1[j]+1]+=p[j]*prop[j]
-    A=A*deltah*deltav
-#    pylab.imshow(A)
-#    pylab.colorbar()
-#    pylab.gcf().show()
-    return A
-def directdesmear(data,smoothing,params):
-    """Desmear the scattering data according to the direct desmearing
-    algorithm by Singh, Ghosh and Shannon
+def tweakplot2d(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,pmin=0,pmax=1):
+    """2d coloured plot of a matrix with tweaking in the colorscale.
     
     Inputs:
-        data: measured intensity vector of arbitrary length (numpy array)
-        smoothing: smoothing parameter for scipy.optimize.splrep. A scalar
-            number. If not exactly known, a dictionary may be supplied with
-            the following fields:
-                low: lower threshold
-                high: upper threshold
-                val: initial value
-                mode: 'lin' or 'log'
-            In this case a GUI will be set up. A slider and an Ok button at
-            the bottom of the figure will aid the user to select the optimal
-            smoothing parameter.
-        params: a dictionary with the following fields:
-            pixelmin: left trimming value (default: -infinity)
-            pixelmax: right trimming value (default: infinity)
-            beamcenter: pixel coordinate of the beam (no default value)
-            pixelsize: size of the pixels in micrometers (no default value)
-            lengthbaseh: length of the base of the horizontal beam profile
-                (millimetres, no default value)
-            lengthtoph: length of the top of the horizontal beam profile
-                (millimetres, no default value)
-            lengthbasev: length of the base of the vertical beam profile
-                (millimetres, no default value)
-            lengthtopv: length of the top of the vertical beam profile
-                (millimetres, no default value)
-            beamnumh: the number of elementary points for the horizontal beam
-                profile (default: 1024)
-            beamnumv: the number of elementary points for the vertical beam
-                profile (default: 0)
-            matrix: if this is supplied, all but pixelmin and pixelmax are
-                disregarded.
-                
-    Outputs: (pixels,desmeared,smoothed,mat,params,smoothing)
-        pixels: the pixel coordinates for the resulting curves
-        desmeared: the desmeared curve
-        smoothed: the smoothed curve
-        mat: the desmearing matrix
-        params: the desmearing parameters
-        smoothing: smoothing parameter
+        A: the matrix
+        maxval: maximal value, see plot2dmatrix()
+        mask: mask matrix, see plot2dmatrix()
+        header: header data, see plot2dmatrix()
+        qs: qs see plot2dmatrix()
+        showqscale: see plot2dmatrix()
+        pmin: lower scaling limit (proportion, default=0)
+        pmax: upper scaling limit (proportion, default=1)
     """
-    #default values
-    dparams={'pixelmin':-pylab.inf,'pixelmax':pylab.inf,
-             'beamnumh':1024,'beamnumv':0}
-    dparams.update(params)
-    params=dparams
-    
-    # calculate the matrix
-    if params.has_key('matrix') and type(params['matrix'])==pylab.ndarray:
-        A=params['matrix']
-    else:
-        A=smearingmatrix(params['pixelmin'],params['pixelmax'],
-                         params['beamcenter'],params['pixelsize'],
-                         params['lengthbaseh'],params['lengthtoph'],
-                         params['lengthbasev'],params['lengthtopv'],
-                         params['beamnumh'],params['beamnumv'])
-        params['matrix']=A
-    #x coordinates in pixels
-    pixels=pylab.arange(len(data))
-    def smooth_and_desmear(pixels,data,params,smoothing):
-        # smoothing the dataset. Errors of the data are sqrt(data), weight will be therefore 1/data
-        tck=scipy.interpolate.splrep(pixels,data,s=smoothing)
-        data1=scipy.interpolate.splev(pixels,tck)
-        indices=(pixels<=params['pixelmax']) & (pixels>=params['pixelmin'])
-        data1=data1[indices]
-        pixels=pixels[indices]
-        print data1.shape
-        print params['matrix'].shape
-        ret=(pixels,pylab.solve(params['matrix'],data1.reshape(len(data1),1)),
-             data1,params['matrix'],params,smoothing)
-        return ret
-    if type(smoothing)!=type({}):
-        res=smooth_and_desmear(pixels,data,params,smoothing)
-        return res
-    else:
-        f=pylab.figure()
-        f.donedesmear=False
-        axsl=pylab.axes((0.08,0.02,0.7,0.05))
-        axb=pylab.axes((0.85,0.02,0.08,0.05))
-        ax=pylab.axes((0.1,0.12,0.8,0.78))
-        b=matplotlib.widgets.Button(axb,'Ok')
-        def buttclick(a=None,f=f):
-            f.donedesmear=True
-        b.on_clicked(buttclick)
-        if smoothing['mode']=='log':
-            sl=matplotlib.widgets.Slider(axsl,'Smoothing',
-                                         pylab.log(smoothing['low']),
-                                         pylab.log(smoothing['high']),
-                                         pylab.log(smoothing['val']))
-        elif smoothing['mode']=='lin':
-            sl=matplotlib.widgets.Slider(axsl,'Smoothing',
-                                         smoothing['low'],
-                                         smoothing['high'],
-                                         smoothing['val'])
-        else:
-            raise ValueError('Invalid value for smoothingmode: %s',
-                             smoothing['mode'])
-        def sliderfun(a=None,sl=sl,ax=ax,mode=smoothing['mode'],x=pixels,
-                      y=data,p=params):
-            if mode=='lin':
-                sm=sl.val
-            else:
-                sm=pylab.exp(sl.val)
-            [x1,y1,ysm,A,par,sm]=smooth_and_desmear(x,y,p,sm)
-            a=ax.axis()
-            ax.cla()
-            ax.plot(x,y,'.',label='Original')
-            ax.plot(x1,ysm,'-',label='Smoothed (%lg)'%sm)
-            ax.plot(x1,y1,'-',label='Desmeared')
-            ax.legend(loc='best')
-            ax.axis(a)
-            pylab.gcf().show()
-        sl.on_changed(sliderfun)
-        [x1,y1,ysm,A,par,sm]=smooth_and_desmear(pixels,data,params,smoothing['val'])
-        ax.plot(pixels,data,'.',label='Original')
-        ax.plot(x1,ysm,'-',label='Smoothed (%lg)'%smoothing['val'])
-        ax.plot(x1,y1,'-',label='Desmeared')
-        ax.legend(loc='best')
-        while not f.donedesmear:
-            pylab.waitforbuttonpress()
-        if smoothing['mode']=='lin':
-            sm=sl.val
-        elif smoothing['mode']=='log':
-            sm=pylab.exp(sl.val)
-        else:
-            raise ValueError('Invalid value for smoothingmode: %s',
-                             smoothing['mode'])
-        res=smooth_and_desmear(pixels,data,params,sm)
-        return res        
-def fitspheredistribution(data,distfun,R,params,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
-    data1=trimq(data,qmin,qmax)
-    q=data1['q']
-    Int=data1['Intensity']
-    Err=data1['Error']
-    params=list(params)
-    params.append(1)
-    params1=tuple(params)
-    tsI=pylab.zeros((len(q),len(R)))
-    for i in range(len(R)):
-        tsI[:,i]=fsphere(q,R[i])
-    R.reshape((len(R),1))
-    def fitfun(params,R,q,I,Err,dist=distfun,tsI=tsI):
-        return (params[-1]*pylab.dot(tsI,dist(R,*(params[:-1])))-I)/Err
-    res=scipy.optimize.leastsq(fitfun,params1,args=(R,q,Int,Err),full_output=1)
-    print "Fitted values:",res[0]
-    print "Covariance matrix:",res[1]
-    if testimage:
-        pylab.semilogy(data['q'],data['Intensity'],'.');
-        tsIfull=pylab.zeros((len(data['q']),len(R)))
-        for i in range(len(R)):
-            tsIfull[:,i]=fsphere(data['q'],R[i])
-        print data['q'].shape
-        print pylab.dot(tsIfull,distfun(R,*(res[0][:-1]))).shape
-        pylab.semilogy(data['q'],res[0][-1]*pylab.dot(tsIfull,distfun(R,*(res[0][:-1]))),'-',color='red');
-        pylab.xlabel('$q$ (1/%c)' % 197)
-        pylab.ylabel('I');
-    
-def lognormdistrib(x,mu,sigma):
-    return 1/(x*sigma*pylab.sqrt(2*pylab.pi))*pylab.exp(-(pylab.log(x)-mu)**2/(2*sigma**2))
-def tweakplot2d(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,pmin=0,pmax=1):
     f=pylab.figure()
     f.donetweakplot=False
     a2=pylab.axes((0.1,0.05,0.65,0.02))
@@ -3875,104 +4078,38 @@ def tweakplot2d(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,pmin=0
     pylab.close(f)
     print sl1.val,sl2.val
     return (sl1.val,sl2.val)
-def readasa(basename):
-    try:
-        p00=pylab.loadtxt('%s.P00' % basename)
-    except IOError:
-        try:
-            p00=pylab.loadtxt('%s.p00' % basename)
-        except:
-            raise IOError('Cannot find %s.p00, neither %s.P00.' % (basename,basename))
-    if p00 is not None:
-        p00=p00[1:] # cut the leading -1
-    try:
-        e00=pylab.loadtxt('%s.E00' % basename)
-    except IOError:
-        try:
-            e00=pylab.loadtxt('%s.e00' % basename)
-        except:
-            e00=None
-    if e00 is not None:
-        e00=e00[1:] # cut the leading -1
-    try:
-        inffile=open('%s.inf' % basename)
-    except IOError:
-        try:
-            inffile=open('%s.Inf' % basename)
-        except IOError:
-            try:
-                inffile=open('%s.INF' % basename)
-            except:
-                inffile=None
-                params=None
-    if inffile is not None:
-        params={}
-        l=inffile.readlines()
-        def getdate(str):
-            try:
-                month=int(str.split()[0].split('-')[0])
-                day=int(str.split()[0].split('-')[1])
-                year=int(str.split()[0].split('-')[2])
-                hour=int(str.split()[1].split(':')[0])
-                minute=int(str.split()[1].split(':')[1])
-                second=int(str.split()[1].split(':')[2])
-            except:
-                return None
-            return {'Month':month,'Day':day,'Year':year,'Hour':hour,'Minute':minute,'Second':second}
-        if getdate(l[0]) is None:
-            params['Title']=l[0].strip()
-            offset=1
-        else:
-            params['Title']=basename
-            offset=0
-        d=getdate(l[offset])
-        params.update(d)
-        for line in l:
-            if line.strip().startswith('PSD1 Lower Limit'):
-                params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
-            elif line.strip().startswith('PSD1 Upper Limit'):
-                params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
-            elif line.strip().startswith('Realtime'):
-                params['Realtime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
-            elif line.strip().startswith('Lifetime'):
-                params['Livetime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
-            elif line.strip().startswith('Lower Limit'):
-                params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
-            elif line.strip().startswith('Upper Limit'):
-                params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
-            elif line.strip().startswith('Stop Condition'):
-                params['Stopcondition']=line.strip().split(':')[1].strip().replace(',','.')
-    return {'position':p00,'energy':e00,'params':params}
-def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68):
-    pcoord=[]
-    for p in peaks:
-        tmp=findpeak(xdata,ydata,('Zoom to peak %d and press ENTER' % p),peakmode,scaling='log')
-        print tmp
-        pcoord.append(tmp)
-    print pcoord
-    pcoord=pylab.array(pcoord)
-    n=pylab.array(peaks)
-    a=(n*wavelength)/(2*d)
-    x=2*a*pylab.sqrt(1-a**2)/(1-2*a**2)
-    LperH,xcent,LperHerr,xcenterr=linfit(x,pcoord)
-    print 'pixelsize/dist:',1/LperH,'+/-',LperHerr/LperH**2
-    print 'beam position:',xcent,'+/-',xcenterr
-    b=(pylab.array(xdata)-xcent)/LperH
-    return 4*pylab.pi*pylab.sqrt(0.5*(b**2+1-pylab.sqrt(b**2+1))/(b**2+1))/wavelength
-def waxscalib(pixels,qs,wavelength=1.54,xcenter=-100,alpha=60/180.0*pylab.pi,L0=150,h=52e-3):
-    pixels=pylab.array(pixels)
-    qs=pylab.array(qs)
-    a,b,aerr,berr=linfit(qs,pixels)
-    print 'a:',a
-    print 'b:',b
-    xcenter=b
-    p0=[alpha,L0,xcenter]
-    def costfun(p,pixels,qs,wavelength,h): #p: alpha,L0,xcenter
-        b=(p[1]-h*(pixels-p[2])*pylab.cos(p[0]))/(h*(pixels-p[2])*pylab.sin(p[0]))
-        return qs-4*pylab.pi*pylab.sqrt(0.5*(b**2+1-pylab.sqrt(b**2+1))/(b**2+1))/wavelength
-    p1=scipy.optimize.leastsq(costfun,p0,args=(pixels,qs,wavelength,h))
-    print 'Alpha:',pylab.fmod(p1[0][0]*180.0/pylab.pi,360)
-    print 'L0:',p1[0][1]
-    print 'Xcenter:',p1[0][2]
-    print p1
-        
+def plotasa(asadata):
+    """Plot SAXS/WAXS measurement read by readasa().
+    
+    Input:
+        asadata: ASA dictionary (see readasa()
+    
+    Output:
+        none, a graph is plotted.
+    """
+    pylab.figure()
+    pylab.subplot(211)
+    pylab.plot(pylab.arange(len(asadata['position'])),asadata['position'],label='Intensity',color='black')
+    pylab.xlabel('Channel number')
+    pylab.ylabel('Counts')
+    pylab.title('Scattering data')
+    pylab.legend(loc='best')
+    pylab.subplot(212)
+    x=pylab.arange(len(asadata['energy']))
+    e1=asadata['energy'][(x<asadata['params']['Energywindow_Low'])]
+    x1=x[(x<asadata['params']['Energywindow_Low'])]
+    e2=asadata['energy'][(x>=asadata['params']['Energywindow_Low']) &
+                         (x<=asadata['params']['Energywindow_High'])]
+    x2=x[(x>=asadata['params']['Energywindow_Low']) &
+         (x<=asadata['params']['Energywindow_High'])]
+    e3=asadata['energy'][(x>asadata['params']['Energywindow_High'])]
+    x3=x[(x>asadata['params']['Energywindow_High'])]
+
+    pylab.plot(x1,e1,label='excluded',color='red')
+    pylab.plot(x2,e2,label='included',color='black')
+    pylab.plot(x3,e3,color='red')
+    pylab.xlabel('Energy channel number')
+    pylab.ylabel('Counts')
+    pylab.title('Energy (pulse-area) spectrum')
+    pylab.legend(loc='best')
+    pylab.suptitle(asadata['params']['Title'])    
