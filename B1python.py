@@ -77,7 +77,7 @@ import scipy.io
 import types
 import zipfile
 import gzip
-import Tkinter
+#import Tkinter
 import sys
 import time
 import os
@@ -1708,7 +1708,7 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         tmp[tmp>maxval]=max(tmp[tmp<=maxval])
     tmp[tmp<=0]=tmp[tmp>0].min()
     tmp=pylab.log(tmp);
-    tmp[pylab.isnan(tmp)]=0;
+    tmp[pylab.isnan(tmp)]=tmp[1-pylab.isnan(tmp)].min();
     if (header is not None) and (showqscale):
         xmin=0-(header['BeamPosX']-1)*header['PixelSize']
         xmax=(tmp.shape[0]-(header['BeamPosX']-1))*header['PixelSize']
@@ -3153,8 +3153,8 @@ def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     y1=pylab.log(data1['Intensity'])*data1['q']
     Rgcs,Gcs,dRgcs,dGcs=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data['q']**2,pylab.log(data['Intensity'])*data['q'],'.')
-        pylab.plot(data['q']**2,Rgcs*data['q']**2+Gcs,'-',color='red');
+        pylab.plot(data1['q']**2,pylab.log(data1['Intensity'])*data1['q'],'.')
+        pylab.plot(data1['q']**2,Rgcs*data1['q']**2+Gcs,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q\ln I$')
     return pylab.sqrt(-Rgcs*2),Gcs,1/pylab.sqrt(-Rgcs)*dRgcs,dGcs
@@ -3179,8 +3179,8 @@ def guinierthicknessfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     y1=pylab.log(data1['Intensity'])*data1['q']**2
     Rgt,Gt,dRgt,dGt=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data['q']**2,pylab.log(data['Intensity'])*data['q']**2,'.')
-        pylab.plot(data['q']**2,Rgt*data['q']**2+Gt,'-',color='red');
+        pylab.plot(data1['q']**2,pylab.log(data1['Intensity'])*data1['q']**2,'.')
+        pylab.plot(data1['q']**2,Rgt*data1['q']**2+Gt,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q^2\ln I$')
     return pylab.sqrt(-Rgt),Gt,0.5/pylab.sqrt(-Rgt)*dRgt,dGt
@@ -3205,8 +3205,8 @@ def guinierfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     y1=pylab.log(data1['Intensity']);
     Rg,G,dRg,dG=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data['q']**2,pylab.log(data['Intensity']),'.');
-        pylab.plot(data['q']**2,Rg*data['q']**2+G,'-',color='red');
+        pylab.plot(data1['q']**2,pylab.log(data1['Intensity']),'.');
+        pylab.plot(data1['q']**2,Rg*data1['q']**2+G,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('ln I');
     return pylab.sqrt(-Rg*3),G,1.5/pylab.sqrt(-Rg*3)*dRg,dG
@@ -3231,8 +3231,8 @@ def porodfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     y1=data1['Intensity']*x1;
     a,b,aerr,berr=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data['q']**4,data['Intensity']*data['q']**4,'.');
-        pylab.plot(data['q']**4,a*data['q']**4+b,'-',color='red');
+        pylab.plot(data1['q']**4,data1['Intensity']*data1['q']**4,'.');
+        pylab.plot(data1['q']**4,a*data1['q']**4+b,'-',color='red');
         pylab.xlabel('$q^4$ (1/%c$^4$)' % 197)
         pylab.ylabel('I$q^4$');
     return a,b,aerr,berr
@@ -3635,6 +3635,7 @@ def readasa(basename):
                 Stopcondition: stop condition in a string
                 Realtime: real time in seconds
                 Livetime: live time in seconds
+            pixels: the pixel numbers.
     """
     try:
         p00=pylab.loadtxt('%s.P00' % basename)
@@ -3703,8 +3704,8 @@ def readasa(basename):
             elif line.strip().startswith('Stop Condition'):
                 params['Stopcondition']=line.strip().split(':')[1].strip().replace(',','.')
         params['basename']=basename.split(os.sep)[-1]
-    return {'position':p00,'energy':e00,'params':params}
-def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68):
+    return {'position':p00,'energy':e00,'params':params,'pixels':pylab.arange(len(p00))}
+def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68,returnq=True):
     """Find q-range from AgSt (or AgBeh) measurements.
     
     Inputs:
@@ -3717,14 +3718,20 @@ def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68):
             1.54 Angstroems
         d: the periodicity of the sample (default: 48.68 A for silver
             stearate)
-            
+        returnq: returns only the q-range if True. If False, returns the
+            pixelsize/dist and beamcenter values
+
     Output:
-        The q-scale in a vector which is of the same size as xdata.
+        If returnq is true then the q-scale in a vector which is of the
+            same size as xdata.
+        If returnq is false, then a,b,aerr,berr where a is pixelsize/dist,
+            b is the beam center coordinate in pixels and aerr and berr
+            are their errors, respectively
         
     Notes:
         A graphical window will be popped up len(peaks)-times, each prompting
             the user to zoom on the n-th peak. After the last peak was
-            selected, the q-range will be returned.
+            selected, the function returns.
     """
     pcoord=[]
     for p in peaks:
@@ -3738,8 +3745,11 @@ def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68):
     print 'pixelsize/dist:',1/LperH,'+/-',LperHerr/LperH**2
     print 'beam position:',xcent,'+/-',xcenterr
     b=(pylab.array(xdata)-xcent)/LperH
-    return 4*pylab.pi*pylab.sqrt(0.5*(b**2+1-pylab.sqrt(b**2+1))/(b**2+1))/wavelength
-def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*pylab.array([0.21739,0.25641,0.27027])):
+    if returnq:
+        return 4*pylab.pi*pylab.sqrt(0.5*(b**2+1-pylab.sqrt(b**2+1))/(b**2+1))/wavelength
+    else:
+        return 1/LperH,xcent,LperHerr/LperH**2,xcenterr
+def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*pylab.array([0.21739,0.25641,0.27027]),returnq=True):
     """Find q-range from Tripalmitine measurements.
     
     Inputs:
@@ -3751,9 +3761,12 @@ def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*py
             1.54 Angstroems
         qvals: a list of q-values corresponding to peaks. The default values
             are for Tripalmitine
-            
+        returnq: True if the q-range is to be returned. False if the fit
+            parameters are requested instead of the q-range
     Output:
-        The q-scale in a vector which is of the same size as xdata.
+        The q-scale in a vector which is of the same size as xdata, if 
+            returnq was True.
+        Otherwise a,b,aerr,berr where q=a*x+b and x is the pixel number
         
     Notes:
         A graphical window will be popped up len(qvals)-times, each prompting
@@ -3770,49 +3783,11 @@ def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*py
     pcoord=pylab.array(pcoord)
     n=pylab.array(peaks)
     a,b,aerr,berr=linfit(pcoord,qvals)
-    return a*xdata+b
-#EXPERIMENTAL (DANGER ZONE)
-def radint2(data,dataerr,energy,distance,res,bcx,bcy,mask,q):
-    """EXPERIMENTAL!!!!!
-    """
-    print "BIG FAT WARNING: radint2() is an EXPERIMENTAL function. You may not get what you expect!"
-    print "Preprocessing..."
-    radata1=data.flatten()
-    raerror1=dataerr.flatten()
-    ramask1=mask.flatten()
-    radata=radint_ng.radintArray(data.size)
-    raerror=radint_ng.radintArray(data.size)
-    ramask=radint_ng.radintmaskArray(data.size)
-    raq=radint_ng.radintArray(len(q))
-    raIntensity=radint_ng.radintArray(len(q))
-    raError=radint_ng.radintArray(len(q))
-    raArea=radint_ng.radintArray(len(q))
-    raWeight=radint_ng.radintArray(len(q))
-    for x in range(len(q)):
-        raq[x]=q[x]
-    for x in range(data.shape[0]):
-        for y in range(data.shape[1]):
-            radata[x+y*data.shape[0]]=data[x,y];
-            raerror[x+y*data.shape[0]]=dataerr[x,y];
-            ramask[x+y*data.shape[0]]=int(mask[x,y]);
-    print "Calling doradint..."
-    res=radint_ng.doradint(radata,raerror,ramask,data.shape[0],data.shape[1],energy,distance,res,res,bcx,bcy,raq,raIntensity,raError,raArea,raWeight,len(q));
-    print "Postprocessing..."
-    if res:
-        Intensity=pylab.zeros(len(q))
-        Error=pylab.zeros(len(q))
-        Area=pylab.zeros(len(q))
-        Weight=pylab.zeros(len(q))
-        for x in range(len(q)):
-            Intensity[x]=raIntensity[x]
-            Error[x]=raError[x]
-            Area[x]=raArea[x]
-            Weight[x]=raWeight[x]
-        print "Returning with success"
-        return (Intensity,Error,Area,Weight)
+    if returnq:
+        return a*xdata+b
     else:
-        print "Returning with error"
-        return None
+        return a,b,aerr,berr
+#EXPERIMENTAL (DANGER ZONE)
 def stackdata(tup):
     """Stack two or more scattering data dictionaries above each other.
     
@@ -4112,4 +4087,180 @@ def plotasa(asadata):
     pylab.ylabel('Counts')
     pylab.title('Energy (pulse-area) spectrum')
     pylab.legend(loc='best')
-    pylab.suptitle(asadata['params']['Title'])    
+    pylab.suptitle(asadata['params']['Title'])
+def uglyui():
+    """Ugly but usable user interface for SAXS and WAXS data treatment
+    """
+    uiparams={'SAXS_bc':None,'SAXS_hperL':None,'WAXS_a':None,'WAXS_b':None,'wavelength':1.54}
+    def menu(menutitle,menuitems,default=0):
+        choice=-1
+        while (choice<0) or (choice>=len(menuitems)):
+            print menutitle
+            for i in range(len(menuitems)):
+                print "%d: ",menuitems[i]
+                try:
+                    choice=int(raw_input("Select a number:"))
+                except:
+                    choice=-1
+        return choice
+    def input_float(prompt='',low=-pylab.inf,high=pylab.inf):
+        val=None
+        while val is None:
+            val=raw_input(prompt)
+            try:
+                val=float(val)
+                if (val<low) or (val>high):
+                    val=None
+            except:
+                val=None
+    def input_caseinsensitiveword(prompt='',list=[]):
+        word=None
+        while word is None:
+            word=raw_input(prompt)
+            if len(list)==0:
+                return word
+            word=word.upper()
+            for w in list:
+                if word==w.upper():
+                    return w
+                word=None
+    def do_desmear(asa):
+        s=input_float('Smoothing parameter for desmearing (negative to select by hand):')
+        if s <0:
+            print "Setting up GUI for smoothing."
+            smoothlow=input_float('Lowest smoothing value: ',0)
+            smoothhigh=input_float('Highest smoothing value: ',0)
+            smoothmode=input_casesensitiveword('Mode of the smoothing scale bar (lin or log): ',['lin','log'])
+            s={'low':smoothlow,'high':smoothhigh,'mode':smoothmode,'val':0.5*(smoothlow+smoothhigh)}
+        p={}
+        p['pixelmin']=input_float('Lowest pixel to take into account (starting from 0):',0,len(asa['position']))
+        p['pixelmax']=input_float('Highest pixel to take into account (starting from 0):',pixelmin,len(asa['position']))
+        tmp=input_casesensitiveword('Do you have a desmearing matrix saved to a file (y or n):',['y','n'])
+        if tmp=='y':
+            fmatrix=raw_input('Please supply the file name:')
+            try:
+                p['matrix']=pylab.loadtxt(fmatrix)
+            except:
+                print "Could not load file. Falling back to manual selection"
+                tmp='n'
+                mat=None
+        if tmp=='n':
+            p['beamcenter']=input_float('Pixel coordinate of the beam center:')
+            p['pixelsize']=input_float('Pixel size in micrometers:',0)
+            p['lengthbaseh']=input_float('Length of the base of the horizontal beam trapezoid',0)
+            p['lengthtoph']=input_float('Length of the top of the horizontal beam trapezoid',0)
+            p['lengthbasev']=0
+            p['lengthtopv']=0
+        print "Desmearing..."
+        pixels,desmeared,smoothed,mat,params,smoothing=directdesmear(asa['position'],s,p)
+        x=pylab.arange(len(asa['position']))
+        outname=raw_input('Output file name:')
+        try:
+            f=fopen(outname,'wt')
+            f.write('# pixel\toriginal\tsmoothed\tdesmeared\n')
+            for i in range(len(pixels)):
+                f.write('%d\t%g\t%g\t%g\n' %(pixels[i],asa['position'][x==pixels[i]],smoothed[i],desmeared[i]))
+            f.close()
+        except:
+            print "Could not write file %s" % outname
+        tmp=input_caseinsensitiveword('Would you like to save the smearing matrix for later use (y or n):',['y','n'])
+        if tmp=='y':
+            outname=raw_input('File to save the matrix:')
+            try:
+                pylab.savetxt(outname,mat)
+            except:
+                print "Could not write file %s" % outname
+        return pixels,desmeared,smoothed,mat,params,smoothing
+    a=menu('SWAXS evaluation.',['Exit program','Do AgSt calibration',
+                                               'Do Tripalmitine calibration','Desmear',
+                                               'Plot original dataset'
+                                               'q-calibration of SAXS data',
+                                               'q-calibration of WAXS data',
+                                               'Show parameters',
+                                               'Set parameters'])
+    if a==0:
+        return
+    elif a==1:
+        fname=raw_input('AgSt measurement file basename (without .P00 extension but may contain path):')
+        asa=readasa(fname)
+        if asa is None:
+            print "Cannot find file %s.{p00,e00,inf} (If on Linux, check the case)" % fname
+            return
+        if raw_input('Desmear before picking peaks (y or n):').upper()=='Y':
+            pixels,desmeared,smoothed,mat,params,smoothing=do_desmear(asa)
+            x=pixels
+            y=desmeared
+        else:
+            x=pylab.arange(len(asa['position']))
+            y=asa['position']
+        npeaks=input_float('How many AgSt peaks do you have (at least 2):',2)
+        a,b,aerr,berr=agstcalib(x,y,pylab.arange(npeaks),returnq=False,wavelength=ui)
+        uiparams['SAXS_bc']=b
+        uiparams['SAXS_hperL']=a
+    elif a==2:
+        fname=raw_input('Tripalmitine measurement file basename (without .P00 extension but may contain path):')
+        asa=readasa(fname)
+        if asa is None:
+            print "Cannot find file %s.{p00,e00,inf} (If on Linux, check the case)" % fname
+            return
+        x=pylab.arange(len(asa['position']))
+        y=asa['position']
+        npeaks=input_float('How many AgSt peaks do you have (at least 2):',2)
+        a,b,aerr,berr=tripcalib(x,y,returnq=False)
+        uiparams['WAXS_b']=b
+        uiparams['WAXS_a']=a
+    elif a==3:
+        fname=raw_input('Measurement file basename (without .P00 extension but may contain path):')
+        asa=readasa(fname)
+        if asa is None:
+            print "Cannot find file %s.{p00,e00,inf} (If on Linux, check the case)" % fname
+            return
+        pixels,desmeared,smoothed,mat,params,smoothing=do_desmear(asa)
+    elif a==4:
+        fname=raw_input('Measurement file basename (without .P00 extension but may contain path):')
+        asa=readasa(fname)
+        if asa is None:
+            print "Cannot find file %s.{p00,e00,inf} (If on Linux, check the case)" % fname
+            return
+        plotasa(asa)
+    elif a==5:
+        if ((uiparams['SAXS_bc'] is None) or (uiparams['SAXS_hperL'] is None) or 
+            (uiparams['wavelength'] is None)):
+            print """Parameters for SAXS calibration are not yet set. Please set them
+                     via the "Set parameters" or "AgSt calibration" menu items!"""
+            return
+        fname=raw_input('Measurement file basename (without .P00 extension but may contain path):')
+        asa=readasa(fname)
+        if asa is None:
+            print "Cannot find file %s.{p00,e00,inf} (If on Linux, check the case)" % fname
+            return
+        x=4*pylab.pi*pylab.sin(0.5*pylab.arctan((pylab.arange(len(asa['position']))-uiparams['SAXS_bc'])*uiparams['SAXS_hperL']))/uiparams['wavelength']
+        outfile=raw_input('Output filename:')
+def asa_qcalib(asadata,a,b):
+        pass
+def tripcalib2(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*pylab.array([0.21739,0.25641,0.27027]),returnq=True):
+    pcoord=[]
+    peaks=range(len(qvals))
+    for p in peaks:
+        tmp=findpeak(xdata,ydata,
+                     ('Zoom to peak %d (q = %f) and press ENTER' % (p,qvals[p])),
+                     peakmode,scaling='lin')
+        pcoord.append(tmp)
+    pcoord=pylab.array(pcoord)
+    n=pylab.array(peaks)
+    a,b,aerr,berr=linfit(pcoord,qvals)
+    if returnq:
+        return a*xdata+b
+    else:
+        return a,b,aerr,berr
+
+    q=a*x+b
+    bc=(0-b)/float(a)
+    alpha=60*pylab.pi/180.0
+    h=52e-3
+    l=150
+    def xtoq(x,bc,alpha,h,l,wavelength=wavelength):
+        twotheta=pylab.arctan((x-bc)*h*pylab.sin(alpha)/(l-(x-bc)*h*pylab.cos(alpha)))
+        return 4*pylab.pi*pylab.sin(0.5*twotheta)/wavelength
+    def costfunc(p,x,y):
+        pass
