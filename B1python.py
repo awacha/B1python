@@ -89,7 +89,23 @@ import scipy.special
 import scipy.stats.stats
 import scipy.interpolate
 
-HC=12396.4 #Planck's constant times speed of light, in eV*Angstrom units
+_B1config={'measdatadir':'.',
+           'evaldatadir':'.',
+           'calibdir':'.',
+           'distancetoreference':219,
+           'pixelsize':0.798,
+           'detector':'Gabriel',
+           '2dfileprefix':'ORG',
+           '2dfilepostfix':'.DAT'
+           'GCareathreshold':10,
+           'detshift':0
+           'refdata':[{'thick':143e-4,'pos':129,'data':'GC155.dat'},
+                      {'thick':508e-4,'pos':139,'data':'GC500.dat'},
+                      {'thick':992e-4,'pos':159,'data':'GC1000.dat'}]
+            'refposprecision':0.5
+           }
+_pausemode=True
+HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 def savespheres(spheres,filename):
     """Save sphere structure in a file.
     
@@ -248,6 +264,7 @@ def findbeam(data,orig_initial,mask=None,maxiter=20):
             of the beam center, starting from 1.
         mask: mask matrix. If None, nothing will be masked. Otherwise it should be
             of the same size as data. Nonzero means non-masked.
+        maxiter: maximum number of iterations for scipy.optimize.fmin
     Output:
         a vector of length 2 with the x and y coordinates of the origin.
     """
@@ -255,14 +272,15 @@ def findbeam(data,orig_initial,mask=None,maxiter=20):
     if mask is None:
         mask=pylab.ones(data.shape)
     def targetfunc(orig,data,mask):
-        c1,nc1=imageint(data,orig,mask,35,20)
-        c2,nc2=imageint(data,orig,mask,35+90,20)
-        c3,nc3=imageint(data,orig,mask,35+180,20)
-        c4,nc4=imageint(data,orig,mask,35+270,20)
+        c1,nc1=imageint(data,orig,1-mask,35,20)
+        c2,nc2=imageint(data,orig,1-mask,35+90,20)
+        c3,nc3=imageint(data,orig,1-mask,35+180,20)
+        c4,nc4=imageint(data,orig,1-mask,35+270,20)
         commonlen=min(len(c1),len(c2),len(c3),len(c4))
         first=pylab.array([pylab.find(nc1!=0).min(),pylab.find(nc2!=0).min(),pylab.find(nc3!=0).min(),pylab.find(nc4!=0).min()]).max()
         return pylab.sum(pylab.sqrt((c1[first:commonlen]-c3[first:commonlen])**2+(c2[first:commonlen]-c4[first:commonlen])**2))/commonlen
     orig=scipy.optimize.fmin(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxiter=maxiter,disp=True)
+    
     return orig
 def imageint(data,orig,mask,fi=None,dfi=None):
     """Perform radial averaging on the image.
@@ -706,7 +724,7 @@ def testorigin(data,orig,mask=None):
     Inputs:
         data: the 2d scattering image
         orig: the origin [row,column]
-        mask: the mask matrix.
+        mask: the mask matrix. Nonzero means nonmasked
     """
     if mask is None:
         mask=pylab.ones(data.shape)
@@ -1673,8 +1691,8 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
         while len(fig.axes)==3:
             fig.waitforbuttonpress()
             pylab.draw()
-def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1):
-    """Plots the matrix A in log-log plot
+def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1,blacknegative=False):
+    """Plots the matrix A in logarithmic coloured plot
     
     Inputs:
         A: the matrix
@@ -1706,7 +1724,8 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
                   # matrix were modified.
     if maxval is not None:
         tmp[tmp>maxval]=max(tmp[tmp<=maxval])
-    tmp[tmp<=0]=tmp[tmp>0].min()
+    nonpos=(tmp<=0)
+    tmp[nonpos]=tmp[tmp>0].min()
     tmp=pylab.log(tmp);
     tmp[pylab.isnan(tmp)]=tmp[1-pylab.isnan(tmp)].min();
     if (header is not None) and (showqscale):
@@ -1722,7 +1741,7 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
     else:
         extent=None
     if contour is None:
-        pylab.imshow(tmp,extent=extent,interpolation='nearest',vmin=pmin*tmp.max(),vmax=pmax*tmp.max());
+        pylab.imshow(tmp,extent=extent,interpolation='nearest',vmin=tmp.min()+pmin*(tmp.max()-tmp.min()),vmax=tmp.min()+pmax*(tmp.max()-tmp.min()));
     else:
         if extent is None:
             extent1=[1,tmp.shape[0],1,tmp.shape[1]]
@@ -1735,6 +1754,10 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         white=pylab.ones((mask.shape[0],mask.shape[1],4))
         white[:,:,3]=pylab.array(1-mask).astype('float')*0.7
         pylab.imshow(white,extent=extent,interpolation='nearest')
+    if blacknegative:
+        black=pylab.zeros((A.shape[0],A.shape[1],4))
+        black[:,:,3][nonpos]=1
+        pylab.imshow(black,extent=extent,interpolation='nearest')
     for q in qs:
         a=pylab.gca().axis()
         pylab.plot(q*pylab.cos(pylab.linspace(0,2*pylab.pi,2000)),
@@ -1744,6 +1767,85 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
     if header is not None:
         pylab.title("#%s: %s" % (header['FSN'], header['Title']))
 #Miscellaneous routines
+def pause(setto=None):
+    """Pause function
+    
+    Inputs:
+        setto: set pause mode. If None, do "pausing". If not None:
+            a) boolean value: True or False or 'on' or 'off'. Turns
+                pause on or off. If it is turned off, further calls to
+                pause() will return immediately.
+            b) positive numeric value: set sleep time. After this,
+                whenever pause() is called, it will sleep for this many
+                seconds.
+        
+    Examples:
+        1)  >>>pause('off') #turns pausing off
+            >>>pause()
+            #returns immediately
+        2) If a matplotlib window is open:
+            >>>pause('on') #turns pausing on
+            >>>pause()
+            Press any key on the current figure (Figure 1) to continue...
+            # you should press a key when the figure window is active
+        3) if no matplotlib window is open:
+            >>>pause('on')
+            >>>pause()
+            Press Return to continue...
+            # you should press ENTER in the Python interpreter to
+            # continue
+    """
+    global _pausemode
+    if type(setto)==type(True):
+        _pausemode=setto
+        return
+    elif type(setto)==type('on'):
+        if setto.lower()=='on':
+            _pausemode=True
+        elif setto.lower()=='off':
+            _pausemode=False
+        return
+    elif setto is not None:
+        try:
+            f=float(setto)
+        except:
+            return
+        if f>=0:
+            _pausemode=f
+        return
+    if type(_pausemode)==type(True) and _pausemode:
+        if len(pylab.get_fignums())==0:
+            raw_input("Press Return to continue...")
+        else:
+            try: #wxwidgets backend
+                title=pylab.gcf().canvas.manager.window.Title
+            except AttributeError:
+                try: #tk backend
+                    title=pylab.gcf().canvas.manager.window.title()
+                except TypeError: #gtk backend
+                    title=pylab.gcf().canvas.manager.window.title
+                except AttributeError: 
+                    try: # qt backend
+                        title=pylab.gcf().canvas.manager.window.caption().utf8().data()[:-1]
+                    except AttributeError:
+                        try: # qt4 backend
+                            title=pylab.gcf().canvas.manager.window.windowTitle().toUtf8().data()
+                        except AttributeError:
+                            try: #tk backend
+                                title=pylab.gcf().canvas.manager.window.title()
+                            except:
+                                title=''
+            print "Press any key on the current figure (%s) to continue..." % title
+            while pylab.gcf().waitforbuttonpress()==False:
+                pass
+    else:
+        try:
+            a=float(_pausemode)
+        except:
+            return
+        if a>0:
+            time.sleep(a)
+        return
 def fsphere(q,R):
     """Scattering factor of a sphere
     
@@ -1978,6 +2080,7 @@ def readheader(filename,fsn=None,fileend=None):
         
         header=readheader('ORG00123.DAT')
     """
+    jusifaHC=12396.4
     if fsn is None:
         names=[filename]
     else:
@@ -2011,7 +2114,7 @@ def readheader(filename,fsn=None,fileend=None):
             header['MeasTime']=float(string.strip(lines[33]))
             header['Temperature']=float(string.strip(lines[34]))
             header['Transm']=float(string.strip(lines[41]))
-            header['Energy']=HC/float(string.strip(lines[43]))
+            header['Energy']=jusifaHC/float(string.strip(lines[43]))
             header['Dist']=float(string.strip(lines[46]))
             header['XPixel']=1/float(string.strip(lines[49]))
             header['YPixel']=1/float(string.strip(lines[50]))
@@ -3578,6 +3681,7 @@ def directdesmear(data,smoothing,params):
                              smoothing['mode'])
         def sliderfun(a=None,sl=sl,ax=ax,mode=smoothing['mode'],x=pixels,
                       y=data,p=params):
+            print "sliderfun:",a,sl.val
             if mode=='lin':
                 sm=sl.val
             else:
@@ -3585,17 +3689,17 @@ def directdesmear(data,smoothing,params):
             [x1,y1,ysm,A,par,sm]=smooth_and_desmear(x,y,p,sm)
             a=ax.axis()
             ax.cla()
-            ax.plot(x,y,'.',label='Original')
-            ax.plot(x1,ysm,'-',label='Smoothed (%lg)'%sm)
-            ax.plot(x1,y1,'-',label='Desmeared')
+            ax.semilogy(x,y,'.',label='Original')
+            ax.semilogy(x1,ysm,'-',label='Smoothed (%lg)'%sm)
+            ax.semilogy(x1,y1,'-',label='Desmeared')
             ax.legend(loc='best')
             ax.axis(a)
             pylab.gcf().show()
         sl.on_changed(sliderfun)
         [x1,y1,ysm,A,par,sm]=smooth_and_desmear(pixels,data,params,smoothing['val'])
-        ax.plot(pixels,data,'.',label='Original')
-        ax.plot(x1,ysm,'-',label='Smoothed (%lg)'%smoothing['val'])
-        ax.plot(x1,y1,'-',label='Desmeared')
+        ax.semilogy(pixels,data,'.',label='Original')
+        ax.semilogy(x1,ysm,'-',label='Smoothed (%lg)'%smoothing['val'])
+        ax.semilogy(x1,y1,'-',label='Desmeared')
         ax.legend(loc='best')
         while not f.donedesmear:
             pylab.waitforbuttonpress()
@@ -3787,6 +3891,402 @@ def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*py
         return a*xdata+b
     else:
         return a,b,aerr,berr
+#Macros for data processing
+def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,energycalib,distminus=0,detshift=0,orig=[122,123.5]):
+    """Integrate, normalize, do absolute calibration... on a sequence
+    
+    Inputs:
+        fsn1: a single number or a list of FSNs.
+        thicknesses: either one thickness in cm or a dictionary,
+            containing thickness values for each sample. For example, if
+            you have measured My_Samplename_1, Al2O3, DPPC_CdS with
+            thicknesses 1, 1.2 and 0.5 mm, respectively, then you should
+            give: thicknesses={'My_Samplename_1':0.1,'Al2O3':0.12,
+                'DPPC_CdS':0.05}
+        orifsn: which element of the sequence should be used for
+            determining the origin. 0 means empty beam...
+            Or you can give a tuple or a list of two: in this case these
+            will be the coordinates of the origin and no auto-searching
+            will be performed.
+        fsndc: one FSN or a list of FSNS corresponding to the empty beam
+            measurements
+        sens: sensitivity matrix
+        errorsens: error of the sensitivity matrix
+        mask: mask matrix
+        energymeas: list of apparent energies, for energy calibration
+        energycalib: list of theoretical energies, corresponding to the
+            apparent energies.
+        distminus: this will be subtracted from the sample-to-detector
+            distance read from the measurement files, but only for
+            samples, not for references
+        detshift: this will be subtracted from the sample-to-detector
+            distance read from all measurement files, including
+            references!
+        orig: first guess for the origin. A list of two.
+        
+    Outputs:
+        qs: q-scales of intensities
+        ints: intensities
+        errs: errors
+        header: header dictionaries
+    """
+    try:
+        ni=float(thicknesses)
+        print "Using thickness %f cm for all samples except references" % (ni)
+    except:
+        pass
+        
+    if (len(energycalib)!=len(energymeas)) or len(energycalib)<2:
+        print "Stopping. Variables energycalib and energymeas should contain equal amount of\npoints and at least two points to be able to make the energy calibration."
+        return [],[],[],[]
+    qs,ints,errs,areas,As,Aerrs,header=B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,distminus,detshift,orig,transm)
+    #find the reference measurement
+    referencenumber=None
+    for k in range(len(ints)):
+        if header[k]['Title']=='Reference_on_GC_holder_before_sample_sequence':
+            referencenumber=k
+    if k is None:
+        print "No reference measurements found! At least one file with title\n 'Reference_on_GC_holder_before_sample_sequence' should be part of the sequence!"
+        return [],[],[],[]
+    GCdata=None
+    for r in _B1config['refdata']:
+        if abs(r['pos']-header[referencenumber]['PosRef'])<_B1config['refposprecision']:
+            GCdata=pylab.loadtxt("%s%s%s" % (_B1config['calibdir'],os.sep,r['data']))
+            refthick=r['thick']
+    if GCdata is None:
+        print "No calibration data exists with ref. position %.2f +/- %.2f." % (header[referencenumber]['PosRef'],_B1config['refposprecision'])
+        return [],[],[],[]
+    print "FSN %d: Using GLASSY CARBON REFERENCE with nominal thickness %.f micrometers." % (header[referencenumber]['FSN'],refthick*1e4)
+    
+    #re-integrate GC measurement to the same q-bins
+    print "Re-integrating GC data to the same bins at which the reference is defined"
+    qGC,intGC,errGC,AGC=radint(As[referencenumber],
+                               Aerrs[referencenumber],
+                               header[referencenumber]['EnergyCalibrated'],
+                               header[referencenumber]['Dist']
+                               header[referencenumber]['PixelSize']
+                               header[referencenumber]['BeamPosX']
+                               header[referencenumber]['BeamPosY']
+                               1-mask
+                               GCdata[:,0])
+    print "Re-integration done."
+    GCdata=GCdata[Agc>=GCareathreshold,:]
+    intGC=intGC[Agc>=GCareathreshold]
+    errGC=intGC[Agc>=GCareathreshold]
+    qGC=intGC[Agc>=GCareathreshold]    
+    
+    intGC=intGC/refthick
+    errGC=errGC/refthick
+    
+    mult,errmult=multfactor(qGC,GCdata[:,1],GCdata[:,2],intGC,errGC)
+    
+    print "Factor for GC normalization: %.2g +/- %.2 %%" % (mult,errmult/mult*100)
+    pylab.clf()
+    pylab.plot(qGC,intGC*mult,'.',label='Your reference (reintegrated)')
+    pylab.plot(GCdata[:,0],GCdata[:,1],'.',label='Calibrated reference')
+    pylab.plot(qs[referencenumber],ints[referencenumber]*mult/refthick,'-',label='Your reference (saved)')
+    pylab.xlabel(u'q (1/%c)' % 197)
+    pylab.ylabel('Scattering cross-section (1/cm)')
+    pylab.title('Reference FSN %d multiplied by %.2e, error percenteage %.2f' %(header[referencenumber]['FSN'],mult,(errmult/multfactor*100)))
+    pause()
+    
+    #normalize all data to 1/cm
+    for k in range(len(ints)):
+        
+def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,distminus=0,detshift=0,orig=[122,123.5],transm=None):
+    """Integrate a sequence
+    
+    Inputs:
+        fsn1: range of fsns. The first should be the empty beam
+            measurement.
+        fsndc: one FSN or a list of FSNS corresponding to the empty beam
+            measurements
+        sens: sensitivity matrix
+        errorsens: error of the sensitivity matrix
+        orifsn: which element of the sequence should be used for
+            determining the origin. 0 means empty beam...
+            Or you can give a tuple or a list of two: in this case these
+            will be the coordinates of the origin and no auto-searching
+            will be performed.
+        mask: mask matrix
+        energymeas: list of apparent energies, for energy calibration
+        energycalib: list of theoretical energies, corresponding to the
+            apparent energies.
+        distminus: this will be subtracted from the sample-to-detector
+            distance read from the measurement files, but only for
+            samples, not for references
+        detshift: this will be subtracted from the sample-to-detector
+            distance read from all measurement files, including
+            references!
+        orig: first guess for the origin. A list of two.
+        transm: you can give this if you know the transmission of the
+            sample from another measurement. Leave it None to use the
+            measured transmission.
+            
+    Outputs: qs,ints,errs,Areas,As,Aerrs,header
+        qs: q-range. Automatically determined from the mask, the energy
+            and the sample-to-detector distance
+        ints: intensities corresponding to the q values
+        errs: calculated absolute errors
+        Areas: effective areas during integration
+        As: list of corrected 2D data
+        Aerrs: list of corrected 2D errors
+        header: header dictionaries
+    """
+    global _B1config
+    distancetoreference=_B1config['distancetoreference'] #mm. The references are nearer to the detector than the samples
+    pixelsize=_B1config['pixelsize']
+    # subtract the background and the dark current, normalise by sensitivity and transmission
+    Asub,errAsub,header,injectionEB = subtractbg(fsn1,fsndc,sens,errorsens,transm)
+    print "B1integrate: doing energy calibration and correction for reference distance"
+    for k in range(len(Asub)):
+        if header[k]['Title']=='Reference_on_GC_holder_before_sample_sequence':
+            header[k]['Dist']=header[k]['Dist']-distancetoreference-detshift
+            print "Corrected sample-detector distance for fsn %d (ref. before)." % header[k]['FSN']
+        elif header[k]['Title']=='Reference_on_GC_holder_after_sample_sequence':
+            header[k]['Dist']=header[k]['Dist']-distancetoreference-detshift
+            print "Corrected sample-detector distance for fsn %d (ref. after)." % header[k]['FSN']
+        else:
+            header[k]['Dist']=header[k]['Dist']-distminus-detshift
+        header[k]['EnergyCalibrated']=energycalibration(energymeas,energycalib,header[k]['Energy'])
+        print "Calibrated energy for FSN %d (%s): %f -> %f" %(header[k]['FSN'],header[k]['Title'],header[k]['Energy'],header[k]['EnergyCalibrated'])
+        
+    #finding beamcenter
+    
+    try:
+        lenorifsn=len(orifsn)
+        if lenorifsn==2:
+            orig=orifsn
+        else:
+            print "Malformed orifsn parameter for B1integrate: ",orifsn
+            raise ValueError("Malformed orifsn parameter for B1integrate()")
+    except TypeError:
+        print "Determining origin from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
+        orig=findbeam(data[orifsn],orig,mask)
+        print "Determined origin to be %.2f %.2f." % (orig[0],orig[1])
+        testorigin(data[orifsn],orig,mask)
+        pause()
+        
+    qs=[]
+    ints=[]
+    errs=[]
+    Areas=[]
+    As=[]
+    Aerrs=[]
+    orig=[]
+    print "Integrating data. Press Return after inspecting the images."
+    for k in range(len(Asub)):
+        header[k]['BeamPosX']=orig[0]
+        header[k]['BeamPosY']=orig[1]
+        header[k]['PixelSize']=pixelsize
+        D=calculateDmatrix(mask,pixelsize,orig[0],orig[1])
+        tth=pylab.arctan(D/header[k].Dist)
+        spatialcorr=geomcorrectiontheta(tth,header[k]['Dist'])
+        absanglecorr=absorptionangledependenttth(tth,header[k]['Transm'])
+        gasabsorptioncorr=gasabsorptioncorrectiontheta(header[k]['Energycalibrated'],tth)
+        As.append(Asub[k]*spatialcorr*absanglecorr*gasabsorptioncorr)
+        Aerrs.append(errAsub[k]*spatialcorr*absanglecorr*gasabsorptioncorr)
+        pylab.clf()
+        plot2dmatrix(Asub[k],None,mask,header[k],blacknegative=True)
+        pylab.gcf().suptitle('FSN %d (%s) Corrected, log scale\nBlack: nonpositives; Faded: masked pixels' % (header[k]['FSN'],header[k]['Title']))
+        pylab.gcf().show()
+        #now do the integration
+        print "Now integrating..."
+        spam=time.time()
+        q,I,e,A=radint(As,Aerrs,header[l]['EnergyCalibrated'],header[l]['Dist'],
+                       header[l]['PixelSize'],header[l]['BeamPosX'],
+                       header[l]['BeamPosY'],1-mask)
+        qs.append(q)
+        ints.append(I)
+        errs.append(e)
+        Areas.append(A)
+        print "...done. Integration took %f seconds" % (time.time()-spam)
+        pause() # we put pause here, so while the user checks the 2d data, the integration is carried out.
+        pylab.clf()
+        pylab.subplot(121)
+        pylab.cla()
+        pylab.errorbar(qs[-1],ints[-1],errs[-1])
+        pylab.axis('tight')
+        pylab.xlabel(u'q (1/%c)' % 197)
+        pylab.ylabel('Intensity (arb. units)')
+        pylab.title('FSN %d' % (header[l]['FSN']))
+        pylab.subplot(122)
+        pylab.cla()
+        pylab.plot(qs[-1],Areas[-1])
+        pylab.xlabel(u'q (1/%c)' %197)
+        pylab.ylabel('Effective area (pixels)')
+        pylab.title(header[l]['Title'])
+        pylab.gcf().show()
+        pause()
+    return qs,ints,errs,Areas,As,Aerrs
+def geomcorrectiontheta(tth,dist):
+    return dist**2/(pylab.cos(tth)**3)
+def absorptionangledependenttth(tth,transm):
+    mud=-pylab.log(transm);
+    cor=ones(tth.shape)
+    cor[tth!=0]=transm/((1/(1-1/pylab.cos(tth[tth!=0]))/mud)*(exp(-mud/pylab.cos(tth[tth!=0]))-exp(-mud)))
+    return cor
+def gasabsorptioncorrectiontheta(energycalibrated,tth):
+    
+    global _B1config
+    print "GAS ABSORPTION CORRECTION USED!!"
+    
+    #components is a list of dictionaries, describing the absorbing
+    # components of the X-ray flight path. Each dict should have the
+    # following fields:
+    #   'name': name of the component (just for reference)
+    #   'thick': thickness in mm
+    #   'data': data file to find the transmission data.
+    components=[{'name':'detector gas area','thick':50,'data':'TransmissionAr910Torr1mm298K.dat'},
+                {'name':'air gap','thick':50,'data':'TransmissionAir760Torr1mm298K.dat'},
+                {'name':'detector window','thick':0.1,'data':'TransmissionBe1mm.dat'},
+                {'name':'flight tube window','thick':0.15,'data':'TransmissionPolyimide1mm.dat'}]
+    cor=pylab.ones(tth.shape)
+    for c in components:
+        c['travel']=c['thick']/pylab.cos(tth)
+        spam=pylab.loadtxt("%s%s%s" % (_B1config['calibdir'],os.sep,c['data']))
+        if energycalibrated<spam[:,0].min():
+            tr=spam[0,1]
+        elif energycalibrated>spam[:,0].max():
+            tr=spam[0,-1]
+        else:
+            tr=pylab.interp(energycalibrated,spam[:,0],spam[:,1])
+        c['mu']=-pylab.log(tr) # in 1/mm
+        cor=cor/exp(-c['travel']*c['mu'])
+    return cor
+def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
+    """Subtract dark current and empty beam from the measurements and
+    carry out corrections for detector sensitivity, dead time and beam
+    flux (monitor counter). subdc() is called...
+    
+    Inputs:
+        fsn1: list of file sequence numbers (or just one number)
+        fsndc: FSN for the dark current measurements. Can be a single
+            integer number or a list of numbers. In the latter case the
+            DC data are summed up.
+        sens: sensitivity matrix
+        senserr: error of the sensitivity matrix
+        transm: if given, disregard the measured transmission of the
+            sample.
+    
+    Outputs: Asub,errAsub,header,injectionEB
+        Asub: the corrected matrix
+        errAsub: the error of the corrected matrix
+        header: header data
+        injectionEB: 'y' if an injection between the empty beam and
+            sample measurement occured. 'n' otherwise
+    """
+    [datadc,headerdc]=read2dB1data('ORG',fsndc,'.DAT')
+    [data,header]=read2dB1data('ORG',fsn1,'.DAT')
+    
+    Asub=[]
+    errAsub=[]
+    headerout=[]
+    injectionEB=[]
+    
+    for k in range(len(data)): # for each measurement
+        # read int empty beam measurement file
+        [databg,headerbg]=read2dB1data('ORG',header[k]['FSNempty'],'.DAT')
+        if len(databg)==0:
+            print 'Cannot find all empty beam measurements.\nWhere is the empty FSN %d belonging to FSN %d? Stopping.'% (header[k]['FSNempty'],header[k]['FSN'])
+            return Asub,errAsub,headerout,injectionEB
+        # subtract dark current and normalize by sensitivity and transmission (1 in case of empty beam)
+        Abg,Abgerr=subdc(databg,headerbg,datadc,headerdc,sens,senserr)
+        # subtract dark current from scattering patterns and normalize by sensitivity and transmission
+        A2,A2err=subdc([data[k]],[header[k]],datadc,headerdc,sens,senserr,transm)
+        # subtract background, but first check if an injection occurred
+        if header[k]['Current1']>headerbg[0]['Current2']:
+            print "Possibly an injection between sample and its background:"
+            getsamplenames('ORG',header[k]['FSN'],'.DAT')
+            getsamplenames('ORG',header[k]['FSNempty'],'.DAT','no')
+            print "Current in DORIS at the end of empty beam measurement %.2f." % headerbg[0]['Current2']
+            print "Current in DORIS at the beginning of sample measurement %.2f." % header[k]['Current1']
+            injectionEB.append['y']
+        else:
+            injectionEB.append['n']
+        Asub.append(A2-Abg) # they were already normalised by the transmission
+        errAsub.append(pylab.sqrt(A2err**2+Abgerr**2))
+        header[k]['FSNdc']=fsndc
+        headerout.append(header[k])
+    return Asub, errAsub, headerout, injectionEB
+def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
+    """Carry out dead-time corrections on 2D data, from the Gabriel detector.
+    
+    Inputs:
+        data: list of 2d scattering images, to be added
+        header: list of header data, to be added
+        datadc: list of 2d scattering images for dark current
+            measurement, to be added
+        headerdc: list of header data for dark current measurement, to
+            be added up.
+        sens: sensitivity matrix
+        senserr: error matrix of the sensitivity data
+        
+    Outputs:
+        the normalized data.
+    """
+    # summarize transmission, anode, monitor and measurement time data
+    # for measurement files
+    if transm is None:
+        transm=pylab.array([h['Transm'] for h in header])
+        transmave=transm.mean() # average transmission
+        transmerr=transm.std() # standard deviation of the transmission
+    else:
+        transmave=transm
+        transmerr=0
+
+    an1=sum([h['Anode'] for h in header])
+    mo1=sum([h['Monitor'] for h in header])
+    meastime1=sum([h['MeasTime'] for h in header])
+    
+    print "FSN %d\tTitle %s\tEnergy %.1f\tDistance %d" % (header[0]['FSN'],header[0]['Title'],header[0]['Energy'],header[0]['Dist'])
+    print "Average transmission %.4f +/- %.4f" % (transmave,transmerr)
+    
+    # summarize transmission, anode, monitor and measurement time data
+    # for dark current files
+    andc=sum([h['Anode'] for h in headerdc])
+    modc=sum([h['Monitor'] for h in headerdc])
+    meastimedc=sum([h['MeasTime'] for h in headerdc])
+    
+    # correct monitor counts with its dark current
+    monitor1corrected=mo1-modc*meastime1/meastimedc
+    
+    # add up scattering patterns
+    A=__builtins__.sum(data) # do not use pylab.sum()
+    Adc=__builtins__.sum(datadc)
+    
+    #subtract the dark current from the scattering pattern
+    sumA2=(A-Adc*meastime1/meastimedc).sum()
+    # error of sumA2, not sum of error of A2.
+    sumA2err=pylab.sqrt((A+(meastime1/meastimedc)**2*Adc).sum())
+    
+    anA2=an1-andc*meastime1/meastimedc;
+    anA2err=pylab.sqrt(an1+(meastime1/meastimedc)**2*andc)
+    
+    # summarized scattering pattern, subtracted the dark current,
+    # normalized by the monitor counter and the sensitivity
+    A2=(A1-Adc*meastime1/meastimedc)/sens/monitor1corrected
+    
+    print "Sum/Total of dark current: %.2f. Counts/s %.1f." % (100*Adc.sum()/andc,andc/meastimedc)
+    print "Sum/Total before dark current correction: %.2f. Counts on anode %.1f cps. Monitor %.1f cps." %(100*A1.sum()/an1,an1/meastime1,monitor1corrected/meastime1)
+    print "Sum/Total after dark current correction: %.2f." % (100*sumA2/anA2)
+    errA1=pylab.sqrt(A1)
+    errAdc=pylab.sqrt(Adc)
+    errmonitor1corrected=mo1+modc*meastime1/meastimedc
+    
+    errA2=pylab.sqrt(1/(sens*monitor1corrected)**2*errA1**2+
+                     (meastime1/(meastimedc*sens*monitor1corrected))**2*errAdc**2+
+                     (1/(monitor1corrected**2*sens)*(A1-Adc*meastime1/meastimedc))**2*errmonitor1corrected**2+
+                     (1/(monitor1corrected*sens**2*(A1-Adc*meastime1/meastimedc))**2)*senserr**2)
+    A3=A2*anA2/(sumA2*transm1ave)
+    errA3=pylab.sqrt((anA2/(sumA2*transm1ave)*errA2)**2+
+                     (A2/(sumA2*transm1ave)*anA2err)**2+
+                     (A2*anA2/(sumA2**2*transm1ave)*sumA2err)**2+
+                     (A2*anA2/(sumA2*transm1ave**2)*transm1err)**2)
+    #normalize by beam size
+    Bx=header[0]['XPixel']
+    By=header[0]['YPixel']
+    return A3/(Bx*By),errA3/(Bx*By)
 #EXPERIMENTAL (DANGER ZONE)
 def stackdata(tup):
     """Stack two or more scattering data dictionaries above each other.
@@ -4264,3 +4764,4 @@ def tripcalib2(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*p
         return 4*pylab.pi*pylab.sin(0.5*twotheta)/wavelength
     def costfunc(p,x,y):
         pass
+
