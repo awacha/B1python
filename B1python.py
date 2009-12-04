@@ -96,12 +96,12 @@ _B1config={'measdatadir':'.',
            'pixelsize':0.798,
            'detector':'Gabriel',
            '2dfileprefix':'ORG',
-           '2dfilepostfix':'.DAT'
+           '2dfilepostfix':'.DAT',
            'GCareathreshold':10,
-           'detshift':0
+           'detshift':0,
            'refdata':[{'thick':143e-4,'pos':129,'data':'GC155.dat'},
                       {'thick':508e-4,'pos':139,'data':'GC500.dat'},
-                      {'thick':992e-4,'pos':159,'data':'GC1000.dat'}]
+                      {'thick':992e-4,'pos':159,'data':'GC1000.dat'}],
             'refposprecision':0.5
            }
 _pausemode=True
@@ -2058,7 +2058,7 @@ def unifiedscattering(q,B,G,Rg,P=4):
     """
     return G*pylab.exp(-q**2*Rg**2/3.0)+B*pow(pow(scipy.special.erf(q*Rg/pylab.sqrt(6)),3)/q,P)
 #IO routines
-def readheader(filename,fsn=None,fileend=None):
+def readheader(filename,fsn=None,fileend=None,dirs=[]):
     """Reads header data from measurement files
     
     Inputs:
@@ -2067,7 +2067,8 @@ def readheader(filename,fsn=None,fileend=None):
             in filename. It can be a list as well.
         fileend: the end of the file. If it ends with .gz, then the file is
             treated as a gzip archive.
-    
+        dirs [optional]: a list of directories to try
+        
     Output:
         A list of header dictionaries. An empty list if no headers were read.
         
@@ -2081,6 +2082,10 @@ def readheader(filename,fsn=None,fileend=None):
         header=readheader('ORG00123.DAT')
     """
     jusifaHC=12396.4
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
     if fsn is None:
         names=[filename]
     else:
@@ -2090,62 +2095,69 @@ def readheader(filename,fsn=None,fileend=None):
             names=['%s%05d%s' % (filename,fsn,fileend)]
     headers=[]
     for name in names:
-        try:
-            header={};
-            if name.upper()[-3:]=='.GZ':
-                fid=gzip.GzipFile(name,'rt');
-            else:
-                fid=open(name,'rt');
-            lines=fid.readlines()
-            fid.close()
-            header['FSN']=int(string.strip(lines[0]))
-            header['Hour']=int(string.strip(lines[17]))
-            header['Minutes']=int(string.strip(lines[18]))
-            header['Month']=int(string.strip(lines[19]))
-            header['Day']=int(string.strip(lines[20]))
-            header['Year']=int(string.strip(lines[21]))+2000
-            header['FSNref1']=int(string.strip(lines[23]))
-            header['FSNdc']=int(string.strip(lines[24]))
-            header['FSNsensitivity']=int(string.strip(lines[25]))
-            header['FSNempty']=int(string.strip(lines[26]))
-            header['FSNref2']=int(string.strip(lines[27]))
-            header['Monitor']=float(string.strip(lines[31]))
-            header['Anode']=float(string.strip(lines[32]))
-            header['MeasTime']=float(string.strip(lines[33]))
-            header['Temperature']=float(string.strip(lines[34]))
-            header['Transm']=float(string.strip(lines[41]))
-            header['Energy']=jusifaHC/float(string.strip(lines[43]))
-            header['Dist']=float(string.strip(lines[46]))
-            header['XPixel']=1/float(string.strip(lines[49]))
-            header['YPixel']=1/float(string.strip(lines[50]))
-            header['Title']=string.strip(lines[53])
-            header['Title']=string.replace(header['Title'],' ','_')
-            header['Title']=string.replace(header['Title'],'-','_')
-            header['MonitorDORIS']=float(string.strip(lines[56]))
-            header['Owner']=string.strip(lines[57])
-            header['Rot1']=float(string.strip(lines[59]))
-            header['Rot2']=float(string.strip(lines[60]))
-            header['PosSample']=float(string.strip(lines[61]))
-            header['DetPosX']=float(string.strip(lines[62]))
-            header['DetPosY']=float(string.strip(lines[63]))
-            header['MonitorPIEZO']=float(string.strip(lines[64]))
-            header['BeamsizeX']=float(string.strip(lines[66]))
-            header['BeamsizeY']=float(string.strip(lines[67]))
-            header['PosRef']=float(string.strip(lines[70]))
-            header['Monochromator1Rot']=float(string.strip(lines[77]))
-            header['Monochromator2Rot']=float(string.strip(lines[78]))
-            header['Heidenhain1']=float(string.strip(lines[79]))
-            header['Heidenhain2']=float(string.strip(lines[80]))
-            header['Current1']=float(string.strip(lines[81]))
-            header['Current2']=float(string.strip(lines[82]))
-            header['Detector']='Unknown'
-            header['PixelSize']=(header['XPixel']+header['YPixel'])/2.0
-            del lines
-            headers.append(header)
-        except IOError:
-            print 'Cannot find file %s. Make sure the path is correct.' % name
+        filefound=False
+        for d in dirs:
+            try:
+                name1='%s%s%s' % (d,os.sep,name)
+                header={};
+                if name1.upper()[-3:]=='.GZ':
+                    fid=gzip.GzipFile(name1,'rt');
+                else:
+                    fid=open(name1,'rt');
+                lines=fid.readlines()
+                fid.close()
+                header['FSN']=int(string.strip(lines[0]))
+                header['Hour']=int(string.strip(lines[17]))
+                header['Minutes']=int(string.strip(lines[18]))
+                header['Month']=int(string.strip(lines[19]))
+                header['Day']=int(string.strip(lines[20]))
+                header['Year']=int(string.strip(lines[21]))+2000
+                header['FSNref1']=int(string.strip(lines[23]))
+                header['FSNdc']=int(string.strip(lines[24]))
+                header['FSNsensitivity']=int(string.strip(lines[25]))
+                header['FSNempty']=int(string.strip(lines[26]))
+                header['FSNref2']=int(string.strip(lines[27]))
+                header['Monitor']=float(string.strip(lines[31]))
+                header['Anode']=float(string.strip(lines[32]))
+                header['MeasTime']=float(string.strip(lines[33]))
+                header['Temperature']=float(string.strip(lines[34]))
+                header['Transm']=float(string.strip(lines[41]))
+                header['Energy']=jusifaHC/float(string.strip(lines[43]))
+                header['Dist']=float(string.strip(lines[46]))
+                header['XPixel']=1/float(string.strip(lines[49]))
+                header['YPixel']=1/float(string.strip(lines[50]))
+                header['Title']=string.strip(lines[53])
+                header['Title']=string.replace(header['Title'],' ','_')
+                header['Title']=string.replace(header['Title'],'-','_')
+                header['MonitorDORIS']=float(string.strip(lines[56]))
+                header['Owner']=string.strip(lines[57])
+                header['Rot1']=float(string.strip(lines[59]))
+                header['Rot2']=float(string.strip(lines[60]))
+                header['PosSample']=float(string.strip(lines[61]))
+                header['DetPosX']=float(string.strip(lines[62]))
+                header['DetPosY']=float(string.strip(lines[63]))
+                header['MonitorPIEZO']=float(string.strip(lines[64]))
+                header['BeamsizeX']=float(string.strip(lines[66]))
+                header['BeamsizeY']=float(string.strip(lines[67]))
+                header['PosRef']=float(string.strip(lines[70]))
+                header['Monochromator1Rot']=float(string.strip(lines[77]))
+                header['Monochromator2Rot']=float(string.strip(lines[78]))
+                header['Heidenhain1']=float(string.strip(lines[79]))
+                header['Heidenhain2']=float(string.strip(lines[80]))
+                header['Current1']=float(string.strip(lines[81]))
+                header['Current2']=float(string.strip(lines[82]))
+                header['Detector']='Unknown'
+                header['PixelSize']=(header['XPixel']+header['YPixel'])/2.0
+                del lines
+                headers.append(header)
+                filefound=True
+                break # we have already found the file, do not search for it in other directories
+            except IOError:
+                pass #continue with the next directory
+        if not filefound:
+            print 'Cannot find file %s. Tried in directories' %name, dirs
     return headers
-def read2dB1data(filename,files=None,fileend=None):
+def read2dB1data(filename,files=None,fileend=None,dirs=[]):
     """Read 2D measurement files, along with their header data
 
     Inputs:
@@ -2153,6 +2165,7 @@ def read2dB1data(filename,files=None,fileend=None):
         fsn: the file sequence number or None if the whole filenam was supplied
             in filename. It is possible to give a list of fsns here.
         fileend: the end of the file.
+        dirs [optional]: a list of directories to try
         
     Outputs:
         A list of 2d scattering data matrices
@@ -2166,45 +2179,54 @@ def read2dB1data(filename,files=None,fileend=None):
         #in this case the org_*.header files should be present in the same folder
         data,header=read2dB1data('org_',range(123,131),'.tif')
     """
-    def readgabrieldata(filename):
-        try:
-            if filename.upper()[-3:]=='.GZ':
-                fid=gzip.GzipFile(filename,'rt')
-            else:
-                fid=open(filename,'rt')
-            lines=fid.readlines()
-            fid.close()
-            nx=int(string.strip(lines[10]))
-            ny=int(string.strip(lines[11]))
-            data=pylab.zeros((nx,ny),order='F')
-            row=0;
-            col=0;
-            def incrowcol(row,col):
-                if row<nx-1:
-                    row=row+1;
+    def readgabrieldata(filename,dirs):
+        for d in dirs:
+            try:
+                filename1='%s%s%s' %(d,os.sep,filename)
+                if filename1.upper()[-3:]=='.GZ':
+                    fid=gzip.GzipFile(filename1,'rt')
                 else:
-                    row=0;
-                    col=col+1;
-                return row,col
-            for line in lines[133:]:
-                for i in line.split():
-                    data[row,col]=float(i);
-                    row,col=incrowcol(row,col)
-            return data
-        except IOError:
-            print 'Cannot find file %s. Make sure the path is correct.' % filename
-            return None
-    def readpilatus300kdata(filename):
-        try:
-            fid=open(filename,'rb');
-            datastr=fid.read();
-            fid.close();
-            data=pylab.fromstring(datastr[4096:],'uint32').reshape((619,487)).astype('double')
-            return data;
-        except IOError:
-            print 'Cannot find file %s. Make sure the path is correct.' % filename
-            return None
-        
+                    fid=open(filename1,'rt')
+                lines=fid.readlines()
+                fid.close()
+                nx=int(string.strip(lines[10]))
+                ny=int(string.strip(lines[11]))
+                data=pylab.zeros((nx,ny),order='F')
+                row=0;
+                col=0;
+                def incrowcol(row,col):
+                    if row<nx-1:
+                        row=row+1;
+                    else:
+                        row=0;
+                        col=col+1;
+                    return row,col
+                for line in lines[133:]:
+                    for i in line.split():
+                        data[row,col]=float(i);
+                        row,col=incrowcol(row,col)
+                return data
+            except IOError:
+                pass
+        print 'Cannot find file %s. Tried directories:' % filename,dirs
+        return None
+    def readpilatus300kdata(filename,dirs):
+        for d in dirs:
+            try:
+                filename1='%s%s%s' % (d,os.sep,filename)
+                fid=open(filename1,'rb');
+                datastr=fid.read();
+                fid.close();
+                data=pylab.fromstring(datastr[4096:],'uint32').reshape((619,487)).astype('double')
+                return data;
+            except IOError:
+                pass
+        print 'Cannot find file %s. Make sure the path is correct.' % filename
+        return None
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
     if fileend is None:
         fileend=filename[string.rfind(filename,'.'):]
     if (files is not None) and (type(files)!=types.ListType):
@@ -2212,8 +2234,8 @@ def read2dB1data(filename,files=None,fileend=None):
     if fileend.upper()=='.TIF' or fileend.upper()=='.TIFF': # pilatus300k mode
         filebegin=filename[:string.rfind(filename,'.')]
         if files is None:
-            header=readheader(filebegin+'.header')
-            data=readpilatus300kdata(filename)
+            header=readheader(filebegin+'.header',dirs=dirs)
+            data=readpilatus300kdata(filename,dirs=dirs)
             if (len(header)<1) or (data is None):
                 return [],[]
             else:
@@ -2224,8 +2246,8 @@ def read2dB1data(filename,files=None,fileend=None):
             header=[];
             data=[];
             for fsn in files:
-                tmp1=readheader('%s%05d%s' %(filename,fsn,'.header'))
-                tmp2=readpilatus300kdata('%s%05d%s'%(filename,fsn,fileend))
+                tmp1=readheader('%s%05d%s' %(filename,fsn,'.header'),dirs=dirs)
+                tmp2=readpilatus300kdata('%s%05d%s'%(filename,fsn,fileend),dirs=dirs)
                 if (len(tmp1)>0) and (tmp2 is not None):
                     tmp1=tmp1[0]
                     tmp1['Detector']='Pilatus300k'
@@ -2234,8 +2256,8 @@ def read2dB1data(filename,files=None,fileend=None):
             return data,header
     else: # Gabriel mode, if fileend is neither TIF, nor TIFF, case insensitive
         if files is None: # read only 1 file
-            header=readheader(filename);
-            data=readgabrieldata(filename);
+            header=readheader(filename,dirs=dirs);
+            data=readgabrieldata(filename,dirs=dirs);
             if (len(header)>0) and (data is not None):
                 header=header[0]
                 header['Detector']='Gabriel'
@@ -2246,15 +2268,15 @@ def read2dB1data(filename,files=None,fileend=None):
             data=[];
             header=[];
             for fsn in files:
-                tmp1=readheader('%s%05d%s' % (filename,fsn,fileend))
-                tmp2=readgabrieldata('%s%05d%s' % (filename,fsn,fileend))
+                tmp1=readheader('%s%05d%s' % (filename,fsn,fileend),dirs=dirs)
+                tmp2=readgabrieldata('%s%05d%s' % (filename,fsn,fileend),dirs=dirs)
                 if (len(tmp1)>0) and (tmp2 is not None):
                     tmp1=tmp1[0];
                     tmp1['Detector']='Gabriel'
                     data.append(tmp2);
                     header.append(tmp1);
             return data,header
-def getsamplenames(filename,files,fileend,showtitles='Gabriel'):
+def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
     """Prints information on the measurement files
     
     Inputs:
@@ -2265,6 +2287,8 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel'):
         showtitles: if this is 'Gabriel', prints column headers for the gabriel
             detector. 'Pilatus300k' prints the appropriate headers for that
             detector. All other values suppress header printing.
+        dirs [optional]: a list of directories to try
+    
     Outputs:
         None
     """
@@ -2277,7 +2301,7 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel'):
     else:
         pass #do not print header
     for i in files:
-        d,h=read2dB1data(filename,i,fileend);
+        d,h=read2dB1data(filename,i,fileend,dirs);
         if len(h)<1:
             continue
         h=h[0]
@@ -2300,7 +2324,7 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel'):
                                                 h['Year'],
                                                 h['Hour'],
                                                 h['Minutes'])))
-def read2dintfile(fsns):
+def read2dintfile(fsns,dirs=[]):
     """Read corrected intensity and error matrices
     
     Input:
@@ -2310,6 +2334,7 @@ def read2dintfile(fsns):
         a list of 2d intensity matrices
         a list of error matrices
         a list of param dictionaries
+        dirs [optional]: a list of directories to try
     
     Note:
         It tries to load int2dnorm<FSN>.mat. If it does not succeed,
@@ -2361,28 +2386,34 @@ def read2dintfile(fsns):
                     return None
         return data
     # the core of read2dintfile
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
     if type(fsns)!=types.ListType: # if only one fsn was supplied, make it a list of one element
         fsns=[fsns]
     int2d=[]
     err2d=[]
     params=[]
     for fsn in fsns: # this also works if len(fsns)==1
-        try: # first try to load the mat file. This is the most effective way.
-            tmp0=scipy.io.loadmat('int2dnorm%d.mat' % fsn)
-            tmp=tmp0['Intensity'].copy()
-            tmp1=tmp0['Error'].copy()
-        except IOError: # if mat file is not found, try the ascii files
-            print 'Cannot find file int2dnorm%d.mat: trying to read int2dnorm%d.dat(.gz|.zip) and err2dnorm%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
-            tmp=read2dascii('int2dnorm%d.dat' % fsn);
-            tmp1=read2dascii('err2dnorm%d.dat' % fsn);
-        except TypeError: # if mat file was found but scipy.io.loadmat was unable to read it
-            print "Malformed MAT file! Skipping."
-            continue
-        tmp2=readlogfile(fsn) # read the logfile
-        if (tmp is not None) and (tmp1 is not None) and (tmp2 is not None): # if all of int,err and log is read successfully
-            int2d.append(tmp)
-            err2d.append(tmp1)
-            params.append(tmp2[0])
+        for d in dirs:
+            try: # first try to load the mat file. This is the most effective way.
+                tmp0=scipy.io.loadmat('%s%sint2dnorm%d.mat' % (d,os.sep,fsn))
+                tmp=tmp0['Intensity'].copy()
+                tmp1=tmp0['Error'].copy()
+            except IOError: # if mat file is not found, try the ascii files
+                print 'Cannot find file int2dnorm%d.mat: trying to read int2dnorm%d.dat(.gz|.zip) and err2dnorm%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
+                tmp=read2dascii('%s%sint2dnorm%d.dat' % (d,os.sep,fsn));
+                tmp1=read2dascii('%s%serr2dnorm%d.dat' % (d,os.sep,fsn));
+            except TypeError: # if mat file was found but scipy.io.loadmat was unable to read it
+                print "Malformed MAT file! Skipping."
+                continue # try from another directory
+            tmp2=readlogfile(fsn,d) # read the logfile
+            if (tmp is not None) and (tmp1 is not None) and (tmp2 is not None): # if all of int,err and log is read successfully
+                int2d.append(tmp)
+                err2d.append(tmp1)
+                params.append(tmp2[0])
+                break # file was found, do not try to load it again from another directory
     return int2d,err2d,params # return the lists
 def write2dintfile(A,Aerr,params):
     """Save the intensity and error matrices to int2dnorm<FSN>.mat
@@ -2402,6 +2433,7 @@ def readintfile(filename):
 
     Input:
         filename: the file name, eg. intnorm123.dat
+        dirs [optional]: a list of directories to try
 
     Output:
         A dictionary with 'q' holding the values for the momentum transfer,
@@ -2471,11 +2503,13 @@ def write1dsasdict(data, filename):
     for i in range(len(data['q'])):
         fid.write('%e %e %e\n' % (data['q'][i],data['Intensity'][i],data['Error'][i]))
     fid.close();
-def readintnorm(fsns, filetype='intnorm'):
+def readintnorm(fsns, filetype='intnorm',dirs=[]):
     """Read intnorm*.dat files along with their headers
     
-    Input:
+    Inputs:
         fsns: one or more fsn-s.
+        filetype: prefix of the filename
+        dirs [optional]: a list of directories to try
         
     Outputs:
         A vector of dictionaries, in each dictionary the self-explanatory
@@ -2488,28 +2522,35 @@ def readintnorm(fsns, filetype='intnorm'):
     """
     if type(fsns) != types.ListType:
         fsns=[fsns];
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
     data=[];
     param=[];
     for fsn in fsns:
-        filename='%s%d.dat' % (filetype, fsn)
-        tmp=readintfile(filename)
-        tmp2=readlogfile(fsn)
-        if (tmp2!=[]) and (tmp!=[]):
-            data.append(tmp);
-            param.append(tmp2[0]);
+        for d in dirs:
+            filename='%s%s%s%d.dat' % (d,os.sep,filetype, fsn)
+            tmp=readintfile(filename)
+            tmp2=readlogfile(fsn,d)
+            if (tmp2!=[]) and (tmp!=[]):
+                data.append(tmp);
+                param.append(tmp2[0]);
+                break # file was already found, do not try in another directory
     return data,param
-def readbinned(fsn):
+def readbinned(fsn,dirs=[]):
     """Read intbinned*.dat files along with their headers.
     
-    This is a shortcut to readintnorm(fsn,'intbinned')
+    This is a shortcut to readintnorm(fsn,'intbinned',dirs)
     """
-    return readintnorm(fsn,'intbinned');
-def readlogfile(fsn):
+    return readintnorm(fsn,'intbinned',dirs);
+def readlogfile(fsn,dirs=[]):
     """Read logfiles.
     
-    Input:
+    Inputs:
         fsn: the file sequence number(s). It is possible to
             give a single value or a list
+        dirs [optional]: a list of directories to try
             
     Output:
         a list of dictionaries corresponding to the header files. This
@@ -2575,38 +2616,44 @@ def readlogfile(fsn):
         else:
             return None
     #this is the beginning of readlogfile().
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
     if type(fsn)!=types.ListType: # if fsn is not a list, convert it to a list
         fsn=[fsn];
     params=[]; #initially empty
     for f in fsn:
-        filename='intnorm%d.log' % f #the name of the file
-        try:
-            param={};
-            fid=open(filename,'r'); #try to open. If this fails, an exception is raised
-            lines=fid.readlines(); # read all lines
-            fid.close(); #close
-            del fid;
-            for line in lines:
-                name=getname(line);
-                for k in logfile_dict_float.keys():
-                    if name==k:
-                        if type(logfile_dict_float[k]) is types.StringType:
-                            param[logfile_dict_float[k]]=getvalue(line);
-                        else: # type(logfile_dict_float[k]) is types.TupleType
-                            param[logfile_dict_float[k][0]]=getfirstvalue(line);
-                            param[logfile_dict_float[k][1]]=getsecondvalue(line);
-                for k in logfile_dict_str.keys():
-                    if name==k:
-                        param[logfile_dict_str[k]]=getvaluestr(line);
-                for k in logfile_dict_bool.keys():
-                    if name==k:
-                        param[logfile_dict_bool[k]]=getvaluebool(line);
-            param['Title']=string.replace(param['Title'],' ','_');
-            param['Title']=string.replace(param['Title'],'-','_');
-            params.append(param);
-            del lines;
-        except IOError, detail:
-            print 'Cannot find file %s.' % filename
+        for d in dirs:
+            filename='%s%sintnorm%d.log' % (d,os.sep,f) #the name of the file
+            try:
+                param={};
+                fid=open(filename,'r'); #try to open. If this fails, an exception is raised
+                lines=fid.readlines(); # read all lines
+                fid.close(); #close
+                del fid;
+                for line in lines:
+                    name=getname(line);
+                    for k in logfile_dict_float.keys():
+                        if name==k:
+                            if type(logfile_dict_float[k]) is types.StringType:
+                                param[logfile_dict_float[k]]=getvalue(line);
+                            else: # type(logfile_dict_float[k]) is types.TupleType
+                                param[logfile_dict_float[k][0]]=getfirstvalue(line);
+                                param[logfile_dict_float[k][1]]=getsecondvalue(line);
+                    for k in logfile_dict_str.keys():
+                        if name==k:
+                            param[logfile_dict_str[k]]=getvaluestr(line);
+                    for k in logfile_dict_bool.keys():
+                        if name==k:
+                            param[logfile_dict_bool[k]]=getvaluebool(line);
+                param['Title']=string.replace(param['Title'],' ','_');
+                param['Title']=string.replace(param['Title'],'-','_');
+                params.append(param);
+                del lines;
+                break # file was already found, do not try in another directory
+            except IOError, detail:
+                print 'Cannot find file %s.' % filename
     return params;
 def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
                  thickGC,injectionGC,injectionEB,pixelsize,mode='Pilatus300k'):
@@ -2676,35 +2723,43 @@ def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
     fid.write('Sample rotation around x axis:\t%e\n'%header['Rot1'])
     fid.write('Sample rotation around y axis:\t%e\n'%header['Rot2'])
     fid.close()
-def readwaxscor(fsns):
+def readwaxscor(fsns,dirs=[]):
     """Read corrected waxs file
     
     Inputs:
         fsns: a range of fsns or a single fsn.
+        dirs [optional]: a list of directories to try
         
     Output:
         a list of scattering data dictionaries (see readintfile())
     """
     if type(fsns)!=types.ListType:
         fsns=[fsns]
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
     waxsdata=[];
     for fsn in fsns:
-        try:
-            filename='waxs_%05d.cor' % fsn
-            tmp=pylab.load(filename)
-            if tmp.shape[1]==3:
-                tmp1={'q':tmp[:,0],'Intensity':tmp[:,1],'Error':tmp[:,2]}
-            waxsdata.append(tmp1)
-        except IOError:
-            print '%s not found. Skipping it.' % filename
+        for d in dirs:
+            try:
+                filename='%s%swaxs_%05d.cor' % (d,os.sep,fsn)
+                tmp=pylab.load(filename)
+                if tmp.shape[1]==3:
+                    tmp1={'q':tmp[:,0],'Intensity':tmp[:,1],'Error':tmp[:,2]}
+                waxsdata.append(tmp1)
+                break # file was found, do not try in further directories
+            except IOError:
+                print '%s not found. Skipping it.' % filename
     return waxsdata
-def readenergyfio(filename,files,fileend):
+def readenergyfio(filename,files,fileend,dirs=[]):
     """Read abt_*.fio files.
     
     Inputs:
         filename: beginning of the file name, eg. 'abt_'
         files: a list or a single fsn number, eg. [1, 5, 12] or 3
         fileend: extension of a file, eg. '.fio'
+        dirs [optional]: a list of directories to try
     
     Outputs: three lists:
         energies: the uncalibrated (=apparent) energies for each fsn.
@@ -2713,31 +2768,37 @@ def readenergyfio(filename,files,fileend):
     """
     if type(files)!=types.ListType:
         files=[files]
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
     samples=[]
     energies=[]
     muds=[]
     for f in files:
-        mud=[];
-        energy=[];
-        fname='%s%05d%s' % (filename,f,fileend)
-        try:
-            fid=open(fname,'r')
-            lines=fid.readlines()
-            samples.append(lines[5].strip())
-            for l in lines[41:]:
-                tmp=l.strip().split()
-                if len(tmp)==11:
-                    try:
-                        tmpe=float(tmp[0])
-                        tmpmud=float(tmp[-1])
-                        energy.append(tmpe)
-                        mud.append(tmpmud)
-                    except ValueError:
-                        pass
-            muds.append(mud)
-            energies.append(energy)
-        except IOError:
-            print 'Cannot find file %s.' % fname
+        for d in dirs:
+            mud=[];
+            energy=[];
+            fname='%s%s%s%05d%s' % (d,os.sep,filename,f,fileend)
+            try:
+                fid=open(fname,'r')
+                lines=fid.readlines()
+                samples.append(lines[5].strip())
+                for l in lines[41:]:
+                    tmp=l.strip().split()
+                    if len(tmp)==11:
+                        try:
+                            tmpe=float(tmp[0])
+                            tmpmud=float(tmp[-1])
+                            energy.append(tmpe)
+                            mud.append(tmpmud)
+                        except ValueError:
+                            pass
+                muds.append(mud)
+                energies.append(energy)
+                break #file found, do not try further directories
+            except IOError:
+                print 'Cannot find file %s.' % fname
     return (energies,samples,muds)
 def readf1f2(filename):
     """Load fprime files created by Hephaestus
@@ -2828,7 +2889,7 @@ def writechooch(mud,filename):
     for i in range(len(mud['Energy'])):
         f.write('%f\t%f\n' % (mud['Energy'][i],pylab.exp(-mud['Mud'][i])))
     f.close()
-def readxanes(filebegin,files,fileend,energymeas,energycalib):
+def readxanes(filebegin,files,fileend,energymeas,energycalib,dirs=[]):
     """Read energy scans from abt_*.fio files by readenergyfio() then
     put them on a correct energy scale.
     
@@ -2839,6 +2900,7 @@ def readxanes(filebegin,files,fileend,energymeas,energycalib):
         energymeas: list of the measured energies
         energycalib: list of the true energies corresponding to the measured
             ones
+        dirs [optional]: a list of directories to try
     
     Output:
         a list of mud dictionaries. Each dict will have the following items:
@@ -2848,8 +2910,9 @@ def readxanes(filebegin,files,fileend,energymeas,energycalib):
     muds=[];
     if type(files)!=types.ListType:
         files=[files]
+
     for f in files:
-        energy,sample,mud=readenergyfio(filebegin,f,fileend)
+        energy,sample,mud=readenergyfio(filebegin,f,fileend,dirs)
         if len(energy)>0:
             d={}
             d['Energy']=energycalibration(energymeas,energycalib,pylab.array(energy[0]))
@@ -3892,6 +3955,31 @@ def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*py
     else:
         return a,b,aerr,berr
 #Macros for data processing
+def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluorescence,orix,oriy):
+    """Create matrix for detector sensitivity correction
+    
+    Inputs:
+        fsn1: file sequence number for first measurement of foil at energy E1
+        fsn2: file sequence number for first measurement of foil at energy E2
+        fsnend: last FSN in the sensitivity measurement sequence
+        fsnDC: a single number or a list of FSN-s for dark current
+            measurements
+        energymeas: apparent energies for energy calibration
+        energycalib: calibrated energies for energy calibration
+        energyfluorescence: energy of the fluorescence
+        origx, origy: the centers of the beamstop.
+    
+    Outputs: sens,errorsens
+        sens: the sensitivity matrix of the 2D detector, by which all
+            measured data should be divided pointwise. The matrix is
+            normalized to 1 on the average.
+        errorsens: the error of the sensitivity matrix.
+    """
+    global _B1config
+    
+    pixelsize=_B1config['pixelsize']
+    
+    
 def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,energycalib,distminus=0,detshift=0,orig=[122,123.5]):
     """Integrate, normalize, do absolute calibration... on a sequence
     
@@ -3963,11 +4051,11 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
     qGC,intGC,errGC,AGC=radint(As[referencenumber],
                                Aerrs[referencenumber],
                                header[referencenumber]['EnergyCalibrated'],
-                               header[referencenumber]['Dist']
-                               header[referencenumber]['PixelSize']
-                               header[referencenumber]['BeamPosX']
-                               header[referencenumber]['BeamPosY']
-                               1-mask
+                               header[referencenumber]['Dist'],
+                               header[referencenumber]['PixelSize'],
+                               header[referencenumber]['BeamPosX'],
+                               header[referencenumber]['BeamPosY'],
+                               1-mask,
                                GCdata[:,0])
     print "Re-integration done."
     GCdata=GCdata[Agc>=GCareathreshold,:]
@@ -3992,7 +4080,35 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
     
     #normalize all data to 1/cm
     for k in range(len(ints)):
-        
+        if k!=referencenumber:
+            thick=None
+            try:
+                thick=thicknesses[header[k]['Title']]
+            except:
+                pass
+            if thick==None:
+                try:
+                    thick=float(thicknesses)
+                except:
+                    print "Did not find thickness for sample %s. Stopping." % header[k]['Title']
+                    return qs,ints,errs,header
+            print "Using thickness %f cm for sample %s" % (thick,header[k]['Title'])
+            errs[k]=pylab.sqrt((mult*errs[k])**2+(errmult*ints[k])**2)/thick
+            ints[k]=mult*ints[k]/thick
+            Aerrs[k]=pylab.sqrt((mult*Aerrs[k])**2+(errmult*As[k])**2)/thick
+            As[k]=mult*As[k]/thick
+            if ((header[k]['Current1']>header[referencenumber]['Current2']) and (k>referencenumber)) or \
+                ((header[k]['Current2']<header[referencenumber]['Current1']) and (k<referencenumber)):
+                header[k]['injectionGC']='y'
+            else:
+                header[k]['injectionGC']='n'
+            writelogfile(header[k],[header[k]['BeamPosX'],header[k]['BeamPosY']],thick,fsndc,
+                         header[k]['EnergyCalibrated'],header[k]['Dist'],
+                         mult,errmult,header[k][referencenumber]['FSN'],
+                         refthick,header[k]['injectionGC'],header[k]['injectionEB'],
+                         header[k]['PixelSize'],mode=_B1config.detector)
+            writeintfile(qs[k],ints[k],errs[k],header[k],areas[k])
+            write2dintfile(As[k],Aerrs[k],header[k])
 def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,distminus=0,detshift=0,orig=[122,123.5],transm=None):
     """Integrate a sequence
     
@@ -4176,8 +4292,9 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
         injectionEB: 'y' if an injection between the empty beam and
             sample measurement occured. 'n' otherwise
     """
-    [datadc,headerdc]=read2dB1data('ORG',fsndc,'.DAT')
-    [data,header]=read2dB1data('ORG',fsn1,'.DAT')
+    global _B1config
+    [datadc,headerdc]=read2dB1data(_B1config['2dfileprefix'],fsndc,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    [data,header]=read2dB1data(_B1config['2dfileprefix'],fsn1,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
     
     Asub=[]
     errAsub=[]
@@ -4186,7 +4303,7 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
     
     for k in range(len(data)): # for each measurement
         # read int empty beam measurement file
-        [databg,headerbg]=read2dB1data('ORG',header[k]['FSNempty'],'.DAT')
+        [databg,headerbg]=read2dB1data(_B1config['2dfileprefix'],header[k]['FSNempty'],_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
         if len(databg)==0:
             print 'Cannot find all empty beam measurements.\nWhere is the empty FSN %d belonging to FSN %d? Stopping.'% (header[k]['FSNempty'],header[k]['FSN'])
             return Asub,errAsub,headerout,injectionEB
@@ -4197,8 +4314,8 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
         # subtract background, but first check if an injection occurred
         if header[k]['Current1']>headerbg[0]['Current2']:
             print "Possibly an injection between sample and its background:"
-            getsamplenames('ORG',header[k]['FSN'],'.DAT')
-            getsamplenames('ORG',header[k]['FSNempty'],'.DAT','no')
+            getsamplenames(_B1config['2dfileprefix'],header[k]['FSN'],_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+            getsamplenames(_B1config['2dfileprefix'],header[k]['FSNempty'],_B1config['2dfilepostfix'],showtitles='no',dirs=_B1config['measdatadir'])
             print "Current in DORIS at the end of empty beam measurement %.2f." % headerbg[0]['Current2']
             print "Current in DORIS at the beginning of sample measurement %.2f." % header[k]['Current1']
             injectionEB.append['y']
