@@ -272,10 +272,10 @@ def findbeam(data,orig_initial,mask=None,maxiter=20):
     if mask is None:
         mask=pylab.ones(data.shape)
     def targetfunc(orig,data,mask):
-        c1,nc1=imageint(data,orig,1-mask,35,20)
-        c2,nc2=imageint(data,orig,1-mask,35+90,20)
-        c3,nc3=imageint(data,orig,1-mask,35+180,20)
-        c4,nc4=imageint(data,orig,1-mask,35+270,20)
+        c1,nc1=imageint(data,orig,mask,35,20)
+        c2,nc2=imageint(data,orig,mask,35+90,20)
+        c3,nc3=imageint(data,orig,mask,35+180,20)
+        c4,nc4=imageint(data,orig,mask,35+270,20)
         commonlen=min(len(c1),len(c2),len(c3),len(c4))
         first=pylab.array([pylab.find(nc1!=0).min(),pylab.find(nc2!=0).min(),pylab.find(nc3!=0).min(),pylab.find(nc4!=0).min()]).max()
         return pylab.sum(pylab.sqrt((c1[first:commonlen]-c3[first:commonlen])**2+(c2[first:commonlen]-c4[first:commonlen])**2))/commonlen
@@ -2153,9 +2153,8 @@ def readheader(filename,fsn=None,fileend=None,dirs=[]):
                 filefound=True
                 break # we have already found the file, do not search for it in other directories
             except IOError:
+                print 'Cannot find file %s.' %name1
                 pass #continue with the next directory
-        if not filefound:
-            print 'Cannot find file %s. Tried in directories' %name, dirs
     return headers
 def read2dB1data(filename,files=None,fileend=None,dirs=[]):
     """Read 2D measurement files, along with their header data
@@ -2464,7 +2463,7 @@ def readintfile(filename):
                     #skip erroneous line
                     pass
     except IOError:
-        return []
+        return {}
     ret['q']=pylab.array(ret['q'])
     ret['Intensity']=pylab.array(ret['Intensity'])
     ret['Error']=pylab.array(ret['Error'])
@@ -2986,6 +2985,51 @@ def readabt(filename):
     f.close()
     return {'title':title,'mode':mode,'columns':columns,'data':matrix}
 #fitting
+def intintensity(data,alpha,alphaerr,qmin=-pylab.inf,qmax=pylab.inf,m=0):
+    """Calculate integral of the intensity.
+    
+    Inputs:
+        data: 1D small-angle scattering dict
+        alpha: (negative) exponent of the last power-law decay of the
+            curve
+        alphaerr: absolute error of alpha
+        qmin: minimal q to take into account, default is -infinity
+        qmax: maximal q to take into account, default is +infinity
+        m: a positive number. The m-th modulus will be calculated.
+        
+    Outputs: Q,dQ
+        Q: the m-th modulus of the curve
+        dQ: its absolute error
+    
+    Notes:
+        The measured parts of the curve are integrated according to the
+            trapezoid formula (function trapz()).
+        The final slope is assumed to be a power-law decay with exponent
+            alpha.
+        The low-angle part is assumed to be a rectangle, its height
+            being the first intensity value.
+            
+    """
+    alpha=-alpha # it is easier to handle it as a positive number :-)
+    if alpha<1:
+        raise ValueError('m+alpha should be larger than 1. alpha: %f m: %f (m+alpha): %f',(-alpha,m,m-alpha))
+    alpha=alpha-m
+    data1=trimq(data,qmin,qmax)
+    q2=data1['q'].max()
+    q1=data['q'].min()
+    
+    ret1=q2**(1.0-alpha)/(alpha-1.0)
+    dret1=q2**(1.0-alpha)/(alpha-1.0)**2+q2**(-alpha)
+    ret2=pylab.trapz(data['Intensity']*(data['q']**(-alpha)),data['q'])
+    dret2=errtrapz(data['q'],data['Error']*(data['q']**(-alpha)))
+    ret3=q1*data['Intensity'][data['q']==q1][0]*q1**(-alpha)
+    dret3=q1*data['Error'][data['q']==q1][0]*q1**(-alpha)
+    
+    #print ret1, "+/-",dret1
+    #print ret2, "+/-",dret2
+    #print ret3, "+/-",dret3
+    
+    return ret1+ret2+ret3,pylab.sqrt(dret1**2+dret2**2+dret3**2)
 def sanitizeint(data):
     """Remove points with nonpositive intensity from 1D SAXS dataset
     
@@ -3955,7 +3999,37 @@ def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*py
     else:
         return a,b,aerr,berr
 #Macros for data processing
-def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluorescence,orix,oriy):
+def addfsns(fileprefix,fsns,fileend,fieldinheader=None,valueoffield=None,dirs=[]):
+    """
+    """
+    data,header=read2dB1data(fileprefix,fsns,fileend,dirs=dirs)
+    
+    dataout=None
+    headerout=[]
+    summed=[]
+    for k in range(len(header)):
+        h=header[k]
+        if (abs(h['Energy']-header[0]['Energy'])<0.5) and \
+            (h['Dist']==header[0]['Dist']) and \
+            (h['Title']==header[0]['Title']):
+                if(h['rot1']!=header[0]['rot1']) or  (h['rot2']!=header[0]['rot2']):
+                    print "Warning! Rotation of sample in FSN %d (%s) is different from FSN %d (%s)." % (h['FSN'],h['Title'],header[0]['FSN'],header[0]['Title'])
+                    shrubbery=raw_input('Do you still want to add the data? (y/n)   ')
+                    if shrubbery.strip().upper()[0]!='Y':
+                        return
+                if(h['PosRef']!=header[0]['PosRef']):
+                    print "Warning! Position of reference sample in FSN %d (%s) is different from FSN %d (%s)." % (h['FSN'],h['Title'],header[0]['FSN'],header[0]['Title'])
+                    shrubbery=raw_input('Do you still want to add the data? (y/n)   ')
+                    if shrubbery.strip().upper()[0]!='Y':
+                        return
+                if dataout is None:
+                    dataout=data[k].copy()
+                else:
+                    dataout=dataout+data[k]
+                headerout.append(h)
+                summed.append(h['FSN'])
+    return dataout,headerout,summed
+def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluorescence,origx,origy):
     """Create matrix for detector sensitivity correction
     
     Inputs:
@@ -3979,7 +4053,70 @@ def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluoresc
     
     pixelsize=_B1config['pixelsize']
     
+    fsns=range(min(fsn1,fsn2),fsnend+1) # the fsn range of the sensitivity measurement
     
+    #read in every measurement file
+    data,header=read2dB1data(_B1config['2dfileprefix'],fsns,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    
+    E1header=[h for h in header if h['FSN']==fsn1 ][0] # the header of the first measurement at E1
+    E1fsns=[h['FSN'] for h in header if (abs(h['Energy']-E1header['Energy'])<0.5) and (h['Title']==E1header['Title'])]
+    E2header=[h for h in header if h['FSN']==fsn2 ][0] # the header of the first measurement at E2
+    E2fsns=[h['FSN'] for h in header if (abs(h['Energy']-E2header['Energy'])<0.5) and (h['Title']==E2header['Title'])]
+    dataE1,headerE1=read2dB1data(_B1config['2dfileprefix'],E1fsns,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    dataE2,headerE2=read2dB1data(_B1config['2dfileprefix'],E2fsns,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+
+    ebE1fsns=unique([h['FSNempty'] for h in headerE1])
+    ebE2fsns=unique([h['FSNempty'] for h in headerE2])
+    dataebE1,headerebE1=read2dB1data(_B1config['2dfileprefix'],ebE1fsns,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    dataebE2,headerebE2=read2dB1data(_B1config['2dfileprefix'],ebE2fsns,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    
+    datadc,headerdc=read2dB1data(_B1config['2dfileprefix'],fsnDC,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    
+    #subtract background, and correct for transmission (and sensitivity :-): to override this correction, ones() and zeros() are given)
+    A1,errA1=subdc(dataE1,headerE1,datadc,headerdc,pylab.ones(dataE1[0].shape),pylab.zeros(dataE1[0].shape))
+    A2,errA2=subdc(dataE2,headerE2,datadc,headerdc,pylab.ones(dataE2[0].shape),pylab.zeros(dataE2[0].shape))
+    eb1,erreb1=subdc(dataebE1,headerebE1,datadc,headerdc,pylab.ones(dataebE1[0].shape),pylab.zeros(dataebE1[0].shape))
+    eb2,erreb2=subdc(dataebE2,headerebE2,datadc,headerdc,pylab.ones(dataebE2[0].shape),pylab.zeros(dataebE2[0].shape))
+    
+    #theta for pixels
+    tth=pylab.arctan(calculateDmatrix(A1,pixelsize,origx,origy)/headerE1[0]['Dist'])
+    #transmissions below and above the edge
+    transm1=pylab.array([h['Transm'] for h in headerE1])
+    transm2=pylab.array([h['Transm'] for h in headerE2])
+    
+    #angle-dependent absorption
+    transmcorr1=absorptionangledependenttth(tth,transm1.mean())/transm1.mean()
+    transmcorr2=absorptionangledependenttth(tth,transm2.mean())/transm2.mean()
+    
+    #subtract empty beam
+    B1=(A1-eb1)*transmcorr1
+    B2=(A2-eb2)*transmcorr2
+    errB1=pylab.sqrt(errA1**2+erreb1**2)*transmcorr1
+    errB2=pylab.sqrt(errA2**2+erreb2**2)*transmcorr2
+    
+    factor=1 #empirical compensation factor to rule out small-angle scattering completely
+    if (E1header['Energy']>E2header['Energy']):
+        C=B1-factor*B2
+        Cerr=pylab.sqrt(errB1**2+factor**2*errB2**2)
+    else:
+        C=B2-factor*B1
+        Cerr=pylab.sqrt(errB2**2+factor**2*errB1**2)
+    C=C*gasabsorptioncorrectiontheta(energyfluorescence,tth)
+    print "Please mask erroneous areas!"
+    mask = makemask(pylab.ones(C.shape),C)
+    print sum(mask)
+    print sum(1-mask)
+    C=(mask)*C
+    cc=C.mean()
+    sens=C/cc
+    errorsens=Cerr/cc
+    #taking care of zeros
+    sens[sens==0]=1
+    pylab.imshow(sens)
+    pylab.colorbar()
+    pylab.axis('equal')
+    pylab.gcf().show()
+    return sens,errorsens
 def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,energycalib,distminus=0,detshift=0,orig=[122,123.5]):
     """Integrate, normalize, do absolute calibration... on a sequence
     
@@ -4239,8 +4376,8 @@ def geomcorrectiontheta(tth,dist):
     return dist**2/(pylab.cos(tth)**3)
 def absorptionangledependenttth(tth,transm):
     mud=-pylab.log(transm);
-    cor=ones(tth.shape)
-    cor[tth!=0]=transm/((1/(1-1/pylab.cos(tth[tth!=0]))/mud)*(exp(-mud/pylab.cos(tth[tth!=0]))-exp(-mud)))
+    cor=pylab.ones(tth.shape)
+    cor[tth!=0]=transm/((1/(1-1/pylab.cos(tth[tth!=0]))/mud)*(pylab.exp(-mud/pylab.cos(tth[tth!=0]))-pylab.exp(-mud)))
     return cor
 def gasabsorptioncorrectiontheta(energycalibrated,tth):
     
@@ -4268,7 +4405,7 @@ def gasabsorptioncorrectiontheta(energycalibrated,tth):
         else:
             tr=pylab.interp(energycalibrated,spam[:,0],spam[:,1])
         c['mu']=-pylab.log(tr) # in 1/mm
-        cor=cor/exp(-c['travel']*c['mu'])
+        cor=cor/pylab.exp(-c['travel']*c['mu'])
     return cor
 def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
     """Subtract dark current and empty beam from the measurements and
@@ -4293,8 +4430,8 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
             sample measurement occured. 'n' otherwise
     """
     global _B1config
-    [datadc,headerdc]=read2dB1data(_B1config['2dfileprefix'],fsndc,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
-    [data,header]=read2dB1data(_B1config['2dfileprefix'],fsn1,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    datadc,headerdc=read2dB1data(_B1config['2dfileprefix'],fsndc,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    data,header=read2dB1data(_B1config['2dfileprefix'],fsn1,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
     
     Asub=[]
     errAsub=[]
@@ -4340,7 +4477,7 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
         senserr: error matrix of the sensitivity data
         
     Outputs:
-        the normalized data.
+        the normalized data and its error matrix
     """
     # summarize transmission, anode, monitor and measurement time data
     # for measurement files
@@ -4369,8 +4506,8 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     monitor1corrected=mo1-modc*meastime1/meastimedc
     
     # add up scattering patterns
-    A=__builtins__.sum(data) # do not use pylab.sum()
-    Adc=__builtins__.sum(datadc)
+    A=sum(data) # do not use pylab.sum()
+    Adc=sum(datadc)
     
     #subtract the dark current from the scattering pattern
     sumA2=(A-Adc*meastime1/meastimedc).sum()
@@ -4382,24 +4519,24 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     
     # summarized scattering pattern, subtracted the dark current,
     # normalized by the monitor counter and the sensitivity
-    A2=(A1-Adc*meastime1/meastimedc)/sens/monitor1corrected
+    A2=(A-Adc*meastime1/meastimedc)/sens/monitor1corrected
     
     print "Sum/Total of dark current: %.2f. Counts/s %.1f." % (100*Adc.sum()/andc,andc/meastimedc)
-    print "Sum/Total before dark current correction: %.2f. Counts on anode %.1f cps. Monitor %.1f cps." %(100*A1.sum()/an1,an1/meastime1,monitor1corrected/meastime1)
+    print "Sum/Total before dark current correction: %.2f. Counts on anode %.1f cps. Monitor %.1f cps." %(100*A.sum()/an1,an1/meastime1,monitor1corrected/meastime1)
     print "Sum/Total after dark current correction: %.2f." % (100*sumA2/anA2)
-    errA1=pylab.sqrt(A1)
+    errA=pylab.sqrt(A)
     errAdc=pylab.sqrt(Adc)
     errmonitor1corrected=mo1+modc*meastime1/meastimedc
     
-    errA2=pylab.sqrt(1/(sens*monitor1corrected)**2*errA1**2+
+    errA2=pylab.sqrt(1/(sens*monitor1corrected)**2*errA**2+
                      (meastime1/(meastimedc*sens*monitor1corrected))**2*errAdc**2+
-                     (1/(monitor1corrected**2*sens)*(A1-Adc*meastime1/meastimedc))**2*errmonitor1corrected**2+
-                     (1/(monitor1corrected*sens**2*(A1-Adc*meastime1/meastimedc))**2)*senserr**2)
-    A3=A2*anA2/(sumA2*transm1ave)
-    errA3=pylab.sqrt((anA2/(sumA2*transm1ave)*errA2)**2+
-                     (A2/(sumA2*transm1ave)*anA2err)**2+
-                     (A2*anA2/(sumA2**2*transm1ave)*sumA2err)**2+
-                     (A2*anA2/(sumA2*transm1ave**2)*transm1err)**2)
+                     (1/(monitor1corrected**2*sens)*(A-Adc*meastime1/meastimedc))**2*errmonitor1corrected**2+
+                     (1/(monitor1corrected*sens**2*(A-Adc*meastime1/meastimedc))**2)*senserr**2)
+    A3=A2*anA2/(sumA2*transmave)
+    errA3=pylab.sqrt((anA2/(sumA2*transmave)*errA2)**2+
+                     (A2/(sumA2*transmave)*anA2err)**2+
+                     (A2*anA2/(sumA2**2*transmave)*sumA2err)**2+
+                     (A2*anA2/(sumA2*transmave**2)*transmerr)**2)
     #normalize by beam size
     Bx=header[0]['XPixel']
     By=header[0]['YPixel']
