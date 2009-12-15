@@ -1,4 +1,4 @@
-"""B1python: various Pythonic functions for Small-Angle X-ray Scattering
+﻿"""B1python: various Pythonic functions for Small-Angle X-ray Scattering
 analysis. Created by Andras Wacha for beamline B1 @HASYLAB/DESY, Hamburg,
 Germany, but hopefully other scientists can benefit from these too. These
 functions are partially based on Ulla Vainio's Matlab(R) scripts for B1 data
@@ -98,11 +98,15 @@ _B1config={'measdatadir':'.',
            '2dfileprefix':'ORG',
            '2dfilepostfix':'.DAT',
            'GCareathreshold':10,
+           'GCintsthreshold':1,
            'detshift':0,
            'refdata':[{'thick':143e-4,'pos':129,'data':'GC155.dat'},
                       {'thick':508e-4,'pos':139,'data':'GC500.dat'},
-                      {'thick':992e-4,'pos':159,'data':'GC1000.dat'}],
-            'refposprecision':0.5
+                      {'thick':992e-4,'pos':159,'data':'GC1000.dat'},
+                      {'thick':500e-4,'pos':152.30,'data':'GC500Guenter_invcm.dat'}],
+            'refposprecision':0.5,
+            'ebtitle':'Empty_beam',
+            'GCtransmission':None
            }
 _pausemode=True
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
@@ -255,33 +259,41 @@ def samplenamesfromparam(param):
         a list of sorted sample titles
     """
     return unique([p['Title'] for p in param])
-def findbeam(data,orig_initial,mask=None,maxiter=20):
+def findbeam(data,orig_initial,mask=None,maxiter=0):
     """Find beam center
     
     Inputs:
         data: scattering matrix
-        orig_initial: estimated value for x (row) and y (column) coordinates
-            of the beam center, starting from 1.
-        mask: mask matrix. If None, nothing will be masked. Otherwise it should be
-            of the same size as data. Nonzero means non-masked.
+        orig_initial: estimated value for x (row) and y (column)
+            coordinates of the beam center, starting from 1.
+        mask: mask matrix. If None, nothing will be masked. Otherwise it
+            should be of the same size as data. Nonzero means non-masked.
         maxiter: maximum number of iterations for scipy.optimize.fmin
     Output:
         a vector of length 2 with the x and y coordinates of the origin.
     """
+    print "Finding beam, please be patient..."
     orig=pylab.array(orig_initial)
     if mask is None:
         mask=pylab.ones(data.shape)
     def targetfunc(orig,data,mask):
+        #integrate four sectors
+        print "integrating... (for finding beam)"
         c1,nc1=imageint(data,orig,mask,35,20)
         c2,nc2=imageint(data,orig,mask,35+90,20)
         c3,nc3=imageint(data,orig,mask,35+180,20)
         c4,nc4=imageint(data,orig,mask,35+270,20)
-        commonlen=min(len(c1),len(c2),len(c3),len(c4))
-        first=pylab.array([pylab.find(nc1!=0).min(),pylab.find(nc2!=0).min(),pylab.find(nc3!=0).min(),pylab.find(nc4!=0).min()]).max()
-        return pylab.sum(pylab.sqrt((c1[first:commonlen]-c3[first:commonlen])**2+(c2[first:commonlen]-c4[first:commonlen])**2))/commonlen
-    orig=scipy.optimize.fmin(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxiter=maxiter,disp=True)
-    
-    return orig
+        # the common length is the lowest of the lengths
+        last=min(len(c1),len(c2),len(c3),len(c4))
+        # first will be the first common point: the largest of the first
+        # nonzero points of the integrated data
+        first=pylab.array([pylab.find(nc1!=0).min(),
+                           pylab.find(nc2!=0).min(),
+                           pylab.find(nc3!=0).min(),
+                           pylab.find(nc4!=0).min()]).max()
+        return ((c1[first:last]-c3[first:last])**2+(c2[first:last]-c4[first:last])**2)/(last-first)
+    orig=scipy.optimize.leastsq(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxfev=maxiter)
+    return orig[0]
 def imageint(data,orig,mask,fi=None,dfi=None):
     """Perform radial averaging on the image.
     
@@ -403,7 +415,7 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,shutup=True):
         qmin=min(q1) # the lowest non-masked q-value
         qmax=max(q1) # the highest non-masked q-value
         #qstep=(qmax-qmin)/10
-        qstep=(qmax-qmin)/(2*pylab.sqrt(M*M+N*N))
+        qstep=(qmax-qmin)/(pylab.sqrt(M*M+N*N))
         q=pylab.arange(qmin,qmax,qstep)
         if not shutup:
             print "done"
@@ -429,13 +441,17 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,shutup=True):
         indices=((q1<=qmax[l])&(q1>qmin[l])) # the indices of the pixels which belong to this q-bin
         Intensity[l]=pylab.sum((data[indices])/(dataerr[indices]**2)) # sum the intensities weighted by 1/sigma**2
         Error[l]=1/pylab.sum(1/(dataerr[indices]**2)) # error of the weighted average
+#        Intensity[l]=pylab.sum(data[indices])
+#        Error[l]=pylab.sum(dataerr[indices]**2)
         Area[l]=pylab.sum(indices) # collect the area
         # normalization by the area
         Intensity[l]=Intensity[l]*Error[l] # Error[l] is 1/sum_i(1/sigma^2_i)
         Error[l]=pylab.sqrt(Error[l])
+#        Intensity[l]=Intensity[l]/Area[l]
+#        Error[l]=pylab.sqrt(Error[l])/Area[l]
     if not shutup:
         print "done"
-        
+    
     return q,Intensity,Error,Area # return
     
 def calculateDmatrix(mask,res,bcx,bcy):
@@ -726,6 +742,7 @@ def testorigin(data,orig,mask=None):
         orig: the origin [row,column]
         mask: the mask matrix. Nonzero means nonmasked
     """
+    print "Creating origin testing images, please wait..."
     if mask is None:
         mask=pylab.ones(data.shape)
     pylab.subplot(2,2,1)
@@ -747,6 +764,7 @@ def testorigin(data,orig,mask=None):
     pdata=polartransform(data,pylab.arange(0,maxr),pylab.linspace(0,4*pylab.pi,600),orig[0],orig[1])
     pmask=polartransform(mask,pylab.arange(0,maxr),pylab.linspace(0,4*pylab.pi,600),orig[0],orig[1])
     plot2dmatrix(pdata,mask=pmask)
+    print "... image ready!"
 def assesstransmission(fsns,titleofsample,mode='Gabriel'):
     """Plot transmission, beam center and Doris current vs. FSNs of the given
     sample.
@@ -1444,7 +1462,8 @@ def makemask(mask,A,savefile=None):
     if A.shape!=mask.shape:
         print 'The shapes of A and mask should be equal.'
         return None
-    fig=pylab.figure();
+    fig=pylab.gcf();
+    fig.clf()
     fig.mydata={}
     fig.mydata['ax']=fig.add_axes((0.3,0.1,0.6,0.8))
     for i in range(10):
@@ -1486,7 +1505,9 @@ def makemask(mask,A,savefile=None):
     #ax.imshow(maskplot)
     #pylab.show()
     mask=fig.mydata['mask']
-    pylab.close(fig)
+    #pylab.close(fig)
+    fig.clf()
+#    pylab.title('Mask Done')
     if savefile is not None:
         print 'Saving file'
         scipy.io.savemat(savefile,{'mask':mask})
@@ -1750,14 +1771,14 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         X,Y=pylab.meshgrid(pylab.linspace(extent1[2],extent1[3],tmp.shape[1]),
                            pylab.linspace(extent1[0],extent1[1],tmp.shape[0]))
         pylab.contour(X,Y,tmp,contour)
-    if mask is not None:
-        white=pylab.ones((mask.shape[0],mask.shape[1],4))
-        white[:,:,3]=pylab.array(1-mask).astype('float')*0.7
-        pylab.imshow(white,extent=extent,interpolation='nearest')
     if blacknegative:
         black=pylab.zeros((A.shape[0],A.shape[1],4))
         black[:,:,3][nonpos]=1
         pylab.imshow(black,extent=extent,interpolation='nearest')
+    if mask is not None:
+        white=pylab.ones((mask.shape[0],mask.shape[1],4))
+        white[:,:,3]=pylab.array(1-mask).astype('float')*0.7
+        pylab.imshow(white,extent=extent,interpolation='nearest')
     for q in qs:
         a=pylab.gca().axis()
         pylab.plot(q*pylab.cos(pylab.linspace(0,2*pylab.pi,2000)),
@@ -1836,7 +1857,10 @@ def pause(setto=None):
                             except:
                                 title=''
             print "Press any key on the current figure (%s) to continue..." % title
+            
+            pylab.draw()
             while pylab.gcf().waitforbuttonpress()==False:
+                pylab.gcf().show()
                 pass
     else:
         try:
@@ -2323,11 +2347,14 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
                                                 h['Year'],
                                                 h['Hour'],
                                                 h['Minutes'])))
-def read2dintfile(fsns,dirs=[]):
+def read2dintfile(fsns,dirs=[],norm=True):
     """Read corrected intensity and error matrices
     
     Input:
         fsns: one or more fsn-s in a list
+        dirs: list of directories to try
+        norm: True if int2dnorm*.mat file is to be loaded, False if
+            int2darb*.mat is preferred
         
     Output:
         a list of 2d intensity matrices
@@ -2397,13 +2424,21 @@ def read2dintfile(fsns,dirs=[]):
     for fsn in fsns: # this also works if len(fsns)==1
         for d in dirs:
             try: # first try to load the mat file. This is the most effective way.
-                tmp0=scipy.io.loadmat('%s%sint2dnorm%d.mat' % (d,os.sep,fsn))
+                if norm:
+                    tmp0=scipy.io.loadmat('%s%sint2dnorm%d.mat' % (d,os.sep,fsn))
+                else:
+                    tmp0=scipy.io.loadmat('%s%sint2darb%d.mat' % (d,os.sep,fsn))
                 tmp=tmp0['Intensity'].copy()
                 tmp1=tmp0['Error'].copy()
             except IOError: # if mat file is not found, try the ascii files
-                print 'Cannot find file int2dnorm%d.mat: trying to read int2dnorm%d.dat(.gz|.zip) and err2dnorm%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
-                tmp=read2dascii('%s%sint2dnorm%d.dat' % (d,os.sep,fsn));
-                tmp1=read2dascii('%s%serr2dnorm%d.dat' % (d,os.sep,fsn));
+                if norm:
+                    print 'Cannot find file int2dnorm%d.mat: trying to read int2dnorm%d.dat(.gz|.zip) and err2dnorm%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
+                    tmp=read2dascii('%s%sint2dnorm%d.dat' % (d,os.sep,fsn));
+                    tmp1=read2dascii('%s%serr2dnorm%d.dat' % (d,os.sep,fsn));
+                else:
+                    print 'Cannot find file int2darb%d.mat: trying to read int2darb%d.dat(.gz|.zip) and err2darb%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
+                    tmp=read2dascii('%s%sint2darb%d.dat' % (d,os.sep,fsn));
+                    tmp1=read2dascii('%s%serr2darb%d.dat' % (d,os.sep,fsn));
             except TypeError: # if mat file was found but scipy.io.loadmat was unable to read it
                 print "Malformed MAT file! Skipping."
                 continue # try from another directory
@@ -2414,7 +2449,7 @@ def read2dintfile(fsns,dirs=[]):
                 params.append(tmp2[0])
                 break # file was found, do not try to load it again from another directory
     return int2d,err2d,params # return the lists
-def write2dintfile(A,Aerr,params):
+def write2dintfile(A,Aerr,params,norm=True):
     """Save the intensity and error matrices to int2dnorm<FSN>.mat
     
     Inputs:
@@ -2425,7 +2460,10 @@ def write2dintfile(A,Aerr,params):
     int2dnorm<FSN>.mat is written. The parameter structure is not saved,
         since it should be saved already in intnorm<FSN>.log
     """
-    filename='int2dnorm%d.mat' % params['FSN'];
+    if norm:
+        filename='int2dnorm%d.mat' % params['FSN'];
+    else:
+        filename='int2darb%d.mat' % params['FSN'];
     scipy.io.savemat(filename,{'Intensity':A,'Error':Aerr});
 def readintfile(filename):
     """Read intfiles.
@@ -2543,13 +2581,15 @@ def readbinned(fsn,dirs=[]):
     This is a shortcut to readintnorm(fsn,'intbinned',dirs)
     """
     return readintnorm(fsn,'intbinned',dirs);
-def readlogfile(fsn,dirs=[]):
+def readlogfile(fsn,dirs=[],norm=True):
     """Read logfiles.
     
     Inputs:
         fsn: the file sequence number(s). It is possible to
             give a single value or a list
         dirs [optional]: a list of directories to try
+        norm: if a normalized file is to be loaded (intnorm*.log). If
+            False, intarb*.log will be loaded instead.
             
     Output:
         a list of dictionaries corresponding to the header files. This
@@ -2624,7 +2664,10 @@ def readlogfile(fsn,dirs=[]):
     params=[]; #initially empty
     for f in fsn:
         for d in dirs:
-            filename='%s%sintnorm%d.log' % (d,os.sep,f) #the name of the file
+            if norm:
+                filename='%s%sintnorm%d.log' % (d,os.sep,f) #the name of the file
+            else:
+                filename='%s%sintarb%d.log' % (d,os.sep,f) #the name of the file
             try:
                 param={};
                 fid=open(filename,'r'); #try to open. If this fails, an exception is raised
@@ -2655,7 +2698,7 @@ def readlogfile(fsn,dirs=[]):
                 print 'Cannot find file %s.' % filename
     return params;
 def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
-                 thickGC,injectionGC,injectionEB,pixelsize,mode='Pilatus300k'):
+                 thickGC,injectionGC,injectionEB,pixelsize,mode='Pilatus300k',norm=True):
     """Write logfiles.
     
     Inputs:
@@ -2675,7 +2718,7 @@ def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
         injectionEB: the same as injectionGC but for empty beam and sample.
         pixelsize: the size of the pixel of the 2D detector (mm)
         mode: 'Pilatus300k' or 'Gabriel'. If invalid, it defaults to 'Gabriel'
-        
+        norm: if the normalization went good. If failed, intarb*.dat will be saved.
     Output:
         a file intnorm<fsn>.log is saved to the current directory
     """
@@ -2690,7 +2733,10 @@ def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
             injectionGC='y'
         else:
             injectionGC='n'
-    name='intnorm%d.log' % header['FSN']
+    if norm:
+        name='intnorm%d.log' % header['FSN']
+    else:
+        name='intarb%d.log' % header['FSN']
     fid=open(name,'wt')
     fid.write('FSN:\t%d\n' % header['FSN'])
     fid.write('Sample title:\t%s\n' % header['Title'])
@@ -2827,15 +2873,39 @@ def getsequences(headers,ebname='Empty_beam'):
         Ref_after_EN then the function will return:
         [[0,1,2,3,4],[5,6,7,8,9],...[(N-1)*5,(N-1)*5+1...N*5-1]].
         
-        It is allowed that the last sequence is incomplete. However, all other
-        sequences must have the same amount of measurements (references are 
-        treated as samples in this case).
+        Sequences of different lengths are allowed
     """
     seqs=[]
-    ebnums=[x for x in range(len(headers)) if headers[x]['Title']==ebname]
-    for i in range(len(ebnums)-1):
-        seqs.append(range(ebnums[i],ebnums[i+1]))
-    seqs.append(range(ebnums[-1],len(headers)))
+    for i in range(len(headers)):
+        if headers[i]['Title']==ebname:
+            seqs.append([])
+        if len(seqs)==0:
+            print "Dropping measurement %d (%t) because no Empty beam before!" % (headers[i]['FSN'],headers[i]['Title'])
+        else:
+            seqs[-1].append(i)
+    return seqs
+def getsequencesfsn(headers,ebname='Empty_beam'):
+    """Separate measurements made at different energies in an ASAXS
+        sequence and return the lists of FSNs
+    
+    Inputs:
+        header: header (or param) dictionary
+        ebname: the title of the empty beam measurements.
+    
+    Output:
+        a list of lists. Each sub-list in this list contains the FSNS in the
+        supplied header structure which correspond to the sub-sequence.
+    
+        Sequences of different lengths are allowed.
+    """
+    seqs=[]
+    for i in range(len(headers)):
+        if headers[i]['Title']==ebname:
+            seqs.append([])
+        if len(seqs)==0:
+            print "Dropping measurement %d (%t) because no Empty beam before!" % (headers[i]['FSN'],headers[i]['Title'])
+        else:
+            seqs[-1].append(headers[i]['FSN'])
     return seqs
 def mandelbrot(real,imag,iters):
     """Calculate the Mandelbrot set
@@ -4043,11 +4113,14 @@ def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluoresc
         energyfluorescence: energy of the fluorescence
         origx, origy: the centers of the beamstop.
     
-    Outputs: sens,errorsens
+    Outputs: sens,errorsens,mask
         sens: the sensitivity matrix of the 2D detector, by which all
             measured data should be divided pointwise. The matrix is
             normalized to 1 on the average.
         errorsens: the error of the sensitivity matrix.
+        mask: mask matrix created by the user. This masks values where
+            the sensitivity is invalid. This should be used as a base
+            for further mask matrices.
     """
     global _B1config
     
@@ -4104,8 +4177,6 @@ def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluoresc
     C=C*gasabsorptioncorrectiontheta(energyfluorescence,tth)
     print "Please mask erroneous areas!"
     mask = makemask(pylab.ones(C.shape),C)
-    print sum(mask)
-    print sum(1-mask)
     C=(mask)*C
     cc=C.mean()
     sens=C/cc
@@ -4116,8 +4187,8 @@ def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluoresc
     pylab.colorbar()
     pylab.axis('equal')
     pylab.gcf().show()
-    return sens,errorsens
-def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,energycalib,distminus=0,detshift=0,orig=[122,123.5]):
+    return sens,errorsens,mask
+def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,energycalib,distminus=0,detshift=0,orig=[122,123.5],transm=None):
     """Integrate, normalize, do absolute calibration... on a sequence
     
     Inputs:
@@ -4195,25 +4266,31 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
                                1-mask,
                                GCdata[:,0])
     print "Re-integration done."
-    GCdata=GCdata[Agc>=GCareathreshold,:]
-    intGC=intGC[Agc>=GCareathreshold]
-    errGC=intGC[Agc>=GCareathreshold]
-    qGC=intGC[Agc>=GCareathreshold]    
+    GCdata=GCdata[(AGC>=_B1config['GCareathreshold']) & (intGC>=_B1config['GCintsthreshold']),:]
+    errGC=errGC[(AGC>=_B1config['GCareathreshold']) & (intGC>=_B1config['GCintsthreshold'])]
+    qGC=qGC[(AGC>=_B1config['GCareathreshold']) & (intGC>=_B1config['GCintsthreshold'])]
+    intGC=intGC[(AGC>=_B1config['GCareathreshold']) & (intGC>=_B1config['GCintsthreshold'])]
     
-    intGC=intGC/refthick
-    errGC=errGC/refthick
+    if len(intGC)<2:
+        print "ERROR: re-integrated reference does not have enough points! Saving not normalized!"
+        mult=1
+        errmult=0
+    else:
+        intGC=intGC/refthick
+        errGC=errGC/refthick
     
-    mult,errmult=multfactor(qGC,GCdata[:,1],GCdata[:,2],intGC,errGC)
+        mult,errmult=multfactor(qGC,GCdata[:,1],GCdata[:,2],intGC,errGC)
     
-    print "Factor for GC normalization: %.2g +/- %.2 %%" % (mult,errmult/mult*100)
-    pylab.clf()
-    pylab.plot(qGC,intGC*mult,'.',label='Your reference (reintegrated)')
-    pylab.plot(GCdata[:,0],GCdata[:,1],'.',label='Calibrated reference')
-    pylab.plot(qs[referencenumber],ints[referencenumber]*mult/refthick,'-',label='Your reference (saved)')
-    pylab.xlabel(u'q (1/%c)' % 197)
-    pylab.ylabel('Scattering cross-section (1/cm)')
-    pylab.title('Reference FSN %d multiplied by %.2e, error percenteage %.2f' %(header[referencenumber]['FSN'],mult,(errmult/multfactor*100)))
-    pause()
+        print "Factor for GC normalization: %.2g +/- %.2f %%" % (mult,errmult/mult*100)
+        pylab.clf()
+        pylab.plot(qGC,intGC*mult,'.',label='Your reference (reintegrated)')
+        pylab.plot(GCdata[:,0],GCdata[:,1],'.',label='Calibrated reference')
+        pylab.plot(qs[referencenumber],ints[referencenumber]*mult/refthick,'-',label='Your reference (saved)')
+        pylab.xlabel(u'q (1/%c)' % 197)
+        pylab.ylabel('Scattering cross-section (1/cm)')
+        pylab.title('Reference FSN %d multiplied by %.2e, error percentage %.2f' %(header[referencenumber]['FSN'],mult,(errmult/mult*100)))
+        #pause('on')
+        pause()
     
     #normalize all data to 1/cm
     for k in range(len(ints)):
@@ -4239,13 +4316,20 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
                 header[k]['injectionGC']='y'
             else:
                 header[k]['injectionGC']='n'
+            if len(intGC)<2:
+                norm=False
+            else:
+                norm=True
             writelogfile(header[k],[header[k]['BeamPosX'],header[k]['BeamPosY']],thick,fsndc,
                          header[k]['EnergyCalibrated'],header[k]['Dist'],
-                         mult,errmult,header[k][referencenumber]['FSN'],
+                         mult,errmult,header[referencenumber]['FSN'],
                          refthick,header[k]['injectionGC'],header[k]['injectionEB'],
-                         header[k]['PixelSize'],mode=_B1config.detector)
-            writeintfile(qs[k],ints[k],errs[k],header[k],areas[k])
-            write2dintfile(As[k],Aerrs[k],header[k])
+                         header[k]['PixelSize'],mode=_B1config['detector'],norm=norm)
+            if norm:
+                writeintfile(qs[k],ints[k],errs[k],header[k],areas[k],filetype='intnorm')
+            else:
+                writeintfile(qs[k],ints[k],errs[k],header[k],areas[k],filetype='intarb')
+            write2dintfile(As[k],Aerrs[k],header[k],norm=norm)
 def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,distminus=0,detshift=0,orig=[122,123.5],transm=None):
     """Integrate a sequence
     
@@ -4261,7 +4345,7 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             Or you can give a tuple or a list of two: in this case these
             will be the coordinates of the origin and no auto-searching
             will be performed.
-        mask: mask matrix
+        mask: mask matrix. 1 for non-masked, 0 for masked
         energymeas: list of apparent energies, for energy calibration
         energycalib: list of theoretical energies, corresponding to the
             apparent energies.
@@ -4303,7 +4387,6 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             header[k]['Dist']=header[k]['Dist']-distminus-detshift
         header[k]['EnergyCalibrated']=energycalibration(energymeas,energycalib,header[k]['Energy'])
         print "Calibrated energy for FSN %d (%s): %f -> %f" %(header[k]['FSN'],header[k]['Title'],header[k]['Energy'],header[k]['EnergyCalibrated'])
-        
     #finding beamcenter
     
     try:
@@ -4315,10 +4398,10 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             raise ValueError("Malformed orifsn parameter for B1integrate()")
     except TypeError:
         print "Determining origin from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
-        orig=findbeam(data[orifsn],orig,mask)
+        orig=findbeam(Asub[orifsn],orig,mask)
         print "Determined origin to be %.2f %.2f." % (orig[0],orig[1])
-        testorigin(data[orifsn],orig,mask)
-        pause()
+        #testorigin(Asub[orifsn],orig,mask)
+        #pause()
         
     qs=[]
     ints=[]
@@ -4326,58 +4409,68 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
     Areas=[]
     As=[]
     Aerrs=[]
-    orig=[]
+    headerout=[]
     print "Integrating data. Press Return after inspecting the images."
     for k in range(len(Asub)):
+        if header[k]['Title']==_B1config['ebtitle']:
+            continue
         header[k]['BeamPosX']=orig[0]
         header[k]['BeamPosY']=orig[1]
         header[k]['PixelSize']=pixelsize
         D=calculateDmatrix(mask,pixelsize,orig[0],orig[1])
-        tth=pylab.arctan(D/header[k].Dist)
+        tth=pylab.arctan(D/header[k]['Dist'])
         spatialcorr=geomcorrectiontheta(tth,header[k]['Dist'])
         absanglecorr=absorptionangledependenttth(tth,header[k]['Transm'])
-        gasabsorptioncorr=gasabsorptioncorrectiontheta(header[k]['Energycalibrated'],tth)
+        gasabsorptioncorr=gasabsorptioncorrectiontheta(header[k]['EnergyCalibrated'],tth)
         As.append(Asub[k]*spatialcorr*absanglecorr*gasabsorptioncorr)
         Aerrs.append(errAsub[k]*spatialcorr*absanglecorr*gasabsorptioncorr)
         pylab.clf()
         plot2dmatrix(Asub[k],None,mask,header[k],blacknegative=True)
         pylab.gcf().suptitle('FSN %d (%s) Corrected, log scale\nBlack: nonpositives; Faded: masked pixels' % (header[k]['FSN'],header[k]['Title']))
-        pylab.gcf().show()
+        #pylab.gcf().show()
+        pylab.draw()
         #now do the integration
         print "Now integrating..."
         spam=time.time()
-        q,I,e,A=radint(As,Aerrs,header[l]['EnergyCalibrated'],header[l]['Dist'],
-                       header[l]['PixelSize'],header[l]['BeamPosX'],
-                       header[l]['BeamPosY'],1-mask)
+        q,I,e,A=radint(As[-1],Aerrs[-1],header[k]['EnergyCalibrated'],header[k]['Dist'],
+                       header[k]['PixelSize'],header[k]['BeamPosX'],
+                       header[k]['BeamPosY'],1-mask)
         qs.append(q)
         ints.append(I)
         errs.append(e)
         Areas.append(A)
+        headerout.append(header[k])
         print "...done. Integration took %f seconds" % (time.time()-spam)
         pause() # we put pause here, so while the user checks the 2d data, the integration is carried out.
         pylab.clf()
         pylab.subplot(121)
         pylab.cla()
+        #print qs[-1]
+        #print ints[-1]
         pylab.errorbar(qs[-1],ints[-1],errs[-1])
         pylab.axis('tight')
         pylab.xlabel(u'q (1/%c)' % 197)
         pylab.ylabel('Intensity (arb. units)')
-        pylab.title('FSN %d' % (header[l]['FSN']))
+        pylab.xscale('log')
+        pylab.yscale('log')
+        pylab.title('FSN %d' % (header[k]['FSN']))
         pylab.subplot(122)
         pylab.cla()
-        pylab.plot(qs[-1],Areas[-1])
+        pylab.plot(qs[-1],Areas[-1],'.')
         pylab.xlabel(u'q (1/%c)' %197)
         pylab.ylabel('Effective area (pixels)')
-        pylab.title(header[l]['Title'])
+        pylab.title(header[k]['Title'])
         pylab.gcf().show()
         pause()
-    return qs,ints,errs,Areas,As,Aerrs
+    return qs,ints,errs,Areas,As,Aerrs,headerout
 def geomcorrectiontheta(tth,dist):
     return dist**2/(pylab.cos(tth)**3)
 def absorptionangledependenttth(tth,transm):
     mud=-pylab.log(transm);
     cor=pylab.ones(tth.shape)
-    cor[tth!=0]=transm/((1/(1-1/pylab.cos(tth[tth!=0]))/mud)*(pylab.exp(-mud/pylab.cos(tth[tth!=0]))-pylab.exp(-mud)))
+    
+    #cor[tth>0]=transm/((1/(1-1/pylab.cos(tth[tth>0]))/mud)*(pylab.exp(-mud/pylab.cos(tth[tth>0]))-pylab.exp(-mud)))
+    cor[tth>0]=transm*mud*(1-1/pylab.cos(tth[tth>0]))/(pylab.exp(-mud/pylab.cos(tth[tth>0]))-pylab.exp(-mud))
     return cor
 def gasabsorptioncorrectiontheta(energycalibrated,tth):
     
@@ -4407,7 +4500,7 @@ def gasabsorptioncorrectiontheta(energycalibrated,tth):
         c['mu']=-pylab.log(tr) # in 1/mm
         cor=cor/pylab.exp(-c['travel']*c['mu'])
     return cor
-def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
+def subtractbg_old(fsn1,fsndc,sens,senserr,transm=None):
     """Subtract dark current and empty beam from the measurements and
     carry out corrections for detector sensitivity, dead time and beam
     flux (monitor counter). subdc() is called...
@@ -4455,11 +4548,149 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
             getsamplenames(_B1config['2dfileprefix'],header[k]['FSNempty'],_B1config['2dfilepostfix'],showtitles='no',dirs=_B1config['measdatadir'])
             print "Current in DORIS at the end of empty beam measurement %.2f." % headerbg[0]['Current2']
             print "Current in DORIS at the beginning of sample measurement %.2f." % header[k]['Current1']
-            injectionEB.append['y']
+            injectionEB.append('y')
         else:
-            injectionEB.append['n']
+            injectionEB.append('n')
+        header[k]['injectionEB']=injectionEB[-1]
         Asub.append(A2-Abg) # they were already normalised by the transmission
         errAsub.append(pylab.sqrt(A2err**2+Abgerr**2))
+        header[k]['FSNdc']=fsndc
+        headerout.append(header[k])
+    return Asub, errAsub, headerout, injectionEB
+def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
+    """Subtract dark current and empty beam from the measurements and
+    carry out corrections for detector sensitivity, dead time and beam
+    flux (monitor counter). This is a newer version, which does all the
+    error propagation more correctly.
+    
+    Inputs:
+        fsn1: list of file sequence numbers (or just one number)
+        fsndc: FSN for the dark current measurements. Can be a single
+            integer number or a list of numbers. In the latter case the
+            DC data are summed up.
+        sens: sensitivity matrix
+        senserr: error of the sensitivity matrix
+        transm: if given, disregard the measured transmission of the
+            sample.
+    
+    Outputs: Asub,errAsub,header,injectionEB
+        Asub: the corrected matrix
+        errAsub: the error of the corrected matrix
+        header: header data
+        injectionEB: 'y' if an injection between the empty beam and
+            sample measurement occured. 'n' otherwise
+    """
+    global _B1config
+    datadc,headerdc=read2dB1data(_B1config['2dfileprefix'],fsndc,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    data,header=read2dB1data(_B1config['2dfileprefix'],fsn1,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    
+    #sum up darkcurrent measurements, if more.
+    # summarize transmission, anode, monitor and measurement time data
+    # for dark current files
+    ad=sum([h['Anode'] for h in headerdc])
+    md=sum([h['Monitor'] for h in headerdc])
+    td=sum([h['MeasTime'] for h in headerdc])    
+    D=sum(datadc)
+    
+    S=sens
+
+    Asub=[]
+    errAsub=[]
+    headerout=[]
+    injectionEB=[]
+    
+    for k in range(len(data)): # for each measurement
+        # read int empty beam measurement file
+        if header[k]['Title']==_B1config['ebtitle']:
+            continue
+        [databg,headerbg]=read2dB1data(_B1config['2dfileprefix'],header[k]['FSNempty'],_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+        if len(databg)==0:
+            print 'Cannot find all empty beam measurements.\nWhere is the empty FSN %d belonging to FSN %d? Ignoring.'% (header[k]['FSNempty'],header[k]['FSN'])
+            continue    
+        A=data[k]
+        B=databg[0]
+        ta=header[k]['MeasTime']
+        tb=headerbg[0]['MeasTime']
+        aa=header[k]['Anode']
+        ab=headerbg[0]['Anode']
+        ma=header[k]['Monitor']
+        mb=headerbg[0]['Monitor']
+        Ta=header[k]['Transm']
+        dTa=0 # if it is not zero, please set it here.
+        if (Ta<=0):
+            print ""
+            print ""
+            print "---------------------------------------------------------------------"
+            print "VERY BIG, VERY FAT WARNING!!!"
+            print "The transmission of this sample (",header[k]['Title'],") is nonpositive!"
+            print "ASSUMING IT TO BE %f." % (_B1config['GCtransmission'])
+            print "Note that this may foul the calibration into absolute intensity units!"
+            print ""
+            print ""
+            print "(sleeping for 5 seconds)"
+            time.sleep(5)
+            Ta=_B1config['GCtransmission']
+            header[k]['Transm']=Ta
+        # <anything>1 will be the DC corrected version of <anything>
+        A1=A-D*ta/td
+        ma1=ma-md*ta/td	
+        aa1=aa-ad*ta/td
+        B1=B-D*tb/td
+        mb1=mb-md*tb/td
+        ab1=ab-ad*tb/td
+        # C is the resulting matrix (corrected for dark current, 
+        # lost anode counts (dead time), sensitivity, monitor,
+        # transmission, background)
+        C=A1/(Ta*S*ma1)*(aa1/A1.sum())-B1/(S*mb1)*(ab1/B1.sum())
+        # for the error propagation, calculate various derivatives. The
+        # names of the variables might seem a bit cryptic, but they
+        # aren't: dCdTa means simply (dC/dTa), a matrix of the same size
+        # that of C
+        dCdTa=-A1/(Ta*Ta*S*ma1)*aa1/A1.sum()
+        dCdma=-A1/(Ta*S*ma1*ma1)*aa1/A1.sum()
+        dCdmb=B1/(S*mb1*mb1)*ab1/B1.sum()
+        dCdmd=A1/(Ta*S*ma1*ma1)*ta/td*aa1/A1.sum()-B1/(S*mb1*mb1)*tb/td*ab1/B1.sum()
+        dCdaa=A1/(Ta*S*ma1)/A1.sum()
+        dCdab=-B1/(S*mb1)/B1.sum()
+        dCdad=-A1/(Ta*S*ma1)*(ta/td)/A1.sum()+B1/(S*mb1)*(tb/td)/B1.sum()
+        dCdS=-A1/(Ta*S*S*ma1)*aa1/A1.sum()+B1/(S*S*mb1)*ab1/B1.sum()
+        # the dependence of the error of C on DA, DB, DD is not trivial.
+        # They can be calculated as:
+        # DC_ij=sqrt(dC_ijdTa**2 + ... + sum_mn (dC_ijdA_mn)**2*DA_mn**2 + ... )
+        # dCdA_mn = delta(i,m)*delta(j,n)/(Ta*S_ij*ma1)*aa1/A1.sum() - A1/(Ta*S_ij*ma1)*aa1/A1.sum()**2 =
+        #         = aa1 / (Ta*S_ij*ma1*A1.sum())* (delta(i,m)*delta(j,n)-A1/A1.sum())
+        # so sum_mn (dCdA_mn**2*dA_mn**2) = sum_mn(dCdA_mn**2*A_mn) = ... (see next line in code)
+        dCdA2DA2=(aa1/(Ta*S*ma1*A1.sum()))**2*(A.sum()*(A1/A1.sum())**2-2*A1/A1.sum()*A+A) # the name means now (dC/dA)^2*DA*2
+        # the error propagation of B is similar:
+        dCdB2DB2=(ab1/(S*mb1*B1.sum()))**2*(B.sum()*(B1/B1.sum())**2-2*B1/B1.sum()*B+B)
+        # the error propagation of D is just a little trickier:
+        alpha=aa1*ta/(Ta*ma1*A1.sum())
+        beta=ab1*tb/(mb1*B1.sum())
+        
+        dCdD2DD2=1/(td*S)**2*( (alpha*A1/A1.sum()-beta*B1/B1.sum())**2*D.sum() 
+                                -2*(alpha*A1/A1.sum()-beta*B1/B1.sum())*(alpha-beta)*D +
+                                (alpha-beta)**2 *D)
+        
+        dC=pylab.sqrt(dCdTa**2*dTa**2 + dCdma**2*ma + dCdmb**2*mb + dCdmd**2*md + dCdS**2*senserr**2 +
+                      dCdaa**2*aa + dCdab**2*ab + dCdad**2*ad + dCdA2DA2 + dCdB2DB2 + dCdD2DD2)
+        #normalize by beam size
+        Bx=header[k]['XPixel'] # the empty beam should be measured with the same settings...
+        By=header[k]['YPixel']
+        C=C/(Bx*By)
+        dC=dC/(Bx*By)
+        
+        if header[k]['Current1']>headerbg[0]['Current2']:
+            print "Possibly an injection between sample and its background:"
+            getsamplenames(_B1config['2dfileprefix'],header[k]['FSN'],_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+            getsamplenames(_B1config['2dfileprefix'],header[k]['FSNempty'],_B1config['2dfilepostfix'],showtitles='no',dirs=_B1config['measdatadir'])
+            print "Current in DORIS at the end of empty beam measurement %.2f." % headerbg[0]['Current2']
+            print "Current in DORIS at the beginning of sample measurement %.2f." % header[k]['Current1']
+            injectionEB.append('y')
+        else:
+            injectionEB.append('n')
+        header[k]['injectionEB']=injectionEB[-1]
+        Asub.append(C)
+        errAsub.append(dC)
         header[k]['FSNdc']=fsndc
         headerout.append(header[k])
     return Asub, errAsub, headerout, injectionEB
@@ -4488,7 +4719,21 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     else:
         transmave=transm
         transmerr=0
-
+    if transmave<=0:
+        print ""
+        print ""
+        print "---------------------------------------------------------------------"
+        print "VERY BIG, VERY FAT WARNING!!!"
+        print "The transmission of this sample (",header[0]['Title'],") is nonpositive!"
+        print "ASSUMING IT TO BE 0.5."
+        print "Note that this may foul the calibration into absolute intensity units!"
+        print ""
+        print ""
+        print "(sleeping for 5 seconds)"
+        time.sleep(5)
+        transmave=0.5
+        for h in header:
+            h['Transm']=transmave
     an1=sum([h['Anode'] for h in header])
     mo1=sum([h['Monitor'] for h in header])
     meastime1=sum([h['MeasTime'] for h in header])
@@ -4527,11 +4772,11 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     errA=pylab.sqrt(A)
     errAdc=pylab.sqrt(Adc)
     errmonitor1corrected=mo1+modc*meastime1/meastimedc
-    
     errA2=pylab.sqrt(1/(sens*monitor1corrected)**2*errA**2+
                      (meastime1/(meastimedc*sens*monitor1corrected))**2*errAdc**2+
                      (1/(monitor1corrected**2*sens)*(A-Adc*meastime1/meastimedc))**2*errmonitor1corrected**2+
-                     (1/(monitor1corrected*sens**2*(A-Adc*meastime1/meastimedc))**2)*senserr**2)
+                     (1/(monitor1corrected*sens**2)*(A-Adc*meastime1/meastimedc))**2*senserr**2)
+                     
     A3=A2*anA2/(sumA2*transmave)
     errA3=pylab.sqrt((anA2/(sumA2*transmave)*errA2)**2+
                      (A2/(sumA2*transmave)*anA2err)**2+
@@ -4798,7 +5043,8 @@ def tweakplot2d(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,pmin=0
     def redraw(tmp=None,ax=ax,sl1=sl1,sl2=sl2):
         ax.cla()
         plot2dmatrix(A,maxval,mask,header,qs,showqscale,pmin=sl1.val,pmax=sl2.val)
-        pylab.gcf().show()    
+        pylab.gcf().show()
+        pylab.draw()
     sl1.on_changed(redraw)
     sl2.on_changed(redraw)
     redraw()
