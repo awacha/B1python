@@ -259,7 +259,56 @@ def samplenamesfromparam(param):
         a list of sorted sample titles
     """
     return unique([p['Title'] for p in param])
-def findbeam(data,orig_initial,mask=None,maxiter=0):
+def findbeam_gravity(data,mask):
+    # for each row and column find the center of gravity
+    data1=data.copy() # take a copy, because elements will be tampered
+                      # with
+    data1[mask==0]=0 # set masked elements to zero
+
+    pylab.imshow(data1) # show the matrix
+    pylab.gcf().show() #
+    # vector of x (row) coordinates
+    x=pylab.arange(data1.shape[0])
+    # vector of y (column) coordinates
+    y=pylab.arange(data1.shape[1])
+
+    # two column vectors, both containing ones. The length of onex and
+    # oney corresponds to length of x and y, respectively.
+    onex=pylab.ones((len(x),1))
+    oney=pylab.ones((len(y),1))
+    # Multiply the matrix with x. Each element of the resulting column
+    # vector will contain the center of gravity of the corresponding row
+    # in the matrix, multiplied by the "weight". Thus: nix_i=sum_j( A_ij
+    # * x_j). If we divide this by spamx_i=sum_j(A_ij), then we get the
+    # center of gravity. The length of this column vector is len(y).
+    nix=pylab.dot(data1,x).flatten()
+    spamx=pylab.dot(data1,onex).flatten()
+    # indices where both nix and spamx is nonzero.
+    goodx=((nix!=0) & (spamx!=0))
+    # trim y, nix and spamx by goodx, eliminate invalid points.
+    y1=y[goodx]
+    nix=nix[goodx]
+    spamx=spamx[goodx]
+
+    # now do the same for the column direction.
+    niy=pylab.dot(data1.T,y).flatten()
+    spamy=pylab.dot(data1.T,oney).flatten()
+    goody=((niy!=0) & (spamy!=0))
+    x1=x[goody]
+    niy=niy[goody]
+    spamy=spamy[goody]
+    # column coordinate of the center in each row will be contained in
+    # ycent, the row coordinate of the center in each column will be
+    # in xcent.
+    ycent=nix/spamx
+    xcent=niy/spamy
+    pylab.figure()
+    pylab.plot(x1,xcent,'.',label='xcent')
+    pylab.plot(y1,ycent,'.',label='ycent')
+    pylab.gcf().show()
+    # return the mean values as the centers.
+    return xcent.mean(),ycent.mean()
+def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
     """Find beam center
     
     Inputs:
@@ -291,9 +340,33 @@ def findbeam(data,orig_initial,mask=None,maxiter=0):
                            pylab.find(nc2!=0).min(),
                            pylab.find(nc3!=0).min(),
                            pylab.find(nc4!=0).min()]).max()
-        return ((c1[first:last]-c3[first:last])**2+(c2[first:last]-c4[first:last])**2)/(last-first)
+        ret= pylab.array(((c1[first:last]-c3[first:last])**2+(c2[first:last]-c4[first:last])**2)/(last-first))
+        print "orig:",orig[0],orig[1]
+        print "last-first:",last-first
+        print "sum(ret):",ret.sum()
+        return ret
     orig=scipy.optimize.leastsq(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxfev=maxiter)
     return orig[0]
+def findbeam_semitransparent(data,pri):
+    """Find beam with 2D weighting of semitransparent beamstop area
+
+    Inputs:
+        data: scattering matrix
+        pri: list of four: [x0,y0,x1,y1] for the corners of the beam
+            area under the semitransparent beamstop
+
+    Outputs: bcx,bcy
+        the x and y coordinates of the primary beam
+    """
+    Y,X=pylab.meshgrid(pylab.arange(A.shape[1]),
+                       pylab.arange(A.shape[0]))
+    indices=((X<=pri[2]) & (X>=pri[0]) & (Y<=pri[3]) & (Y>=pri[1]))
+    d=data[indices]
+    x=X[indices]
+    y=Y[indices]
+    bcx=pylab.sum(d*x)/pylab.sum(d)
+    bcy=pylab.sum(d*y)/pylab.sum(d)
+    return bcx,bcy
 def imageint(data,orig,mask,fi=None,dfi=None):
     """Perform radial averaging on the image.
     
@@ -4355,7 +4428,20 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
         detshift: this will be subtracted from the sample-to-detector
             distance read from all measurement files, including
             references!
-        orig: first guess for the origin. A list of two.
+        orig: helper data for the beam finding procedures. You have
+            three possibilities:
+            A) a vector/list/tuple of two: findbeam_sector() will be
+                tried. In this case this is the initial value of the
+                beam center
+            B) a vector/list/tuple of four: row0,column0,row1,column1:
+                the corners of the rectangle, around the beam, if a
+                semitransparent beam-stop was used. In this case
+                findbeam_semitransparent() will be tried, and the beam
+                center will be determined for each measurement,
+                independently (disregarding orifsn).
+            C) a mask matrix (1 means nonmasked, 0 means masked), the
+                same size as that of the measurement data. In this
+                case findbeam_gravity() will be used.
         transm: you can give this if you know the transmission of the
             sample from another measurement. Leave it None to use the
             measured transmission.
@@ -4397,9 +4483,26 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             print "Malformed orifsn parameter for B1integrate: ",orifsn
             raise ValueError("Malformed orifsn parameter for B1integrate()")
     except TypeError:
-        print "Determining origin from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
-        orig=findbeam(Asub[orifsn],orig,mask)
-        print "Determined origin to be %.2f %.2f." % (orig[0],orig[1])
+        orig1=None
+        try:
+            if len(orig)==2:
+                print "Determining origin from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
+                orig1=findbeam_slices(Asub[orifsn-1],orig,mask)
+                print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
+            elif len(orig)==4:
+                for k in range(len(Asub)):
+                    print "Determining origin for file FSN %d %s" %(header[k]['FSN'],header[k]['Title'])
+                    orig1=findbeam_semitransparent(Asub[k],orig)
+                    print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
+                    header[k]['BeamPosX']=orig1[0]
+                    header[k]['BeamPosY']=orig1[1]
+            elif orig.shape==Asub[orifsn-1].shape:
+                print "Determining origin from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
+                orig1=findbeam_gravity(Asub[orifsn-1],orig)
+                print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
+        except:
+            print "Finding the origin did not succeed"
+            return [],[],[],[],[],[],[]
         #testorigin(Asub[orifsn],orig,mask)
         #pause()
         
@@ -4414,10 +4517,11 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
     for k in range(len(Asub)):
         if header[k]['Title']==_B1config['ebtitle']:
             continue
-        header[k]['BeamPosX']=orig[0]
-        header[k]['BeamPosY']=orig[1]
+        if len(orig)!=4:
+            header[k]['BeamPosX']=orig1[0]
+            header[k]['BeamPosY']=orig1[1]
         header[k]['PixelSize']=pixelsize
-        D=calculateDmatrix(mask,pixelsize,orig[0],orig[1])
+        D=calculateDmatrix(mask,pixelsize,header[k]['BeamPosX'],header[k]['BeamPosY'])
         tth=pylab.arctan(D/header[k]['Dist'])
         spatialcorr=geomcorrectiontheta(tth,header[k]['Dist'])
         absanglecorr=absorptionangledependenttth(tth,header[k]['Transm'])
