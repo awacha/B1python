@@ -77,11 +77,8 @@ import scipy.io
 import types
 import zipfile
 import gzip
-#import Tkinter
-import sys
 import time
 import os
-import shutil
 import matplotlib.widgets
 import matplotlib.nxutils
 import scipy.optimize
@@ -345,8 +342,42 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
         print "last-first:",last-first
         print "sum(ret):",ret.sum()
         return ret
-    orig=scipy.optimize.leastsq(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxfev=maxiter)
+    orig=scipy.optimize.leastsq(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxfev=maxiter,epsfcn=0.0001)
     return orig[0]
+def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,dmax=pylab.inf):
+    """Find beam center using azimuthal integration
+    
+    Inputs:
+        data: scattering matrix
+        orig_initial: estimated value for x (row) and y (column)
+            coordinates of the beam center, starting from 1.
+        mask: mask matrix. If None, nothing will be masked. Otherwise it
+            should be of the same size as data. Nonzero means non-masked.
+        maxiter: maximum number of iterations for scipy.optimize.fmin
+        Ntheta: the number of theta points for the azimuthal integration
+        dmin: pixels nearer to the origin than this will be excluded from
+            the azimuthal integration
+        dmax: pixels farther from the origin than this will be excluded from
+            the azimuthal integration
+    Output:
+        a vector of length 2 with the x and y coordinates of the origin.
+    """
+    print "Finding beam, please be patient..."
+    orig=pylab.array(orig_initial)
+    if mask is None:
+        mask=pylab.ones(data.shape)
+    def targetfunc(orig,data,mask):
+        def sinfun(p,x,y):
+            return (y-pylab.sin(x+p[1])*p[0]-p[2])/pylab.sqrt(len(x))
+        t,I,E,a=azimintpix(data,pylab.ones(data.shape),orig,mask,Ntheta,dmin,dmax)
+        t=t[a>0]
+        I=I[a>0]
+        p=((I.max()-I.min())/2.0,t[I==I.max()][0],I.mean())
+        p=scipy.optimize.leastsq(sinfun,p,(t,I))[0]
+        print "fun(): orig=",orig,"amplitude=",abs(p[0])
+        return abs(p[0])
+    orig1=scipy.optimize.fmin(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxiter=maxiter)
+    return orig1
 def findbeam_semitransparent(data,pri):
     """Find beam with 2D weighting of semitransparent beamstop area
 
@@ -358,8 +389,8 @@ def findbeam_semitransparent(data,pri):
     Outputs: bcx,bcy
         the x and y coordinates of the primary beam
     """
-    Y,X=pylab.meshgrid(pylab.arange(A.shape[1]),
-                       pylab.arange(A.shape[0]))
+    Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),
+                       pylab.arange(data.shape[0]))
     indices=((X<=pri[2]) & (X>=pri[0]) & (Y<=pri[3]) & (Y>=pri[1]))
     d=data[indices]
     x=X[indices]
@@ -367,6 +398,51 @@ def findbeam_semitransparent(data,pri):
     bcx=pylab.sum(d*x)/pylab.sum(d)
     bcy=pylab.sum(d*y)/pylab.sum(d)
     return bcx,bcy
+def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=pylab.inf):
+    """Perform azimuthal integration of image.
+
+    Inputs:
+        data: matrix to average
+        error: error matrix
+        orig: vector of beam center coordinates, starting from 1.
+        mask: mask matrix; 1 means masked, 0 means non-masked
+        Ntheta: number of desired points on the abscissa
+
+    Outputs: theta,I,E,A
+        theta: theta-range, in radians
+        I: intensity points
+        E: error values
+        A: effective area points
+    """
+    # create the distance matrix: the distances of the pixels from the origin,
+    # expressed in pixel units.
+    Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),pylab.arange(data.shape[0]))
+    X=X-orig[0]+1
+    Y=Y-orig[1]+1
+    D=pylab.sqrt(X**2+Y**2)
+    Phi=pylab.arctan2(Y,X) # the angle matrix
+
+    # remove invalid pixels (masked or falling outside [dmin,dmax])
+    d=D[mask==0]
+    dat=data[mask==0]
+    err=error[mask==0]
+    phi=Phi[mask==0]
+    phi1=phi[(d<=dmax)&(d>=dmin)]
+    dat1=dat[(d<=dmax)&(d>=dmin)]
+    err1=err[(d<=dmax)&(d>=dmin)]
+    d1=d[(d<=dmax)&(d>=dmin)]
+
+    theta=pylab.linspace(0,2*pylab.pi,Ntheta) # the abscissa of the results
+    I=pylab.zeros(theta.shape) # vector of intensities
+    A=pylab.zeros(theta.shape) # vector of effective areas
+    E=pylab.zeros(theta.shape)
+    for i in range(len(dat1)):
+        I[pylab.floor(phi1[i]/(2*pylab.pi)*Ntheta)]+=dat1[i]/(err1[i]**2)
+        E[pylab.floor(phi1[i]/(2*pylab.pi)*Ntheta)]+=1/(err1[i]**2)
+        A[pylab.floor(phi1[i]/(2*pylab.pi)*Ntheta)]+=1
+    I[A>0]=I[A>0]/E[A>0]
+    E=pylab.sqrt(E)
+    return theta,I,E,A
 def imageint(data,orig,mask,fi=None,dfi=None):
     """Perform radial averaging on the image.
     
@@ -399,6 +475,7 @@ def imageint(data,orig,mask,fi=None,dfi=None):
     for i in range(len(dat)):
         C[pylab.floor(d[i])]+=dat[i]
         NC[pylab.floor(d[i])]+=1
+    C[NC>0]=C[NC>0]/NC[NC>0];
     return C,NC
 def sectint(data,fi,orig,mask):
     """Calculate sector-delimited radial average
@@ -417,7 +494,7 @@ def sectint(data,fi,orig,mask):
     """
     fi=pylab.array(fi)
     return imageint(data,orig,mask,fi=fi.min(),dfi=fi.max()-fi.min())
-def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,shutup=True):
+def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,a=None,shutup=True):
     """Do radial integration on 2D scattering images
     
     Inputs:
@@ -438,6 +515,8 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,shutup=True):
         q: the q points at which the integration is requested. If None, the
             q-range is automatically guessed from the energy, the distance and
             the mask. It should be defined in 1/Angstroems.
+        a: limiting angles. If None (default), simple radial integration
+            is performed. If it is a list of length=2
         shutup: if True, work quietly (do not print messages).
         
     Outputs: four ndarrays.
@@ -643,14 +722,15 @@ def smoothabt(muddict,smoothing):
     
     Inputs:
         muddict: mu*d dictionary
-        smoothing: smoothing parameter for scipy.interpolate.splrep.
+        smoothing: smoothing parameter for smoothcurve(x,y,smoothing,
+            mode='spline')
         
     Outputs:
         a mud dictionary with the smoothed data.
     """
-    tck=scipy.interpolate.splrep(muddict['Energy'],muddict['Mud'],s=smoothing);
+    sm=smoothcurve(muddict['Energy'],muddict['Mud'],smoothing,mode='spline')
     return {'Energy':muddict['Energy'][:],
-            'Mud':scipy.interpolate.splev(muddict['Energy'],tck),
+            'Mud':sm,
             'Title':("%s_smooth%lf" % (muddict['Title'],smoothing)),
             'scan':muddict['scan']}
 def execchooch(mud,element,edge,choochexecutable='/opt/chooch/chooch/bin/chooch',resolution=None):
@@ -755,10 +835,8 @@ def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-
         s=p[2]
         if p[2] is None:
             s=testsmoothing(x1,y1,1e-1,1e-2,1e1)
-        tck=scipy.interpolate.splrep(x1,y1,s=s)
-        f1f2[indices,1]=scipy.interpolate.splev(x1,tck)
-        tck=scipy.interpolate.splrep(x1,z1,s=s)
-        f1f2[indices,2]=scipy.interpolate.splev(x1,tck)
+        f1f2[indices,1]=smoothcurve(x1,y1,s,mode='spline')
+        f1f2[indices,2]=smoothcurve(x1,z1,s,mode='spline')
     #plotting
     pylab.plot(f1f2[:,0],f1f2[:,1:3]);
     pylab.xlabel('Energy (eV)')
@@ -782,16 +860,14 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=1e-6,slidermax=1e-2):
     pylab.cla()
     pylab.plot(x,y,'.')
     smoothing=pow(10,sl.val);
-    tck=scipy.interpolate.splrep(x,y,s=smoothing)
-    y1=scipy.interpolate.splev(x,tck)
+    y1=smoothcurve(x,y,smoothing,mode='spline')
     pylab.plot(x,y1,linewidth=2)
     def fun(a):
         ax=pylab.axis()
         pylab.cla()
         pylab.plot(x,y,'.')
         smoothing=pow(10,sl.val);
-        tck=scipy.interpolate.splrep(x,y,s=smoothing)
-        y1=scipy.interpolate.splev(x,tck)
+        y1=smoothcurve(x,y,smoothing,mode='spline')
         pylab.plot(x,y1,linewidth=2)
         pylab.axis(ax)
     sl.on_changed(fun)
@@ -800,13 +876,12 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=1e-6,slidermax=1e-2):
         pylab.waitforbuttonpress()
     pylab.clf()
     pylab.plot(x,y,'.')
-    tck=scipy.interpolate.splrep(x,y,s=pow(10,sl.val))
-    y1=scipy.interpolate.splev(x,tck)
+    y1=smoothcurve(x,y,pow(10,sl.val),mode='spline')
     pylab.plot(x,y1,linewidth=2)
     pylab.draw()
     return pow(10,sl.val)
 
-def testorigin(data,orig,mask=None):
+def testorigin(data,orig,mask=None,dmin=0,dmax=pylab.inf):
     """Shows several test plots by which the validity of the determined origin
     can  be tested.
     
@@ -837,6 +912,13 @@ def testorigin(data,orig,mask=None):
     pdata=polartransform(data,pylab.arange(0,maxr),pylab.linspace(0,4*pylab.pi,600),orig[0],orig[1])
     pmask=polartransform(mask,pylab.arange(0,maxr),pylab.linspace(0,4*pylab.pi,600),orig[0],orig[1])
     plot2dmatrix(pdata,mask=pmask)
+    pylab.subplot(2,2,4)
+    t,I,E,A=azimintpix(data,pylab.ones(data.shape),orig,1-mask,100,dmin,dmax)
+    print t
+    print len(t)
+    print (1-mask).sum()
+    pylab.plot(t,I)
+    pylab.gcf().show()
     print "... image ready!"
 def assesstransmission(fsns,titleofsample,mode='Gabriel'):
     """Plot transmission, beam center and Doris current vs. FSNs of the given
@@ -1861,6 +1943,38 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
     if header is not None:
         pylab.title("#%s: %s" % (header['FSN'], header['Title']))
 #Miscellaneous routines
+def smoothcurve(x,y,param,mode='spline',extrapolate='reflect'):
+    if mode.upper()!='SPLINE':
+        param=int(param)
+        if param<2:
+            return y
+    if mode.upper()=='SPLINE':
+        tck=scipy.interpolate.splrep(x,y,s=param)
+        return scipy.interpolate.splev(x,tck)
+    else:
+        if extrapolate.upper()=='REFLECT':
+            s=pylab.r_[2*y[0]-y[param:1:-1],y,2*y[-1]-y[-1:-param:-1]]
+        else:
+            y1=-pylab.arange(param-1,0,-1)*(y[1]-y[0])+y[0]
+            y2=pylab.arange(len(y),len(y)+param-1)*(y[-1]-y[-2])-(y[-1]-y[-2])*(len(y)-1)+y[-1]
+            s=pylab.r_[y1,y,y2]
+        if mode.upper()=='FLAT':
+            w=pylab.ones(param,'d')
+            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+        elif mode.upper()=='HAMMING':
+            w=pylab.hamming(param)
+            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+        elif mode.upper()=='HANNING':
+            w=pylab.hanning(param)
+            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+        elif mode.upper()=='BARTLETT':
+            w=pylab.bartlett(param)
+            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+        elif mode.upper()=='BLACKMAN':
+            w=pylab.blackman(param)
+            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+        else:
+            raise ValueError, "invalid window type!"
 def pause(setto=None):
     """Pause function
     
@@ -2821,7 +2935,7 @@ def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
     fid.write('Measurement time (sec):\t%.2f\n' % header['MeasTime'])
     fid.write('Scattering on 2D detector (photons/sec):\t%.1f\n' % (header['Anode']/header['MeasTime']))
     if mode=='Pilatus300k':
-        fid.write('Dark current subtracted (cps):\t%d\n' % dclevel)
+        fid.write('Dark current subtracted (cps):\t%d\n' % dc)
     else:
         fid.write('Dark current FSN:\t%d\n' % dc)
     fid.write('Empty beam FSN:\t%d\n' % header['FSNempty'])
@@ -3829,19 +3943,21 @@ def smearingmatrix(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
 #    pylab.colorbar()
 #    pylab.gcf().show()
     return A
-def directdesmear(data,smoothing,params):
+def directdesmear(data,smoothing,params,title=''):
     """Desmear the scattering data according to the direct desmearing
     algorithm by Singh, Ghosh and Shannon
     
     Inputs:
         data: measured intensity vector of arbitrary length (numpy array)
-        smoothing: smoothing parameter for scipy.optimize.splrep. A scalar
+        smoothing: smoothing parameter for smoothcurve(). A scalar
             number. If not exactly known, a dictionary may be supplied with
             the following fields:
                 low: lower threshold
                 high: upper threshold
                 val: initial value
                 mode: 'lin' or 'log'
+                smoothmode: 'flat', 'hanning', 'hamming', 'bartlett',
+                    'blackman' or 'spline', for smoothcurve()
             In this case a GUI will be set up. A slider and an Ok button at
             the bottom of the figure will aid the user to select the optimal
             smoothing parameter.
@@ -3864,6 +3980,7 @@ def directdesmear(data,smoothing,params):
                 profile (default: 0)
             matrix: if this is supplied, all but pixelmin and pixelmax are
                 disregarded.
+        title: display this title over the graph
                 
     Outputs: (pixels,desmeared,smoothed,mat,params,smoothing)
         pixels: the pixel coordinates for the resulting curves
@@ -3891,20 +4008,17 @@ def directdesmear(data,smoothing,params):
         params['matrix']=A
     #x coordinates in pixels
     pixels=pylab.arange(len(data))
-    def smooth_and_desmear(pixels,data,params,smoothing):
+    def smooth_and_desmear(pixels,data,params,smoothing,smmode):
         # smoothing the dataset. Errors of the data are sqrt(data), weight will be therefore 1/data
-        tck=scipy.interpolate.splrep(pixels,data,s=smoothing)
-        data1=scipy.interpolate.splev(pixels,tck)
         indices=(pixels<=params['pixelmax']) & (pixels>=params['pixelmin'])
-        data1=data1[indices]
+        data=data[indices]
         pixels=pixels[indices]
-        print data1.shape
-        print params['matrix'].shape
+        data1=smoothcurve(pixels,data,smoothing,smmode,extrapolate='Linear')
         ret=(pixels,pylab.solve(params['matrix'],data1.reshape(len(data1),1)),
              data1,params['matrix'],params,smoothing)
         return ret
     if type(smoothing)!=type({}):
-        res=smooth_and_desmear(pixels,data,params,smoothing)
+        res=smooth_and_desmear(pixels,data,params,smoothing,'spline')
         return res
     else:
         f=pylab.figure()
@@ -3930,13 +4044,12 @@ def directdesmear(data,smoothing,params):
             raise ValueError('Invalid value for smoothingmode: %s',
                              smoothing['mode'])
         def sliderfun(a=None,sl=sl,ax=ax,mode=smoothing['mode'],x=pixels,
-                      y=data,p=params):
-            print "sliderfun:",a,sl.val
+                      y=data,p=params,smmode=smoothing['smoothmode']):
             if mode=='lin':
                 sm=sl.val
             else:
                 sm=pylab.exp(sl.val)
-            [x1,y1,ysm,A,par,sm]=smooth_and_desmear(x,y,p,sm)
+            [x1,y1,ysm,A,par,sm]=smooth_and_desmear(x,y,p,sm,smmode)
             a=ax.axis()
             ax.cla()
             ax.semilogy(x,y,'.',label='Original')
@@ -3944,13 +4057,18 @@ def directdesmear(data,smoothing,params):
             ax.semilogy(x1,y1,'-',label='Desmeared')
             ax.legend(loc='best')
             ax.axis(a)
+            ax.set_title(title)
             pylab.gcf().show()
+            pylab.draw()
         sl.on_changed(sliderfun)
-        [x1,y1,ysm,A,par,sm]=smooth_and_desmear(pixels,data,params,smoothing['val'])
+        [x1,y1,ysm,A,par,sm]=smooth_and_desmear(pixels,data,params,smoothing['val'],smoothing['smoothmode'])
         ax.semilogy(pixels,data,'.',label='Original')
         ax.semilogy(x1,ysm,'-',label='Smoothed (%lg)'%smoothing['val'])
         ax.semilogy(x1,y1,'-',label='Desmeared')
         ax.legend(loc='best')
+        ax.set_title(title)
+        pylab.gcf().show()
+        pylab.draw()
         while not f.donedesmear:
             pylab.waitforbuttonpress()
         if smoothing['mode']=='lin':
@@ -3960,7 +4078,7 @@ def directdesmear(data,smoothing,params):
         else:
             raise ValueError('Invalid value for smoothingmode: %s',
                              smoothing['mode'])
-        res=smooth_and_desmear(pixels,data,params,sm)
+        res=smooth_and_desmear(pixels,data,params,sm,smoothing['smoothmode'])
         return res        
 def readasa(basename):
     """Load SAXS/WAXS measurement files from ASA *.INF, *.P00 and *.E00 files.
@@ -4235,10 +4353,10 @@ def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluoresc
     transmcorr2=absorptionangledependenttth(tth,transm2.mean())/transm2.mean()
     
     #subtract empty beam
-    B1=(A1-eb1)*transmcorr1
-    B2=(A2-eb2)*transmcorr2
-    errB1=pylab.sqrt(errA1**2+erreb1**2)*transmcorr1
-    errB2=pylab.sqrt(errA2**2+erreb2**2)*transmcorr2
+    B1=(A1/transm1.mean()-eb1)*transmcorr1
+    B2=(A2/transm2.mean()-eb2)*transmcorr2
+    errB1=pylab.sqrt(errA1**2/(transm1.mean())**2+erreb1**2)*transmcorr1
+    errB2=pylab.sqrt(errA2**2/(transm2.mean())**2+erreb2**2)*transmcorr2
     
     factor=1 #empirical compensation factor to rule out small-angle scattering completely
     if (E1header['Energy']>E2header['Energy']):
@@ -4429,17 +4547,20 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             distance read from all measurement files, including
             references!
         orig: helper data for the beam finding procedures. You have
-            three possibilities:
+            several possibilities:
             A) a vector/list/tuple of two: findbeam_sector() will be
                 tried. In this case this is the initial value of the
                 beam center
-            B) a vector/list/tuple of four: row0,column0,row1,column1:
+            B) a vector/list/tuple of three: Ntheta,dmin,dmax:
+                findbeam_azimuthal will be used. Ntheta, dmin and dmax
+                are the respective parameters for azimintpix().
+            C) a vector/list/tuple of four: row0,column0,row1,column1:
                 the corners of the rectangle, around the beam, if a
                 semitransparent beam-stop was used. In this case
                 findbeam_semitransparent() will be tried, and the beam
                 center will be determined for each measurement,
                 independently (disregarding orifsn).
-            C) a mask matrix (1 means nonmasked, 0 means masked), the
+            D) a mask matrix (1 means nonmasked, 0 means masked), the
                 same size as that of the measurement data. In this
                 case findbeam_gravity() will be used.
         transm: you can give this if you know the transmission of the
@@ -4485,9 +4606,14 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
     except TypeError:
         orig1=None
         try:
+            print "Finding beam, len(orig)",len(orig)
             if len(orig)==2:
                 print "Determining origin from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
                 orig1=findbeam_slices(Asub[orifsn-1],orig,mask)
+                print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
+            elif len(orig)==3:
+                print "Determining origin from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
+                orig1=findbeam_azimuthal(Asub[orifsn-1],orig,mask,Ntheta=orig[0],dmin=orig[1],dmax=orig[2])
                 print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
             elif len(orig)==4:
                 for k in range(len(Asub)):
@@ -4504,7 +4630,7 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             print "Finding the origin did not succeed"
             return [],[],[],[],[],[],[]
         #testorigin(Asub[orifsn],orig,mask)
-        #pause()
+        pause()
         
     qs=[]
     ints=[]
@@ -4774,9 +4900,21 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
         dCdD2DD2=1/(td*S)**2*( (alpha*A1/A1.sum()-beta*B1/B1.sum())**2*D.sum() 
                                 -2*(alpha*A1/A1.sum()-beta*B1/B1.sum())*(alpha-beta)*D +
                                 (alpha-beta)**2 *D)
-        
+        print "error analysis for sample %s" %header[k]['Title']
+        print "Transmission: %g +/- %g" %((dCdTa**2*dTa**2).mean(),(dCdTa**2*dTa**2).std())
+        print "Monitor(Sample): %g +/- %g" %((dCdma**2*ma).mean(),(dCdma**2*ma).std())
+        print "Monitor(Empty beam): %g +/- %g" %((dCdmb**2*mb).mean(),(dCdmb**2*mb).std())
+        print "Monitor(Dark current): %g +/- %g" %((dCdmd**2*md).mean(),(dCdmd**2*md).std())
+        print "Anode(Sample): %g +/- %g" %((dCdaa**2*aa).mean(),(dCdaa**2*aa).std())
+        print "Anode(Empty beam): %g +/- %g" %((dCdab**2*ab).mean(),(dCdab**2*ab).std())
+        print "Anode(Dark current): %g +/- %g" %((dCdad**2*ad).mean(),(dCdad**2*ad).std())
+        print "Sensitivity: %g +/- %g" %((dCdS**2*senserr**2).mean(),(dCdS**2*senserr**2).std())
+        print "Sample: %g +/- %g" %((dCdA2DA2).mean(),dCdA2DA2.std())
+        print "Empty beam: %g +/- %g" %((dCdB2DB2).mean(),(dCdB2DB2).std())
+        print "Dark current: %g +/- %g" %((dCdD2DD2).mean(),(dCdD2DD2).std())
         dC=pylab.sqrt(dCdTa**2*dTa**2 + dCdma**2*ma + dCdmb**2*mb + dCdmd**2*md + dCdS**2*senserr**2 +
                       dCdaa**2*aa + dCdab**2*ab + dCdad**2*ad + dCdA2DA2 + dCdB2DB2 + dCdD2DD2)
+        print "Total error: %g +/- %g" % ((dC**2).mean(),(dC**2).std())
         #normalize by beam size
         Bx=header[k]['XPixel'] # the empty beam should be measured with the same settings...
         By=header[k]['YPixel']
@@ -5234,12 +5372,12 @@ def uglyui():
             print "Setting up GUI for smoothing."
             smoothlow=input_float('Lowest smoothing value: ',0)
             smoothhigh=input_float('Highest smoothing value: ',0)
-            smoothmode=input_casesensitiveword('Mode of the smoothing scale bar (lin or log): ',['lin','log'])
+            smoothmode=input_caseinsensitiveword('Mode of the smoothing scale bar (lin or log): ',['lin','log'])
             s={'low':smoothlow,'high':smoothhigh,'mode':smoothmode,'val':0.5*(smoothlow+smoothhigh)}
         p={}
         p['pixelmin']=input_float('Lowest pixel to take into account (starting from 0):',0,len(asa['position']))
-        p['pixelmax']=input_float('Highest pixel to take into account (starting from 0):',pixelmin,len(asa['position']))
-        tmp=input_casesensitiveword('Do you have a desmearing matrix saved to a file (y or n):',['y','n'])
+        p['pixelmax']=input_float('Highest pixel to take into account (starting from 0):',p['pixelmin'],len(asa['position']))
+        tmp=input_caseinsensitiveword('Do you have a desmearing matrix saved to a file (y or n):',['y','n'])
         if tmp=='y':
             fmatrix=raw_input('Please supply the file name:')
             try:
@@ -5260,7 +5398,7 @@ def uglyui():
         x=pylab.arange(len(asa['position']))
         outname=raw_input('Output file name:')
         try:
-            f=fopen(outname,'wt')
+            f=open(outname,'wt')
             f.write('# pixel\toriginal\tsmoothed\tdesmeared\n')
             for i in range(len(pixels)):
                 f.write('%d\t%g\t%g\t%g\n' %(pixels[i],asa['position'][x==pixels[i]],smoothed[i],desmeared[i]))
@@ -5298,7 +5436,7 @@ def uglyui():
             x=pylab.arange(len(asa['position']))
             y=asa['position']
         npeaks=input_float('How many AgSt peaks do you have (at least 2):',2)
-        a,b,aerr,berr=agstcalib(x,y,pylab.arange(npeaks),returnq=False,wavelength=ui)
+        a,b,aerr,berr=agstcalib(x,y,pylab.arange(npeaks),returnq=False,wavelength=uiparams['wavelength'])
         uiparams['SAXS_bc']=b
         uiparams['SAXS_hperL']=a
     elif a==2:
@@ -5358,7 +5496,7 @@ def tripcalib2(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*p
     else:
         return a,b,aerr,berr
 
-    q=a*x+b
+    q=a*xdata+b
     bc=(0-b)/float(a)
     alpha=60*pylab.pi/180.0
     h=52e-3
