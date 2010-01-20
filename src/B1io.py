@@ -491,7 +491,7 @@ def write2dintfile(A,Aerr,params,norm=True):
     else:
         filename='int2darb%d.mat' % params['FSN'];
     scipy.io.savemat(filename,{'Intensity':A,'Error':Aerr});
-def readintfile(filename):
+def readintfile(filename,dirs=[]):
     """Read intfiles.
 
     Input:
@@ -503,37 +503,49 @@ def readintfile(filename):
             'Intensity' being the intensity vector and 'Error' has the error
             values. These three fields are numpy ndarrays.
     """
-    try:
-        fid=open(filename,'rt');
-        lines=fid.readlines();
-        fid.close();
-        ret={'q':[],'Intensity':[],'Error':[],'Area':[]};
-        for line in lines:
-            sp=string.split(line);
-            if len(sp)>=3:
-                try:
-                    tmpq=float(sp[0]);
-                    tmpI=float(sp[1]);
-                    tmpe=float(sp[2]);
-                    if len(sp)>3:
-                        tmpa=float(sp[3]);
-                    else:
-                        tmpa=pylab.nan;
-                    ret['q'].append(tmpq);
-                    ret['Intensity'].append(tmpI);
-                    ret['Error'].append(tmpe);
-                    ret['Area'].append(tmpa);
-                except ValueError:
-                    #skip erroneous line
-                    pass
-    except IOError:
-        return {}
-    ret['q']=pylab.array(ret['q'])
-    ret['Intensity']=pylab.array(ret['Intensity'])
-    ret['Error']=pylab.array(ret['Error'])
-    ret['Area']=pylab.array(ret['Area'])
-    if len([1 for x in ret['Area'] if pylab.isnan(x)==False])==0:
-        del ret['Area']
+    print "readintfile: ",filename
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
+    ret={}
+    for d in dirs:
+        try:            
+            fid=open("%s%s%s" %(d,os.sep,filename),'rt');
+            lines=fid.readlines();
+            fid.close();
+            ret['q']=[]
+            ret['Intensity']=[]
+            ret['Error']=[]
+            ret['Area']=[]
+            #ret.update({'q':[],'Intensity':[],'Error':[],'Area':[]})
+            for line in lines:
+                sp=string.split(line);
+                if len(sp)>=3:
+                    try:
+                        tmpq=float(sp[0]);
+                        tmpI=float(sp[1]);
+                        tmpe=float(sp[2]);
+                        if len(sp)>3:
+                            tmpa=float(sp[3]);
+                        else:
+                            tmpa=pylab.nan;
+                        ret['q'].append(tmpq);
+                        ret['Intensity'].append(tmpI);
+                        ret['Error'].append(tmpe);
+                        ret['Area'].append(tmpa);
+                    except ValueError:
+                        #skip erroneous line
+                        pass
+            ret['q']=pylab.array(ret['q'])
+            ret['Intensity']=pylab.array(ret['Intensity'])
+            ret['Error']=pylab.array(ret['Error'])
+            ret['Area']=pylab.array(ret['Area'])
+            if len([1 for x in ret['Area'] if pylab.isnan(x)==False])==0:
+                del ret['Area']
+            break # file was found, do not iterate over other directories
+        except IOError:
+            continue
     return ret
 def writeintfile(qs, ints, errs, header, areas=None, filetype='intnorm'):
     """Save 1D scattering data to intnorm files.
@@ -592,14 +604,22 @@ def readintnorm(fsns, filetype='intnorm',dirs=[]):
     data=[];
     param=[];
     for fsn in fsns:
+        currdata={}
+        currlog={}
         for d in dirs:
             filename='%s%s%s%d.dat' % (d,os.sep,filetype, fsn)
             tmp=readintfile(filename)
-            tmp2=readlogfile(fsn,d)
-            if (tmp2!=[]) and (tmp!=[]):
-                data.append(tmp);
-                param.append(tmp2[0]);
+            if len(tmp)>0:
+                currdata=tmp
                 break # file was already found, do not try in another directory
+        for d in dirs:
+            tmp2=readlogfile(fsn,d)
+            if len(tmp2)>0:
+                currlog=tmp2
+                break # file was already found, do not try in another directory
+        if len(currdata)>0 and len(currlog)>0:
+            data.append(currdata);
+            param.append(currlog[0]);
     return data,param
 def readbinned(fsn,dirs=[]):
     """Read intbinned*.dat files along with their headers.

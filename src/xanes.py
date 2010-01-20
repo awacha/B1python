@@ -6,6 +6,7 @@ import B1io
 import os
 import pylab
 import guitools
+import B1macros
 
 def smoothabt(muddict,smoothing):
     """Smooth mu*d data with splines
@@ -115,7 +116,11 @@ def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-
     pylab.figure()
     # CHOOCH-ing
     B1io.writechooch(B,'choochin.tmp')
-    f1f2=execchooch(B,element,edge)
+    try:
+        choochexecutable=B1macros.getconfig()['choochpath']
+        f1f2=execchooch(B,element,edge,choochexecutable=choochexecutable)
+    except KeyError:
+        f1f2=execchooch(B,element,edge)
     # post-CHOOCH smoothing
     for p in postsmoothing:
         indices=(f1f2[:,0]<=p[1]) & (f1f2[:,0]>=p[0])

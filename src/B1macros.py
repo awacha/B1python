@@ -14,6 +14,7 @@ import fitting
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
 
+
 _B1config={'measdatadir':'.',
            'evaldatadir':'.',
            'calibdir':'.',
@@ -36,6 +37,22 @@ _B1config={'measdatadir':'.',
            }
 
 
+def setconfig(config):
+    """Set _B1config dict.
+    
+    Input:
+        config: B1config dict. For details, look at the source of B1macros.py
+    """
+    global _B1config
+    _B1config=config
+def getconfig():
+    """Get _B1config dict.
+    
+    Output:
+        the _B1config dictionary. For details, look at the source of B1macros.py
+    """
+    global _B1config
+    return _B1config
 def addfsns(fileprefix,fsns,fileend,fieldinheader=None,valueoffield=None,dirs=[]):
     """
     """
@@ -1107,7 +1124,7 @@ def scalewaxs(fsns,mask2d):
         pylab.ylabel('Scattering cross-section (1/cm)')
         pylab.savefig('scalewaxs%d.eps' % param[0]['FSN'],dpi=300,transparent='True',format='eps')
         pylab.close(pylab.gcf())
-def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned'):
+def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned',dirs=[]):
     """Re-integrate (re-bin) 2d intensity data
     
     Inputs:
@@ -1123,12 +1140,17 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
         samples [optional]: a list of strings or a single string containing the
             names of samples to be treated. If omitted, all samples will be
             reintegrated.
+        savefiletype: the first part of the files to be saved. Default is
+            'intbinned'
+        dirs: directories for searching input files.
+        
     Outputs:
-        intbinned*.dat files are saved to the disk.
+        <savefiletype>*.dat files are saved to the disk.
         
     Note:
         the int2dnorm*.mat files along with the respective intnorm*.log files
-        should reside in the current directory
+        should reside in the current directory or one of the directories in 
+        <dirs>
     """
     if qrange is not None:
         if type(qrange)!=types.ListType and type(qrange)!=pylab.ndarray:
@@ -1139,7 +1161,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
         original_qrange=None
     if type(fsnrange)!=types.ListType:
         fsnrange=[fsnrange];
-    params=B1io.readlogfile(fsnrange);
+    params=B1io.readlogfile(fsnrange,dirs=dirs);
     if len(params)<1:
         return
     if samples is None:
@@ -1186,7 +1208,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 qrange=pylab.linspace(qmin,qmax,NQ)
             for p in sdparams:
                 print 'Loading 2d intensity for FSN %d' % p['FSN']
-                data,dataerr,tmp=B1io.read2dintfile(p['FSN']);
+                data,dataerr,tmp=B1io.read2dintfile(p['FSN'],dirs=dirs);
                 if len(data)<1:
                     continue
                 print 'Re-integrating...'
@@ -1201,7 +1223,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 del ints
                 del errs
                 del areas
-def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled'):
+def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=[]):
     """Summarize scattering data.
     
     Inputs:
@@ -1209,10 +1231,11 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled'):
         samples: samples to evaluate. Leave it None to auto-determine
         filetype: 1D SAXS filetypes (ie. the beginning of the file) to summarize. 
         waxsfiletype: WAXS filetypes (ie. the beginning of the file) to summarize.
+        dirs: directories for searching input files.
     """
     if type(fsns)!=types.ListType:
         fsns=[fsns]
-    params=B1io.readlogfile(fsns)
+    params=B1io.readlogfile(fsns,dirs=dirs)
     if samples is None:
         samples=utils.unique([p['Title'] for p in params])
     if type(samples)!=types.ListType:
@@ -1235,7 +1258,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled'):
                 Esum=None
                 for p in edsparams:
                     filename='%s%d.dat' % (filetype,p['FSN'])
-                    intdata=B1io.readintfile(filename)
+                    intdata=B1io.readintfile(filename,dirs=dirs)
                     if len(intdata)<1:
                         continue
                     if counter==0:
@@ -1265,7 +1288,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled'):
             print 'Processing waxs files for energy %f for sample %s' % (e,s)
             for p in esparams:
                 waxsfilename='%s%d.dat' % (waxsfiletype,p['FSN'])
-                waxsdata=B1io.readintfile(waxsfilename)
+                waxsdata=B1io.readintfile(waxsfilename,dirs=dirs)
                 if len(waxsdata)<1:
                     continue
                 if waxscounter==0:

@@ -9,6 +9,7 @@ import scipy.io
 import utils
 import fitting
 import utils2d
+import time
 import B1io
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
@@ -73,10 +74,10 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
                 for e in range(min(len(colors),len(energies))):
                     if abs(param[k]['Energy']-energies[e])<2:
                         print 'plotints', e, param[k]['FSN'], param[k]['Title'],k
-                        h=ax.loglog(data[k]['q'],
-                                       data[k]['Intensity']*mult[s],
-                                       marker=marker[s],
-                                       color=colors[e])
+                        #h=ax.loglog(data[k]['q'],
+                        #               data[k]['Intensity']*mult[s],
+                        #               marker=marker[s],
+                        #               color=colors[e])
                         #h=ax.semilogy(data[k]['q'],
                         #                data[k]['Intensity']*mult[s],
                         #                marker=symboll[s],
@@ -85,6 +86,11 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
                         #                 data[k]['Intensity']*mult[s],
                         #                 marker=symboll[s],
                         #                 color=colors[e])
+                        h=ax.errorbar(data[k]['q'],data[k]['Intensity']*mult[s],
+                                      data[k]['Error']*mult[s],
+                                      marker=marker[s],color=colors[e])
+                        ax.set_xscale('log')
+                        ax.set_yscale('log')
                         if gui==True:
                             texts.append('%d(%s) @%.2f eV' % (param[k]['FSN'], param[k]['Title'], param[k]['Energy']))
                             handles.append(h[0])
@@ -390,23 +396,35 @@ def makemask(mask,A,savefile=None):
     return mask
     
 
-def basicfittinggui(data,title=''):
+def basicfittinggui(data,title='',blocking=False):
     """Graphical user interface to carry out basic (Guinier, Porod) fitting
     to 1D scattering data.
     
     Inputs:
         data: 1D dataset
         title: title to display
+        blocking: False if the function should return just after drawing the
+            fitting gui. True if it should wait for closing the figure window.
     Output:
-        None, this leaves a figure open for further user interactions.
+        If blocking was False then none, this leaves a figure open for further
+            user interactions.
+        If blocking was True then after the window was destroyed, a list of
+            the fits and their parameters are returned.
     """
+    listoffits=[]
+    
+    leftborder=0.05
+    topborder=0.9
+    bottomborder=0.1
+    leftbox_end=0.3
     data=utils.flatten1dsasdict(data)
     fig=pylab.figure()
+    pylab.clf()
     plots=['Guinier','Guinier thickness','Guinier cross-section','Porod','lin-lin','lin-log','log-lin','log-log']
     buttons=['Guinier','Guinier thickness','Guinier cross-section','Porod','Power law','Power law with background']
     fitfuns=[fitting.guinierfit,fitting.guinierthicknessfit,fitting.guiniercrosssectionfit,fitting.porodfit,fitting.powerfit,fitting.powerfitwithbackground]
     for i in range(len(buttons)):
-        ax=pylab.axes((0.05,0.9-(i+1)*(0.8)/(len(buttons)+len(plots)),0.3,0.7/(len(buttons)+len(plots))))
+        ax=pylab.axes((leftborder,topborder-(i+1)*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))))
         but=matplotlib.widgets.Button(ax,buttons[i])
         def onclick(A=None,B=None,data=data,type=buttons[i],fitfun=fitfuns[i]):
             a=pylab.axis()
@@ -433,6 +451,7 @@ def basicfittinggui(data,title=''):
             qmin=min(data['q'][indices])
             qmax=max(data['q'][indices])
             res=fitfun(data,qmin,qmax,testimage=True)
+            listoffits.append({'type':type,'res':res,'time':time.time(),'qmin':qmin,'qmax':qmax})
             if len(res)==4:
                 pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg' % (type,res[0],res[2],res[1],res[3]))
             elif len(res)==6:
@@ -441,10 +460,20 @@ def basicfittinggui(data,title=''):
                 pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg; %lg +/- %lg' % (type,res[0],res[4],res[1],res[5],res[2],res[6],res[3],res[7]))
             pylab.gcf().show()
         but.on_clicked(onclick)
-    ax=pylab.axes((0.05,0.9-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),0.3,0.7/(len(buttons)+len(plots))*len(plots) ))
+    ax=pylab.axes((leftborder,topborder-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))*len(plots) ))
     pylab.title('Plot types')
     rb=matplotlib.widgets.RadioButtons(ax,plots,active=7)
-    pylab.axes((0.4,0.1,0.5,0.8))
+    if blocking:
+        ax=pylab.axes((leftborder,0.03,leftbox_end,bottomborder-0.03))
+        b=matplotlib.widgets.Button(ax,"Done")
+        fig=pylab.gcf()
+        fig.fittingdone=False
+        def onclick(A=None,B=None,fig=fig):
+            fig.fittingdone=True
+            blocking=False
+            print "blocking should now end"
+        b.on_clicked(onclick)
+    pylab.axes((0.4,bottomborder,0.5,0.8))
     def onselectplottype(plottype,q=data['q'],I=data['Intensity'],title=title):
         pylab.cla()
         pylab.gcf().plottype==plottype
@@ -496,6 +525,17 @@ def basicfittinggui(data,title=''):
     pylab.loglog(data['q'],data['Intensity'],'.')
     pylab.gcf().plottype='log-log'
     pylab.gcf().show()
+    pylab.draw()
+    fig=pylab.gcf()
+    while blocking:
+        fig.waitforbuttonpress()
+        print "buttonpress"
+        if fig.fittingdone:
+            blocking=False
+            print "exiting"
+    print "returning"
+    return listoffits
+        
 #data quality tools
 def testsmoothing(x,y,smoothing=1e-5,slidermin=1e-6,slidermax=1e-2):
     ax=pylab.axes((0.2,0.85,0.7,0.05));

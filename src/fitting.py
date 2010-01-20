@@ -311,7 +311,7 @@ def shullroess(data,qmin=-pylab.inf,qmax=pylab.inf,gui=False):
             pylab.gcf().show()
         qsl1.on_changed(callbackfun)
         qsl2.on_changed(callbackfun)
-def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False,smearingmatrix=None):
     """Do a cross-section Guinier fit on the dataset.
     
     Inputs:
@@ -319,7 +319,9 @@ def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         qmin: lowest q-value to take into account. Default is -infinity
         qmax: highest q-value to take into account. Default is infinity
         testimage: if a test image is desired. Default is false.
-    
+        smearingmatrix (not yet working): a matrix for slit-smearing. Must fit the length of the
+            scattering curve given in <data>. Leave it None to disable smearing.
+            
     Outputs:
         the Guinier radius (radius of gyration) of the cross-section
         the prefactor
