@@ -5,8 +5,8 @@ import pylab
 import fitting
 import matplotlib.widgets
 import guitools
-import utils
-from cythonized import smearingmatrix
+import time
+from cythonized import smearingmatrix, smearingmatrix1
 
 def directdesmear(data,smoothing,params,title=''):
     """Desmear the scattering data according to the direct desmearing
@@ -65,11 +65,14 @@ def directdesmear(data,smoothing,params,title=''):
     if params.has_key('matrix') and type(params['matrix'])==np.ndarray:
         A=params['matrix']
     else:
+        t=time.time()
         A=smearingmatrix(params['pixelmin'],params['pixelmax'],
                          params['beamcenter'],params['pixelsize'],
                          params['lengthbaseh'],params['lengthtoph'],
                          params['lengthbasev'],params['lengthtopv'],
                          params['beamnumh'],params['beamnumv'])
+        t1=time.time()
+        print "smearingmatrix took %f seconds" %(t1-t)
         params['matrix']=A
     #x coordinates in pixels
     pixels=np.arange(len(data))
