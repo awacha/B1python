@@ -1,4 +1,5 @@
 #fitting.py
+import numpy as np
 import pylab
 import scipy.interpolate
 import matplotlib.widgets
@@ -15,26 +16,26 @@ def smoothcurve(x,y,param,mode='spline',extrapolate='reflect'):
         return scipy.interpolate.splev(x,tck)
     else:
         if extrapolate.upper()=='REFLECT':
-            s=pylab.r_[2*y[0]-y[param:1:-1],y,2*y[-1]-y[-1:-param:-1]]
+            s=np.r_[2*y[0]-y[param:1:-1],y,2*y[-1]-y[-1:-param:-1]]
         else:
-            y1=-pylab.arange(param-1,0,-1)*(y[1]-y[0])+y[0]
-            y2=pylab.arange(len(y),len(y)+param-1)*(y[-1]-y[-2])-(y[-1]-y[-2])*(len(y)-1)+y[-1]
-            s=pylab.r_[y1,y,y2]
+            y1=-np.arange(param-1,0,-1)*(y[1]-y[0])+y[0]
+            y2=np.arange(len(y),len(y)+param-1)*(y[-1]-y[-2])-(y[-1]-y[-2])*(len(y)-1)+y[-1]
+            s=np.r_[y1,y,y2]
         if mode.upper()=='FLAT':
-            w=pylab.ones(param,'d')
-            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+            w=np.ones(param,'d')
+            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         elif mode.upper()=='HAMMING':
-            w=pylab.hamming(param)
-            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+            w=np.hamming(param)
+            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         elif mode.upper()=='HANNING':
-            w=pylab.hanning(param)
-            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+            w=np.hanning(param)
+            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         elif mode.upper()=='BARTLETT':
-            w=pylab.bartlett(param)
-            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+            w=np.bartlett(param)
+            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         elif mode.upper()=='BLACKMAN':
-            w=pylab.blackman(param)
-            return pylab.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+            w=np.blackman(param)
+            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         else:
             raise ValueError, "invalid window type!"
 def fsphere(q,R):
@@ -47,7 +48,7 @@ def fsphere(q,R):
     Output:
         the values of the scattering factor in an array of the same shape as q
     """
-    return 1/q**3*(pylab.sin(q*R)-q*R*pylab.cos(q*R))
+    return 1/q**3*(np.sin(q*R)-q*R*np.cos(q*R))
 def linfit(xdata,ydata,errdata=None):
     """Fit line to dataset.
     
@@ -62,8 +63,8 @@ def linfit(xdata,ydata,errdata=None):
         aerr: the error of "a", calculated by error propagation (sqrt(variance))
         berr: the error of "b"
     """
-    xdata=pylab.array(xdata);
-    ydata=pylab.array(ydata);
+    xdata=np.array(xdata);
+    ydata=np.array(ydata);
     if xdata.size != ydata.size:
         print "The sizes of xdata and ydata should be the same."
         return
@@ -71,23 +72,23 @@ def linfit(xdata,ydata,errdata=None):
         if ydata.size !=errdata.size:
             print "The sizes of ydata and errdata should be the same."
             return
-        errdata=pylab.array(errdata);
-        S=pylab.sum(1.0/(errdata**2))
-        Sx=pylab.sum(xdata/(errdata**2))
-        Sy=pylab.sum(ydata/(errdata**2))
-        Sxx=pylab.sum(xdata*xdata/(errdata**2))
-        Sxy=pylab.sum(xdata*ydata/(errdata**2))
+        errdata=np.array(errdata);
+        S=np.sum(1.0/(errdata**2))
+        Sx=np.sum(xdata/(errdata**2))
+        Sy=np.sum(ydata/(errdata**2))
+        Sxx=np.sum(xdata*xdata/(errdata**2))
+        Sxy=np.sum(xdata*ydata/(errdata**2))
     else:
         S=xdata.size
-        Sx=pylab.sum(xdata)
-        Sy=pylab.sum(ydata)
-        Sxx=pylab.sum(xdata*xdata)
-        Sxy=pylab.sum(xdata*ydata)
+        Sx=np.sum(xdata)
+        Sy=np.sum(ydata)
+        Sxx=np.sum(xdata*xdata)
+        Sxy=np.sum(xdata*ydata)
     Delta=S*Sxx-Sx*Sx;
     a=(S*Sxy-Sx*Sy)/Delta;
     b=(Sxx*Sy-Sx*Sxy)/Delta;
-    aerr=pylab.sqrt(S/Delta);
-    berr=pylab.sqrt(Sxx/Delta);
+    aerr=np.sqrt(S/Delta);
+    berr=np.sqrt(Sxx/Delta);
     return a,b,aerr,berr
 def unifiedscattering(q,B,G,Rg,P=4):
     """Evaluate the unified equation from G. Beaucage 
@@ -103,8 +104,8 @@ def unifiedscattering(q,B,G,Rg,P=4):
     Output:
         a vector of the same size as of q.
     """
-    return G*pylab.exp(-q**2*Rg**2/3.0)+B*pow(pow(scipy.special.erf(q*Rg/pylab.sqrt(6)),3)/q,P)
-def intintensity(data,alpha,alphaerr,qmin=-pylab.inf,qmax=pylab.inf,m=0):
+    return G*np.exp(-q**2*Rg**2/3.0)+B*pow(pow(scipy.special.erf(q*Rg/np.sqrt(6)),3)/q,P)
+def intintensity(data,alpha,alphaerr,qmin=-np.inf,qmax=np.inf,m=0):
     """Calculate integral of the intensity.
     
     Inputs:
@@ -139,7 +140,7 @@ def intintensity(data,alpha,alphaerr,qmin=-pylab.inf,qmax=pylab.inf,m=0):
     
     ret1=q2**(1.0-alpha)/(alpha-1.0)
     dret1=q2**(1.0-alpha)/(alpha-1.0)**2+q2**(-alpha)
-    ret2=pylab.trapz(data['Intensity']*(data['q']**(-alpha)),data['q'])
+    ret2=np.trapz(data['Intensity']*(data['q']**(-alpha)),data['q'])
     dret2=utils.errtrapz(data['q'],data['Error']*(data['q']**(-alpha)))
     ret3=q1*data['Intensity'][data['q']==q1][0]*q1**(-alpha)
     dret3=q1*data['Error'][data['q']==q1][0]*q1**(-alpha)
@@ -148,8 +149,8 @@ def intintensity(data,alpha,alphaerr,qmin=-pylab.inf,qmax=pylab.inf,m=0):
     #print ret2, "+/-",dret2
     #print ret3, "+/-",dret3
     
-    return ret1+ret2+ret3,pylab.sqrt(dret1**2+dret2**2+dret3**2)
-def trimq(data,qmin=-pylab.inf,qmax=pylab.inf):
+    return ret1+ret2+ret3,np.sqrt(dret1**2+dret2**2+dret3**2)
+def trimq(data,qmin=-np.inf,qmax=np.inf):
     """Trim the 1D scattering data to a given q-range
     
     Inputs:
@@ -179,8 +180,8 @@ def subconstbg(data,bg,bgerror):
     """
     return {'q':data['q'].copy(),
            'Intensity':data['Intensity']-bg,
-           'Error':pylab.sqrt(data['Error']**2+bgerror**2)};
-def shullroess(data,qmin=-pylab.inf,qmax=pylab.inf,gui=False):
+           'Error':np.sqrt(data['Error']**2+bgerror**2)};
+def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
     """Do a Shull-Roess fitting on the scattering data dictionary.
     
     Inputs:
@@ -228,19 +229,19 @@ def shullroess(data,qmin=-pylab.inf,qmax=pylab.inf,gui=False):
         ax3.clear()
         ax4.clear()
         data1=trimq(data,qmin,qmax)
-        Iexp=pylab.array(data1['Intensity'])
-        qexp=pylab.array(data1['q'])
-        errexp=pylab.array(data1['Error'])
+        Iexp=np.array(data1['Intensity'])
+        qexp=np.array(data1['q'])
+        errexp=np.array(data1['Error'])
         print "---Shull-Roess-fitting-with-qmin:-%lf-and-qmax:-%lf----" % (qexp.min(),qexp.max())
-        logIexp=pylab.log(Iexp)
+        logIexp=np.log(Iexp)
         errlogIexp=errexp/Iexp
     
-        r0s=pylab.linspace(1,2*pylab.pi/qexp.min(),200)
-        chi2=pylab.zeros(r0s.shape)
+        r0s=np.linspace(1,2*np.pi/qexp.min(),200)
+        chi2=np.zeros(r0s.shape)
         for i in range(len(r0s)): # calculate the quality of the line for each r0.
-            xdata=pylab.log(qexp**2+3/r0s[i]**2)
+            xdata=np.log(qexp**2+3/r0s[i]**2)
             a,b,aerr,berr=linfit(xdata,logIexp,errlogIexp)
-            chi2[i]=pylab.sum(((xdata*a+b)-logIexp)**2)
+            chi2[i]=np.sum(((xdata*a+b)-logIexp)**2)
         # display the results
         pylab.axes(ax1)
         pylab.title('Quality of linear fit vs. r0')
@@ -253,7 +254,7 @@ def shullroess(data,qmin=-pylab.inf,qmax=pylab.inf,gui=False):
         print tmp
         bestindex=tmp[0]
     
-        xdata=pylab.log(qexp**2+3/r0s[bestindex]**2)
+        xdata=np.log(qexp**2+3/r0s[bestindex]**2)
         a,b,aerr,berr=linfit(xdata,logIexp,errlogIexp)
         n=-(a*2.0+4.0)
         #display the measured and the fitted curves
@@ -276,8 +277,8 @@ def shullroess(data,qmin=-pylab.inf,qmax=pylab.inf,gui=False):
         print "K: ",b
         # do a proper least squares fitting
         def fitfun(p,x,y,err): # p: K,n,r0
-            return (y-pylab.exp(p[0])*(x**2+3/p[2]**2)**(-(p[1]+4)/2.0))/err
-        res=scipy.optimize.leastsq(fitfun,pylab.array([b,n,r0s[bestindex]]), 
+            return (y-np.exp(p[0])*(x**2+3/p[2]**2)**(-(p[1]+4)/2.0))/err
+        res=scipy.optimize.leastsq(fitfun,np.array([b,n,r0s[bestindex]]), 
                                     args=(qexp,Iexp,errexp),maxfev=1000,full_output=1)
         K,n,R0=res[0]
         print "After lsq fit:"
@@ -285,15 +286,15 @@ def shullroess(data,qmin=-pylab.inf,qmax=pylab.inf,gui=False):
         print "n: ",n
         print "K: ",K
         print "Covariance matrix:",res[1]
-        dR0=pylab.sqrt(res[1][2][2])
-        dn=pylab.sqrt(res[1][1][1])
+        dR0=np.sqrt(res[1][2][2])
+        dn=np.sqrt(res[1][1][1])
         # plot the measured and the fitted curves
         pylab.axes(ax4)
         pylab.title('After LSQ fit')
         pylab.xlabel('q (1/%c)'%197)
         pylab.ylabel('Intensity')
-        pylab.plot(pylab.log(qexp**2+3/R0**2),-(n+4)/2.0*pylab.log(qexp**2+3/R0**2)+K,label='Fitted')
-        pylab.plot(pylab.log(qexp**2+3/R0**2),logIexp,'.',label='Measured')
+        pylab.plot(np.log(qexp**2+3/R0**2),-(n+4)/2.0*np.log(qexp**2+3/R0**2)+K,label='Fitted')
+        pylab.plot(np.log(qexp**2+3/R0**2),logIexp,'.',label='Measured')
         pylab.legend()
         # plot the new maxwellian
         pylab.axes(ax3)
@@ -311,7 +312,7 @@ def shullroess(data,qmin=-pylab.inf,qmax=pylab.inf,gui=False):
             pylab.gcf().show()
         qsl1.on_changed(callbackfun)
         qsl2.on_changed(callbackfun)
-def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False,smearingmatrix=None):
+def guiniercrosssectionfit(data,qmin=-np.inf,qmax=np.inf,testimage=False,smearingmatrix=None):
     """Do a cross-section Guinier fit on the dataset.
     
     Inputs:
@@ -330,16 +331,16 @@ def guiniercrosssectionfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False,s
     """
     data1=trimq(data,qmin,qmax)
     x1=data1['q']**2;
-    err1=pylab.absolute(data1['Error']/data1['Intensity']*data1['q'])
-    y1=pylab.log(data1['Intensity'])*data1['q']
+    err1=np.absolute(data1['Error']/data1['Intensity']*data1['q'])
+    y1=np.log(data1['Intensity'])*data1['q']
     Rgcs,Gcs,dRgcs,dGcs=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data1['q']**2,pylab.log(data1['Intensity'])*data1['q'],'.')
+        pylab.plot(data1['q']**2,np.log(data1['Intensity'])*data1['q'],'.')
         pylab.plot(data1['q']**2,Rgcs*data1['q']**2+Gcs,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q\ln I$')
-    return pylab.sqrt(-Rgcs*2),Gcs,1/pylab.sqrt(-Rgcs)*dRgcs,dGcs
-def guinierthicknessfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    return np.sqrt(-Rgcs*2),Gcs,1/np.sqrt(-Rgcs)*dRgcs,dGcs
+def guinierthicknessfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Do a thickness Guinier fit on the dataset.
     
     Inputs:
@@ -356,16 +357,16 @@ def guinierthicknessfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     """
     data1=trimq(data,qmin,qmax)
     x1=data1['q']**2;
-    err1=pylab.absolute(data1['Error']/data1['Intensity']*data1['q']**2)
-    y1=pylab.log(data1['Intensity'])*data1['q']**2
+    err1=np.absolute(data1['Error']/data1['Intensity']*data1['q']**2)
+    y1=np.log(data1['Intensity'])*data1['q']**2
     Rgt,Gt,dRgt,dGt=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data1['q']**2,pylab.log(data1['Intensity'])*data1['q']**2,'.')
+        pylab.plot(data1['q']**2,np.log(data1['Intensity'])*data1['q']**2,'.')
         pylab.plot(data1['q']**2,Rgt*data1['q']**2+Gt,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q^2\ln I$')
-    return pylab.sqrt(-Rgt),Gt,0.5/pylab.sqrt(-Rgt)*dRgt,dGt
-def guinierfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    return np.sqrt(-Rgt),Gt,0.5/np.sqrt(-Rgt)*dRgt,dGt
+def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Do a Guinier fit on the dataset.
     
     Inputs:
@@ -382,16 +383,16 @@ def guinierfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     """
     data1=trimq(data,qmin,qmax)
     x1=data1['q']**2;
-    err1=pylab.absolute(data1['Error']/data1['Intensity']);
-    y1=pylab.log(data1['Intensity']);
+    err1=np.absolute(data1['Error']/data1['Intensity']);
+    y1=np.log(data1['Intensity']);
     Rg,G,dRg,dG=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data1['q']**2,pylab.log(data1['Intensity']),'.');
+        pylab.plot(data1['q']**2,np.log(data1['Intensity']),'.');
         pylab.plot(data1['q']**2,Rg*data1['q']**2+G,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('ln I');
-    return pylab.sqrt(-Rg*3),G,1.5/pylab.sqrt(-Rg*3)*dRg,dG
-def porodfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    return np.sqrt(-Rg*3),G,1.5/np.sqrt(-Rg*3)*dRg,dG
+def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Do a Porod fit on the dataset.
     
     Inputs:
@@ -417,7 +418,7 @@ def porodfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         pylab.xlabel('$q^4$ (1/%c$^4$)' % 197)
         pylab.ylabel('I$q^4$');
     return a,b,aerr,berr
-def powerfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Fit a power-law on the dataset (I=e^b*q^a)
     
     Inputs:
@@ -433,17 +434,17 @@ def powerfit(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
         the calculated error of the logarithm of the prefactor
     """
     data1=trimq(data,qmin,qmax)
-    x1=pylab.log(data1['q']);
-    err1=pylab.absolute(data1['Error']/data1['Intensity']);
-    y1=pylab.log(data1['Intensity']);
+    x1=np.log(data1['q']);
+    err1=np.absolute(data1['Error']/data1['Intensity']);
+    y1=np.log(data1['Intensity']);
     a,b,aerr,berr=linfit(x1,y1)
     if testimage:
         pylab.loglog(data1['q'],data1['Intensity'],'.');
-        pylab.loglog(data1['q'],pylab.exp(b)*pow(data1['q'],a),'-',color='red');
+        pylab.loglog(data1['q'],np.exp(b)*pow(data1['q'],a),'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
     return a,b,aerr,berr
-def powerfitwithbackground(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Fit a power-law on the dataset (I=B*q^A+C)
     
     Inputs:
@@ -470,14 +471,14 @@ def powerfitwithbackground(data,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
     Cinit=0
     Ainit=-4
     Binit=1#(y1[0]-Cinit)/x1[0]**Ainit
-    res=scipy.optimize.leastsq(costfunc,pylab.array([Ainit,Binit,Cinit]),args=(x1,y1,err1),full_output=1)
+    res=scipy.optimize.leastsq(costfunc,np.array([Ainit,Binit,Cinit]),args=(x1,y1,err1),full_output=1)
     if testimage:
         pylab.loglog(data1['q'],data1['Intensity'],'.');
         pylab.loglog(data1['q'],res[0][1]*pow(data1['q'],res[0][0])+res[0][2],'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
-    return res[0][0],res[0][1],res[0][2],pylab.sqrt(res[1][0][0]),pylab.sqrt(res[1][1][1]),pylab.sqrt(res[1][2][2])    
-def unifiedfit(data,B,G,Rg,P,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
+    return res[0][0],res[0][1],res[0][2],np.sqrt(res[1][0][0]),np.sqrt(res[1][1][1]),np.sqrt(res[1][2][2])    
+def unifiedfit(data,B,G,Rg,P,qmin=-np.inf,qmax=np.inf,maxiter=1000):
     """Do a unified fit on the dataset, in the sense of G. Beaucage
     (J. Appl. Cryst. (1995) 28, 717-728)
     
@@ -508,9 +509,9 @@ def unifiedfit(data,B,G,Rg,P,qmin=-pylab.inf,qmax=pylab.inf,maxiter=1000):
         Rg=data[2]
         P=data[3]
         return (unifiedscattering(x,B,G,Rg,P)-y)/err
-    res=scipy.optimize.leastsq(fitfun,pylab.array([B,G,Rg,P]),args=(data['q'],data['Intensity'],data['Error']),full_output=1)
-    return res[0][0],res[0][1],res[0][2],res[0][3],pylab.sqrt(res[1][0][0]),pylab.sqrt(res[1][1][1]),pylab.sqrt(res[1][2][2]),pylab.sqrt(res[1][3][3])
-def fitspheredistribution(data,distfun,R,params,qmin=-pylab.inf,qmax=pylab.inf,testimage=False):
+    res=scipy.optimize.leastsq(fitfun,np.array([B,G,Rg,P]),args=(data['q'],data['Intensity'],data['Error']),full_output=1)
+    return res[0][0],res[0][1],res[0][2],res[0][3],np.sqrt(res[1][0][0]),np.sqrt(res[1][1][1]),np.sqrt(res[1][2][2]),np.sqrt(res[1][3][3])
+def fitspheredistribution(data,distfun,R,params,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Fit the scattering data with a sphere distribution function
     
     Inputs:
@@ -536,23 +537,23 @@ def fitspheredistribution(data,distfun,R,params,qmin=-pylab.inf,qmax=pylab.inf,t
     params=list(params)
     params.append(1)
     params1=tuple(params)
-    tsI=pylab.zeros((len(q),len(R)))
+    tsI=np.zeros((len(q),len(R)))
     for i in range(len(R)):
         tsI[:,i]=fsphere(q,R[i])
     R.reshape((len(R),1))
     def fitfun(params,R,q,I,Err,dist=distfun,tsI=tsI):
-        return (params[-1]*pylab.dot(tsI,dist(R,*(params[:-1])))-I)/Err
+        return (params[-1]*np.dot(tsI,dist(R,*(params[:-1])))-I)/Err
     res=scipy.optimize.leastsq(fitfun,params1,args=(R,q,Int,Err),full_output=1)
     print "Fitted values:",res[0]
     print "Covariance matrix:",res[1]
     if testimage:
         pylab.semilogy(data['q'],data['Intensity'],'.');
-        tsIfull=pylab.zeros((len(data['q']),len(R)))
+        tsIfull=np.zeros((len(data['q']),len(R)))
         for i in range(len(R)):
             tsIfull[:,i]=fsphere(data['q'],R[i])
         print data['q'].shape
-        print pylab.dot(tsIfull,distfun(R,*(res[0][:-1]))).shape
-        pylab.semilogy(data['q'],res[0][-1]*pylab.dot(tsIfull,distfun(R,*(res[0][:-1]))),'-',color='red');
+        print np.dot(tsIfull,distfun(R,*(res[0][:-1]))).shape
+        pylab.semilogy(data['q'],res[0][-1]*np.dot(tsIfull,distfun(R,*(res[0][:-1]))),'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
     return res[0]
@@ -575,15 +576,15 @@ def theorspheres(qrange, spheres):
         intensities.
     """
     
-    if (type(qrange)!=types.ListType) and (type(qrange)!=pylab.ndarray):
+    if (type(qrange)!=types.ListType) and (type(qrange)!=np.ndarray):
         qrange=[qrange]
-    if (type(spheres)!=types.ListType) and (type(spheres)!=pylab.ndarray):
+    if (type(spheres)!=types.ListType) and (type(spheres)!=np.ndarray):
         spheres=[spheres]
-    Intensity=pylab.zeros(qrange.size)
+    Intensity=np.zeros(qrange.size)
     if (type(spheres)==types.ListType):
         for i in range(len(spheres)):
             Intensity=Intensity+fsphere(qrange,spheres[i])**2
-    if (type(spheres)==pylab.ndarray):
+    if (type(spheres)==np.ndarray):
         if spheres.ndim==1:
             for i in range(len(spheres)):
                 Intensity=Intensity+fsphere(qrange,spheres[i])**2
@@ -591,7 +592,7 @@ def theorspheres(qrange, spheres):
         elif spheres.shape[1]<4:
             raise ValueError("Not enough columns in spheres structure")
         elif spheres.shape[1]<5:
-            s1=pylab.zeros((spheres.shape[0],6))
+            s1=np.zeros((spheres.shape[0],6))
             s1[:,0:4]=spheres
             s1[:,4]=1;
             s1[:,5]=0;
@@ -601,9 +602,9 @@ def theorspheres(qrange, spheres):
             Intensity+=(spheres[i,4]**2+spheres[i,5]**2)*f1**2;
             for j in range(i+1,spheres.shape[0]):
                 f2=fsphere(qrange,spheres[j,3])
-                dist=pylab.sqrt((spheres[i,0]-spheres[j,0])**2+(spheres[i,1]-spheres[j,1])**2+(spheres[i,2]-spheres[j,2])**2)
+                dist=np.sqrt((spheres[i,0]-spheres[j,0])**2+(spheres[i,1]-spheres[j,1])**2+(spheres[i,2]-spheres[j,2])**2)
                 if dist!=0:
-                    fact=pylab.sin(qrange*dist)/(qrange*dist)
+                    fact=np.sin(qrange*dist)/(qrange*dist)
                 else:
                     fact=1;
                 Intensity+=2*(spheres[i,4]*spheres[j,4]+spheres[i,5]*spheres[j,5])*f1*f2*fact;

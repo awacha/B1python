@@ -137,11 +137,11 @@ def derivative(x,y=None):
     Outputs:
         x1, dx/dy or dx
     """
-    x=pylab.array(x);
+    x=np.array(x);
     if y is None:
         return x[1:]-x[:-1]
     else:
-        y=pylab.array(y)
+        y=np.array(y)
         return (0.5*(x[1:]+x[:-1])),(y[1:]-y[:-1])
 def maxwellian(n,r0,x):
     """Evaluate a Maxwellian-like function
@@ -157,7 +157,7 @@ def maxwellian(n,r0,x):
     Note: the function looks like:
         M(x)= 2/(x^(n+1)*gamma((n+1)/2))*x^n*exp(-x^2/r0^2)
     """
-    return 2.0/(r0**(n+1.0)*scipy.special.gamma((n+1.0)/2.0))*(x**n)*pylab.exp(-x**2/r0**2);
+    return 2.0/(r0**(n+1.0)*scipy.special.gamma((n+1.0)/2.0))*(x**n)*np.exp(-x**2/r0**2);
 def errtrapz(x,yerr):
     """Error of the trapezoid formula
     Inputs:
@@ -167,9 +167,9 @@ def errtrapz(x,yerr):
     Outputs:
         the error of the integral
     """
-    x=pylab.array(x);
-    yerr=pylab.array(yerr);
-    return 0.5*pylab.sqrt((x[1]-x[0])**2*yerr[0]**2+pylab.sum((x[2:]-x[:-2])**2*yerr[1:-1]**2)+
+    x=np.array(x);
+    yerr=np.array(yerr);
+    return 0.5*np.sqrt((x[1]-x[0])**2*yerr[0]**2+np.sum((x[2:]-x[:-2])**2*yerr[1:-1]**2)+
                           (x[-1]-x[-2])**2*yerr[-1]**2)
 def multfactor(q,I1,E1,I2,E2):
     """Calculate multiplication factor for I1 and I2
@@ -188,12 +188,12 @@ def multfactor(q,I1,E1,I2,E2):
         ratio. However, a total least-squares fit (taking E1 and E2 into account
         as well) would be better, but I need help here.
     """
-    S1=pylab.trapz(I1,q)
+    S1=np.trapz(I1,q)
     eS1=errtrapz(q,E1)
-    S2=pylab.trapz(I2,q)
+    S2=np.trapz(I2,q)
     eS2=errtrapz(q,E2)
     mult=S1/S2
-    errmult=pylab.sqrt((eS1/S1)**2+(eS2/S2)**2)*mult
+    errmult=np.sqrt((eS1/S1)**2+(eS2/S2)**2)*mult
     return mult,errmult
 def lorentzian(x0,gamma,x):
     """Evaluate the PDF of the Cauchy-Lorentz distribution at given points
@@ -218,7 +218,7 @@ def lognormdistrib(x,mu,sigma):
     Outputs:
         y: 1/(x*sigma*sqrt(2*pi))*exp(-(log(x)-mu)^2/(2*sigma^2))
     """
-    return 1/(x*sigma*pylab.sqrt(2*pylab.pi))*pylab.exp(-(pylab.log(x)-mu)**2/(2*sigma**2))
+    return 1/(x*sigma*np.sqrt(2*np.pi))*np.exp(-(np.log(x)-mu)**2/(2*sigma**2))
 def flatten1dsasdict(data):
     """Flattens 1D SAXS dictionaries
     
@@ -249,7 +249,7 @@ def sanitizeint(data):
         data1[k]=data[k][indices]
     return data1
 def dot_error(A,B,DA,DB):
-    """Calculate the error of pylab.dot(A,B) according to squared error
+    """Calculate the error of np.dot(A,B) according to squared error
     propagation.
     
     Inputs:
@@ -259,9 +259,9 @@ def dot_error(A,B,DA,DB):
     Output:
         The error matrix
     """
-    return pylab.sqrt(pylab.dot(DA**2,B**2)+pylab.dot(A**2,DB**2));
+    return np.sqrt(np.dot(DA**2,B**2)+np.dot(A**2,DB**2));
 def inv_error(A,DA):
-    """Calculate the error of pylab.inv(A) according to squared error
+    """Calculate the error of np.inv(A) according to squared error
     propagation.
     
     Inputs:
@@ -271,5 +271,5 @@ def inv_error(A,DA):
     Output:
         The error of the inverse matrix
     """
-    B=pylab.inv(A);
-    return pylab.sqrt(pylab.dot(pylab.dot(B**2,DA**2),B**2))
+    B=np.inv(A);
+    return np.sqrt(np.dot(np.dot(B**2,DA**2),B**2))

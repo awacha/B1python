@@ -1,5 +1,6 @@
 #asaxseval.py
 
+import numpy as np
 import pylab
 import utils
 import time
@@ -26,9 +27,9 @@ def asaxsbasicfunctions(I,Errors,f1,f2,df1=None,df2=None,element=0):
         M: vector of the mixed term
         R: vector of the pure resonant term
     """
-    I=pylab.array(I,dtype='float');
-    f1=pylab.array(f1,dtype='float');
-    f2=pylab.array(f2,dtype='float');
+    I=np.array(I,dtype='float');
+    f1=np.array(f1,dtype='float');
+    f2=np.array(f2,dtype='float');
     Nenergies=I.shape[1];
     Ilen=I.shape[0];
     if len(f1) != Nenergies:
@@ -37,30 +38,30 @@ def asaxsbasicfunctions(I,Errors,f1,f2,df1=None,df2=None,element=0):
     if len(f2) != Nenergies:
         print "length of the f'' vector should match the number of rows in I."
         return
-    N=pylab.zeros((Ilen,1));
-    M=pylab.zeros((Ilen,1));
-    R=pylab.zeros((Ilen,1));
-    DN=pylab.zeros((Ilen,1));
-    DM=pylab.zeros((Ilen,1));
-    DR=pylab.zeros((Ilen,1));
+    N=np.zeros((Ilen,1));
+    M=np.zeros((Ilen,1));
+    R=np.zeros((Ilen,1));
+    DN=np.zeros((Ilen,1));
+    DM=np.zeros((Ilen,1));
+    DR=np.zeros((Ilen,1));
 
-    A=pylab.ones((Nenergies,3));
+    A=np.ones((Nenergies,3));
     A[:,1]=2*(element+f1);
     A[:,2]=(element+f1)**2+f2**2;
-    DA=pylab.zeros(A.shape)
+    DA=np.zeros(A.shape)
     if df1 is not None:
         DA[:,1]=2*df1;
-        DA[:,2]=pylab.sqrt(4*(element+f1)**2*df1**2+4*f2**2*df2**2)
-    B=pylab.dot(pylab.inv(pylab.dot(A.T,A)),A.T);
-    ATA=pylab.dot(A.T,A)
+        DA[:,2]=np.sqrt(4*(element+f1)**2*df1**2+4*f2**2*df2**2)
+    B=np.dot(np.inv(np.dot(A.T,A)),A.T);
+    ATA=np.dot(A.T,A)
     ATAerr=utils.dot_error(A.T,A,DA.T,DA)
-    invATA=pylab.inv(ATA)
+    invATA=np.inv(ATA)
     invATAerr=utils.inv_error(ATA,ATAerr)
     Berror=utils.dot_error(invATA,A.T,invATAerr,DA.T)
     print Berror
-    print "Condition number of inv(A'*A)*A' is ",pylab.cond(B)
+    print "Condition number of inv(A'*A)*A' is ",np.linalg.linalg.cond(B)
     for j in range(0,Ilen):
-        tmp=pylab.dot(B,I[j,:])
+        tmp=np.dot(B,I[j,:])
         N[j]=tmp[0];
         M[j]=tmp[1];
         R[j]=tmp[2];
@@ -87,14 +88,14 @@ def asaxspureresonant(I1,I2,I3,DI1,DI2,DI3,f11,f12,f13,f21,f22,f23):
         DR: the error of the pure resonant term
     """
     factor=f11-f13+(f22**2-f21**2)/(f12-f11)-(f22**2-f23**2)/(f12-f13)
-    DR=pylab.sqrt((DI1*DI1)/(f12-f11)**2+
+    DR=np.sqrt((DI1*DI1)/(f12-f11)**2+
                   (DI2*DI2)*(1/(f12-f11)**2+1/(f12-f13)**2)+
-                  (DI3*DI3)/(f12-f13)**2)/pylab.absolute(factor);
+                  (DI3*DI3)/(f12-f13)**2)/np.absolute(factor);
     sep12=(I1-I2)/(f11-f12)
     sep23=(I2-I3)/(f12-f13)
     R=(sep12 -sep23)/factor;
-    dsep12=pylab.absolute(pylab.sqrt((DI1*DI1)+(DI2*DI2))/(f11-f12))
-    dsep23=pylab.absolute(pylab.sqrt((DI2*DI2)+(DI3*DI3))/(f12-f13))
+    dsep12=np.absolute(np.sqrt((DI1*DI1)+(DI2*DI2))/(f11-f12))
+    dsep23=np.absolute(np.sqrt((DI2*DI2)+(DI3*DI3))/(f12-f13))
     return sep12,dsep12,sep23,dsep23,R,DR
 def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqname=None,element=0):
     """Evaluate an ASAXS sequence, derive the basic functions
@@ -139,20 +140,20 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
         logfile.write('ASAXS sequence name: %s\n' % seqname)
         logfile.write('Time: %s' % time.asctime())
     asaxsecalib=[];
-    #asaxsenergies=pylab.array(utils.unique(asaxsenergies,lambda a,b:(abs(a-b)<2)))
-    asaxsenergies=pylab.array(asaxsenergies);
+    #asaxsenergies=np.array(utils.unique(asaxsenergies,lambda a,b:(abs(a-b)<2)))
+    asaxsenergies=np.array(asaxsenergies);
     for j in range(0,len(asaxsenergies)):
         asaxsecalib.append([param[i]['EnergyCalibrated']
                              for i in range(0,len(data)) 
                              if abs(param[i]['Energy']-asaxsenergies[j])<2][0]);
-    asaxsecalib=pylab.array(asaxsecalib);
+    asaxsecalib=np.array(asaxsecalib);
     
     print "Calibrated ASAXS energies:", asaxsecalib
     fprimes=B1io.readf1f2(fprimefile);
     pylab.plot(fprimes[:,0],fprimes[:,1],'b-');
     pylab.plot(fprimes[:,0],fprimes[:,2],'r-');
-    asaxsf1=pylab.interp(asaxsecalib-chemshift,fprimes[:,0],fprimes[:,1]);
-    asaxsf2=pylab.interp(asaxsecalib-chemshift,fprimes[:,0],fprimes[:,2]);
+    asaxsf1=np.interp(asaxsecalib-chemshift,fprimes[:,0],fprimes[:,1]);
+    asaxsf2=np.interp(asaxsecalib-chemshift,fprimes[:,0],fprimes[:,2]);
     print "f' values", asaxsf1
     print "f'' values", asaxsf2
     if seqname is not None:
@@ -186,36 +187,36 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
             if param[k]['Title']!=s:
                 continue
             if q is None:
-                q=pylab.array(data[k]['q']);
+                q=np.array(data[k]['q']);
                 NQ=len(q);
-                Intensity=pylab.zeros((len(q),len(asaxsenergies)))
-                Errors=pylab.zeros((len(q),len(asaxsenergies)))
-                counter=pylab.zeros((1,len(asaxsenergies)))
+                Intensity=np.zeros((len(q),len(asaxsenergies)))
+                Errors=np.zeros((len(q),len(asaxsenergies)))
+                counter=np.zeros((1,len(asaxsenergies)))
                 fsns=[[] for l in range(len(asaxsenergies))]
-            if pylab.sum(q-pylab.array(data[k]['q']))>0:
+            if np.sum(q-np.array(data[k]['q']))>0:
                 print "Check the datasets once again: different q-scales!"
                 continue;
-            energyindex=pylab.absolute(asaxsenergies-param[k]['Energy'])<2
-            Intensity[:,energyindex]=Intensity[:,energyindex]+pylab.array(data[k]['Intensity']).reshape(NQ,1);
-            Errors[:,energyindex]=Intensity[:,energyindex]+(pylab.array(data[k]['Error']).reshape(NQ,1))**2;
+            energyindex=np.absolute(asaxsenergies-param[k]['Energy'])<2
+            Intensity[:,energyindex]=Intensity[:,energyindex]+np.array(data[k]['Intensity']).reshape(NQ,1);
+            Errors[:,energyindex]=Intensity[:,energyindex]+(np.array(data[k]['Error']).reshape(NQ,1))**2;
             counter[0,energyindex]=counter[0,energyindex]+1;
             if pylab.find(len(energyindex))>0:
                 print pylab.find(energyindex)[0]
                 fsns[pylab.find(energyindex)[0]].append(param[k]['FSN']);
-        Errors=pylab.sqrt(Errors)
-        Intensity=Intensity/pylab.kron(pylab.ones((NQ,1)),counter)
+        Errors=np.sqrt(Errors)
+        Intensity=Intensity/np.kron(np.ones((NQ,1)),counter)
         if seqname is not None:
             for i in range(0,len(asaxsenergies)):
                 logfile.write('FSNs for energy #%d:' % i)
                 for j in fsns[i]:
                     logfile.write('%d' % j)
                 logfile.write('\n')
-            datatosave=pylab.zeros((len(q),2*len(asaxsenergies)+1))
+            datatosave=np.zeros((len(q),2*len(asaxsenergies)+1))
             datatosave[:,0]=q;
             for i in range(len(asaxsenergies)):
                 datatosave[:,2*i+1]=Intensity[:,i]
                 datatosave[:,2*i+2]=Errors[:,i]
-            pylab.savetxt('%s_%s_ie.txt' % (seqname, s),datatosave,delimiter='\t')
+            np.savetxt('%s_%s_ie.txt' % (seqname, s),datatosave,delimiter='\t')
         # now we have the Intensity and Error matrices fit to feed to asaxsbasicfunctions()
         N,M,R,DN,DM,DR=asaxsbasicfunctions(Intensity,Errors,asaxsf1,asaxsf2,element=element);
         sep12,dsep12,sep23,dsep23,R1,dR1=asaxspureresonant(Intensity[:,0],Intensity[:,1],Intensity[:,2],
@@ -224,16 +225,16 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
                                                            asaxsf2[0],asaxsf2[1],asaxsf2[2])
         Ireconst=N+M*2*asaxsf1[0]+R*(asaxsf1[0]**2+asaxsf2[0]**2)
         if seqname is not None:
-            datatosave=pylab.zeros((len(q),7))
+            datatosave=np.zeros((len(q),7))
             datatosave[:,0]=q;
             datatosave[:,1]=N.flatten();  datatosave[:,2]=DN.flatten();
             datatosave[:,3]=M.flatten();  datatosave[:,4]=DM.flatten();
             datatosave[:,5]=R.flatten();  datatosave[:,6]=DR.flatten();
-            pylab.savetxt('%s_%s_basicfun.txt' % (seqname, s),datatosave,delimiter='\t')
+            np.savetxt('%s_%s_basicfun.txt' % (seqname, s),datatosave,delimiter='\t')
             datatosave[:,1]=sep12.flatten(); datatosave[:,2]=dsep12.flatten();
             datatosave[:,3]=sep23.flatten(); datatosave[:,4]=dsep23.flatten();
             datatosave[:,5]=R1.flatten(); datatosave[:,6]=dR1.flatten();
-            pylab.savetxt('%s_%s_separation.txt' % (seqname, s),datatosave,delimiter='\t')
+            np.savetxt('%s_%s_separation.txt' % (seqname, s),datatosave,delimiter='\t')
         pylab.figure()
         #pylab.errorbar(q,Intensity[:,0],Errors[:,0],label='I_0',marker='.')
         #pylab.errorbar(q,N.flatten(),DN.flatten(),label='Nonresonant',marker='.')

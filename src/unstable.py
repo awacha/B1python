@@ -1,4 +1,5 @@
 #unstable.py
+import numpy as np
 import pylab
 import utils
 import types
@@ -25,10 +26,10 @@ def stackdata(tup):
     """
     print "BIG FAT WARNING: stackdata() is an EXPERIMENTAL function. You may not get what you expect!"
     data={}
-    data['q']=pylab.vstack(tuple([t['q'].reshape(t['q'].size,1) for t in tup]))
-    data['Intensity']=pylab.vstack(tuple([t['Intensity'].reshape(t['Intensity'].size,1) for t in tup]))
-    data['Error']=pylab.vstack(tuple([t['Error'].reshape(t['Error'].size,1) for t in tup]))
-    tmp=pylab.vstack((data['q'].reshape(1,data['q'].size),data['Intensity'].reshape(1,data['Intensity'].size),data['Error'].reshape(1,data['Error'].size)))
+    data['q']=np.vstack(tuple([t['q'].reshape(t['q'].size,1) for t in tup]))
+    data['Intensity']=np.vstack(tuple([t['Intensity'].reshape(t['Intensity'].size,1) for t in tup]))
+    data['Error']=np.vstack(tuple([t['Error'].reshape(t['Error'].size,1) for t in tup]))
+    tmp=np.vstack((data['q'].reshape(1,data['q'].size),data['Intensity'].reshape(1,data['Intensity'].size),data['Error'].reshape(1,data['Error'].size)))
     tmp=tmp.transpose()
     #tmp.sort(0)
     data['q']=tmp[:,0]
@@ -81,28 +82,29 @@ def selectasaxsenergies(f1f2,energymin,energymax,Nenergies=3,kT=1000,NITERS=3000
             and Z is the atomic  number.
             
             The 2nd order (=euclidean) condition number of B will be returned.
-            The pylab.cond() function is used to determine this.  If the matrix
-            is non-square (ie. rectangular), this type of condition number can
-            still be determined from the singular value decomposition.
+            The np.linalg.linalg.cond() function is used to determine this.  If
+            the matrix is non-square (ie. rectangular), this type of condition
+            number can still be determined from the singular value
+            decomposition.
              
         """
-        f1=pylab.interp(energies,f1f2[:,0],f1f2[:,1])
-        f2=pylab.interp(energies,f1f2[:,0],f1f2[:,2])
-        A=pylab.ones((len(energies),3));
+        f1=np.interp(energies,f1f2[:,0],f1f2[:,1])
+        f2=np.interp(energies,f1f2[:,0],f1f2[:,2])
+        A=np.ones((len(energies),3));
         A[:,1]=2*(f1+atomicnumber);
         A[:,2]=(f1+atomicnumber)**2+f2**2;
-        B=pylab.dot(pylab.inv(pylab.dot(A.T,A)),A.T);
-        return pylab.cond(B)
+        B=np.dot(np.inv(np.dot(A.T,A)),A.T);
+        return np.linalg.linalg.cond(B)
 
-    pylab.np.random.seed()
+    np.random.seed()
     f1f2=f1f2[f1f2[:,0]<=(energymax+100),:]
     f1f2=f1f2[f1f2[:,0]>=(energymin-100),:]
-    energies=pylab.rand(Nenergies)*(energymax-energymin)+energymin
+    energies=np.random.rand(Nenergies)*(energymax-energymin)+energymin
     c=matrixcond(f1f2,energies)
     ok=False
     oldenergies=energies.copy()
     oldc=c
-    cs=pylab.zeros(NITERS)
+    cs=np.zeros(NITERS)
     drops=0
     eidx=0
     sign=0
@@ -116,9 +118,9 @@ def selectasaxsenergies(f1f2,energymin,energymax,Nenergies=3,kT=1000,NITERS=3000
         ok=False
         while not ok:
             #which energy to modify?
-            eidx=int(pylab.rand()*Nenergies)
+            eidx=int(np.random.rand()*Nenergies)
             #modify energy in which direction?
-            sign=2*pylab.floor(pylab.rand()*2)-1
+            sign=2*np.floor(np.random.rand()*2)-1
             #modify energy
             energies[eidx]=energies[eidx]+sign*stepsize
             # if the modified energy is inside the bounds and the current
@@ -134,26 +136,26 @@ def selectasaxsenergies(f1f2,energymin,energymax,Nenergies=3,kT=1000,NITERS=3000
         #calculate the condition number of the ASAXS eval. matrix with these energies.
         try:
             c=matrixcond(f1f2,energies)
-        except pylab.np.linalg.LinAlgError:
+        except np.linalg.LinAlgError:
             energies=oldenergies
             c=oldc
             drops=drops+1
         else:
             if c>oldc: #if the condition number is larger than the old one,
-                if pylab.rand()>(pylab.exp(c-oldc)/kT): # drop with some probability
+                if np.random.rand()>(np.exp(c-oldc)/kT): # drop with some probability
                     energies=oldenergies
                     c=oldc
                     drops=drops+1
         cs[i]=c # save the current value for the condition number
-        if pylab.mod(i,1000)==0: # printing is slow, only print every 1000th step
+        if np.mod(i,1000)==0: # printing is slow, only print every 1000th step
 #            print i
             pass
         if c<condmin:
             condmin=c;
             energiesmin=energies.copy()
     energies=energiesmin
-    f1end=pylab.interp(energies,f1f2[:,0],f1f2[:,1])
-    f2end=pylab.interp(energies,f1f2[:,0],f1f2[:,2])
+    f1end=np.interp(energies,f1f2[:,0],f1f2[:,1])
+    f2end=np.interp(energies,f1f2[:,0],f1f2[:,2])
     pylab.semilogx(cs)
     pylab.xlabel('Step number')
     pylab.ylabel('Condition number of the matrix')
@@ -215,30 +217,30 @@ def radhist(data,energy,distance,res,bcx,bcy,mask,q,I):
     N=data.shape[1] # number of columns
     
     # Creating D matrix which is the distance of the sub-pixels from the origin.
-    Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),pylab.arange(data.shape[0]));
-    D=pylab.sqrt((res[0]*(X-bcx))**2+
+    Y,X=np.meshgrid(np.arange(data.shape[1]),np.arange(data.shape[0]));
+    D=np.sqrt((res[0]*(X-bcx))**2+
                  (res[1]*(Y-bcy))**2)
     # Q-matrix is calculated from the D matrix
-    q1=4*pylab.pi*pylab.sin(0.5*pylab.arctan(D/float(distance)))*energy/float(HC)
+    q1=4*np.pi*np.sin(0.5*np.arctan(D/float(distance)))*energy/float(HC)
     # eliminating masked pixels
     data=data[mask==0]
     q1=q1[mask==0]
-    q=pylab.array(q)
-    q1=q1[pylab.isfinite(data)]
-    data=data[pylab.isfinite(data)]
+    q=np.array(q)
+    q1=q1[np.isfinite(data)]
+    data=data[np.isfinite(data)]
     # initialize the output matrix
-    hist=pylab.zeros((len(I),len(q)))
+    hist=np.zeros((len(I),len(q)))
     # set the bounds of the q-bins in qmin and qmax
     qmin=map(lambda a,b:(a+b)/2.0,q[1:],q[:-1])
     qmin.insert(0,q[0])
-    qmin=pylab.array(qmin)
+    qmin=np.array(qmin)
     qmax=map(lambda a,b:(a+b)/2.0,q[1:],q[:-1])
     qmax.append(q[-1])
-    qmax=pylab.array(qmax)
+    qmax=np.array(qmax)
     # go through every pixel
     for l in range(len(q)):
         indices=((q1<=qmax[l])&(q1>qmin[l])) # the indices of the pixels which belong to this q-bin
-        hist[:,l]=scipy.stats.stats.histogram2(data[indices],I)/pylab.sum(indices.astype('float'))
+        hist[:,l]=scipy.stats.stats.histogram2(data[indices],I)/np.sum(indices.astype('float'))
     return hist
 def tweakplot2d(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,pmin=0,pmax=1):
     """2d coloured plot of a matrix with tweaking in the colorscale.
@@ -293,7 +295,7 @@ def uglyui():
                 except:
                     choice=-1
         return choice
-    def input_float(prompt='',low=-pylab.inf,high=pylab.inf):
+    def input_float(prompt='',low=-np.inf,high=np.inf):
         val=None
         while val is None:
             val=raw_input(prompt)
@@ -329,7 +331,7 @@ def uglyui():
         if tmp=='y':
             fmatrix=raw_input('Please supply the file name:')
             try:
-                p['matrix']=pylab.loadtxt(fmatrix)
+                p['matrix']=np.loadtxt(fmatrix)
             except:
                 print "Could not load file. Falling back to manual selection"
                 tmp='n'
@@ -343,7 +345,7 @@ def uglyui():
             p['lengthtopv']=0
         print "Desmearing..."
         pixels,desmeared,smoothed,mat,params,smoothing=asamacros.directdesmear(asa['position'],s,p)
-        x=pylab.arange(len(asa['position']))
+        x=np.arange(len(asa['position']))
         outname=raw_input('Output file name:')
         try:
             f=open(outname,'wt')
@@ -357,7 +359,7 @@ def uglyui():
         if tmp=='y':
             outname=raw_input('File to save the matrix:')
             try:
-                pylab.savetxt(outname,mat)
+                np.savetxt(outname,mat)
             except:
                 print "Could not write file %s" % outname
         return pixels,desmeared,smoothed,mat,params,smoothing
@@ -381,10 +383,10 @@ def uglyui():
             x=pixels
             y=desmeared
         else:
-            x=pylab.arange(len(asa['position']))
+            x=np.arange(len(asa['position']))
             y=asa['position']
         npeaks=input_float('How many AgSt peaks do you have (at least 2):',2)
-        a,b,aerr,berr=asamacros.agstcalib(x,y,pylab.arange(npeaks),returnq=False,wavelength=uiparams['wavelength'])
+        a,b,aerr,berr=asamacros.agstcalib(x,y,np.arange(npeaks),returnq=False,wavelength=uiparams['wavelength'])
         uiparams['SAXS_bc']=b
         uiparams['SAXS_hperL']=a
     elif a==2:
@@ -393,7 +395,7 @@ def uglyui():
         if asa is None:
             print "Cannot find file %s.{p00,e00,inf} (If on Linux, check the case)" % fname
             return
-        x=pylab.arange(len(asa['position']))
+        x=np.arange(len(asa['position']))
         y=asa['position']
         npeaks=input_float('How many AgSt peaks do you have (at least 2):',2)
         a,b,aerr,berr=asamacros.tripcalib(x,y,returnq=False)
@@ -424,11 +426,11 @@ def uglyui():
         if asa is None:
             print "Cannot find file %s.{p00,e00,inf} (If on Linux, check the case)" % fname
             return
-        x=4*pylab.pi*pylab.sin(0.5*pylab.arctan((pylab.arange(len(asa['position']))-uiparams['SAXS_bc'])*uiparams['SAXS_hperL']))/uiparams['wavelength']
+        x=4*np.pi*np.sin(0.5*np.arctan((np.arange(len(asa['position']))-uiparams['SAXS_bc'])*uiparams['SAXS_hperL']))/uiparams['wavelength']
         outfile=raw_input('Output filename:')
 def asa_qcalib(asadata,a,b):
         pass
-def tripcalib2(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*pylab.array([0.21739,0.25641,0.27027]),returnq=True):
+def tripcalib2(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*np.pi*np.array([0.21739,0.25641,0.27027]),returnq=True):
     pcoord=[]
     peaks=range(len(qvals))
     for p in peaks:
@@ -436,8 +438,8 @@ def tripcalib2(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*p
                      ('Zoom to peak %d (q = %f) and press ENTER' % (p,qvals[p])),
                      peakmode,scaling='lin')
         pcoord.append(tmp)
-    pcoord=pylab.array(pcoord)
-    n=pylab.array(peaks)
+    pcoord=np.array(pcoord)
+    n=np.array(peaks)
     a,b,aerr,berr=fitting.linfit(pcoord,qvals)
     if returnq:
         return a*xdata+b
@@ -446,12 +448,12 @@ def tripcalib2(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*p
 
     q=a*xdata+b
     bc=(0-b)/float(a)
-    alpha=60*pylab.pi/180.0
+    alpha=60*np.pi/180.0
     h=52e-3
     l=150
     def xtoq(x,bc,alpha,h,l,wavelength=wavelength):
-        twotheta=pylab.arctan((x-bc)*h*pylab.sin(alpha)/(l-(x-bc)*h*pylab.cos(alpha)))
-        return 4*pylab.pi*pylab.sin(0.5*twotheta)/wavelength
+        twotheta=np.arctan((x-bc)*h*np.sin(alpha)/(l-(x-bc)*h*np.cos(alpha)))
+        return 4*np.pi*np.sin(0.5*twotheta)/wavelength
     def costfunc(p,x,y):
         pass
 

@@ -2,6 +2,7 @@
 #GUI utilities
 
 import types
+import numpy as np
 import pylab
 import matplotlib.widgets
 import matplotlib.nxutils
@@ -137,7 +138,7 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
     tmp=A.copy(); # this is needed as Python uses the pass-by-object method,
                   # so A is the SAME as the version of the caller. tmp=A would
                   # render tmp the SAME (physically) as A. If we only would
-                  # call pylab.log(tmp), it won't be an error, as pylab.log()
+                  # call np.log(tmp), it won't be an error, as np.log()
                   # does not tamper with the content of its argument, but
                   # returns a new matrix. However, when we do the magic with
                   # maxval, it would be a problem, as elements of the original
@@ -146,17 +147,17 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         tmp[tmp>maxval]=max(tmp[tmp<=maxval])
     nonpos=(tmp<=0)
     tmp[nonpos]=tmp[tmp>0].min()
-    tmp=pylab.log(tmp);
-    tmp[pylab.isnan(tmp)]=tmp[1-pylab.isnan(tmp)].min();
+    tmp=np.log(tmp);
+    tmp[np.isnan(tmp)]=tmp[1-np.isnan(tmp)].min();
     if (header is not None) and (showqscale):
         xmin=0-(header['BeamPosX']-1)*header['PixelSize']
         xmax=(tmp.shape[0]-(header['BeamPosX']-1))*header['PixelSize']
         ymin=0-(header['BeamPosY']-1)*header['PixelSize']
         ymax=(tmp.shape[1]-(header['BeamPosY']-1))*header['PixelSize']
-        qxmin=4*pylab.pi*pylab.sin(0.5*pylab.arctan(xmin/header['Dist']))*header['EnergyCalibrated']/float(HC)
-        qxmax=4*pylab.pi*pylab.sin(0.5*pylab.arctan(xmax/header['Dist']))*header['EnergyCalibrated']/float(HC)
-        qymin=4*pylab.pi*pylab.sin(0.5*pylab.arctan(ymin/header['Dist']))*header['EnergyCalibrated']/float(HC)
-        qymax=4*pylab.pi*pylab.sin(0.5*pylab.arctan(ymax/header['Dist']))*header['EnergyCalibrated']/float(HC)
+        qxmin=4*np.pi*np.sin(0.5*np.arctan(xmin/header['Dist']))*header['EnergyCalibrated']/float(HC)
+        qxmax=4*np.pi*np.sin(0.5*np.arctan(xmax/header['Dist']))*header['EnergyCalibrated']/float(HC)
+        qymin=4*np.pi*np.sin(0.5*np.arctan(ymin/header['Dist']))*header['EnergyCalibrated']/float(HC)
+        qymax=4*np.pi*np.sin(0.5*np.arctan(ymax/header['Dist']))*header['EnergyCalibrated']/float(HC)
         extent=[qymin,qymax,qxmin,qxmax]
     else:
         extent=None
@@ -167,21 +168,21 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
             extent1=[1,tmp.shape[0],1,tmp.shape[1]]
         else:
             extent1=extent;
-        X,Y=pylab.meshgrid(pylab.linspace(extent1[2],extent1[3],tmp.shape[1]),
-                           pylab.linspace(extent1[0],extent1[1],tmp.shape[0]))
+        X,Y=np.meshgrid(np.linspace(extent1[2],extent1[3],tmp.shape[1]),
+                           np.linspace(extent1[0],extent1[1],tmp.shape[0]))
         pylab.contour(X,Y,tmp,contour)
     if blacknegative:
-        black=pylab.zeros((A.shape[0],A.shape[1],4))
+        black=np.zeros((A.shape[0],A.shape[1],4))
         black[:,:,3][nonpos]=1
         pylab.imshow(black,extent=extent,interpolation='nearest')
     if mask is not None:
-        white=pylab.ones((mask.shape[0],mask.shape[1],4))
-        white[:,:,3]=pylab.array(1-mask).astype('float')*0.7
+        white=np.ones((mask.shape[0],mask.shape[1],4))
+        white[:,:,3]=np.array(1-mask).astype('float')*0.7
         pylab.imshow(white,extent=extent,interpolation='nearest')
     for q in qs:
         a=pylab.gca().axis()
-        pylab.plot(q*pylab.cos(pylab.linspace(0,2*pylab.pi,2000)),
-                   q*pylab.sin(pylab.linspace(0,2*pylab.pi,2000)),
+        pylab.plot(q*np.cos(np.linspace(0,2*np.pi,2000)),
+                   q*np.sin(np.linspace(0,2*np.pi,2000)),
                    color='white',linewidth=3)
         pylab.gca().axis(a)
     if header is not None:
@@ -216,8 +217,8 @@ def makemask(mask,A,savefile=None):
                 y0=min(event.ydata,fig.mydata['selectdata'][1])
                 x1=max(event.xdata,fig.mydata['selectdata'][0])
                 y1=max(event.ydata,fig.mydata['selectdata'][1])
-                Col,Row=pylab.meshgrid(pylab.arange(fig.mydata['mask'].shape[1]),
-                                       pylab.arange(fig.mydata['mask'].shape[0]))
+                Col,Row=np.meshgrid(np.arange(fig.mydata['mask'].shape[1]),
+                                       np.arange(fig.mydata['mask'].shape[0]))
                 fig.mydata['selection']=(Col<=x1) & (Col>=x0) & (Row<=y1) & (Row>=y0)
                 fig.mydata['ax'].set_title('Mask/unmask region with the appropriate button!')
                 fig.mydata['selectdata']=[]
@@ -238,14 +239,14 @@ def makemask(mask,A,savefile=None):
                 x0=fig.mydata['selectdata'][0]
                 y0=fig.mydata['selectdata'][1]
                 fig.mydata['selectdata']=[];
-                R=pylab.sqrt((x0-event.xdata)**2+(y0-event.ydata)**2)
-                Col,Row=pylab.meshgrid(pylab.arange(fig.mydata['mask'].shape[1])-x0,
-                                       pylab.arange(fig.mydata['mask'].shape[0])-y0)
-                fig.mydata['selection']=pylab.sqrt(Col**2+Row**2)<=R
+                R=np.sqrt((x0-event.xdata)**2+(y0-event.ydata)**2)
+                Col,Row=np.meshgrid(np.arange(fig.mydata['mask'].shape[1])-x0,
+                                       np.arange(fig.mydata['mask'].shape[0])-y0)
+                fig.mydata['selection']=np.sqrt(Col**2+Row**2)<=R
                 fig.mydata['ax'].set_title('Mask/unmask region with the appropriate button!')
                 a=fig.mydata['ax'].axis()
-                fig.mydata['ax'].plot(x0+R*pylab.cos(pylab.linspace(0,2*pylab.pi,2000)),
-                                      y0+R*pylab.sin(pylab.linspace(0,2*pylab.pi,2000)),
+                fig.mydata['ax'].plot(x0+R*np.cos(np.linspace(0,2*np.pi,2000)),
+                                      y0+R*np.sin(np.linspace(0,2*np.pi,2000)),
                                       color='white')
                 fig.mydata['ax'].axis(a)
                 fig.mydata['mode']=None
@@ -264,18 +265,18 @@ def makemask(mask,A,savefile=None):
                 fig.mydata['ax'].plot([p1[0],p2[0]],[p1[1],p2[1]],color='white')
                 fig.mydata['ax'].axis(a)
                 if event.button==3:
-                    Col,Row=pylab.meshgrid(pylab.arange(fig.mydata['mask'].shape[1]),
-                                           pylab.arange(fig.mydata['mask'].shape[0]))
-                    Points=pylab.zeros((Col.size,2))
+                    Col,Row=np.meshgrid(np.arange(fig.mydata['mask'].shape[1]),
+                                           np.arange(fig.mydata['mask'].shape[0]))
+                    Points=np.zeros((Col.size,2))
                     Points[:,0]=Col.flatten()
                     Points[:,1]=Row.flatten()
-                    fig.mydata['selection']=pylab.zeros(Col.shape).astype('bool')
+                    fig.mydata['selection']=np.zeros(Col.shape).astype('bool')
                     ptsin=matplotlib.nxutils.points_inside_poly(Points,fig.mydata['selectdata'])
                     fig.mydata['selection'][ptsin.reshape(Col.shape)]=True
                     fig.mydata['selectdata']=[]
                     fig.mydata['mode']=None
             elif fig.mydata['mode']=='PHUNT':
-                fig.mydata['mask'][pylab.floor(event.ydata+.5),pylab.floor(event.xdata+.5)]=not(fig.mydata['mask'][pylab.floor(event.ydata+.5),pylab.floor(event.xdata+.5)])
+                fig.mydata['mask'][np.floor(event.ydata+.5),np.floor(event.xdata+.5)]=not(fig.mydata['mask'][np.floor(event.ydata+.5),np.floor(event.xdata+.5)])
                 fig.mydata['redrawneeded']=True
                 return
         elif event.inaxes==fig.mydata['bax9']: # pixel hunting
@@ -340,7 +341,7 @@ def makemask(mask,A,savefile=None):
         elif event.inaxes==fig.mydata['bax0']: # done
             pylab.gcf().toexit=True
     if mask is None:
-        mask=pylab.ones(A.shape)
+        mask=np.ones(A.shape)
     if A.shape!=mask.shape:
         print 'The shapes of A and mask should be equal.'
         return None
@@ -432,13 +433,13 @@ def basicfittinggui(data,title='',blocking=False):
             pylab.figure()
             if plottype=='Guinier':
                 xt=data['q']**2
-                yt=pylab.log(data['Intensity'])
+                yt=np.log(data['Intensity'])
             elif plottype=='Guinier thickness':
                 xt=data['q']**2
-                yt=pylab.log(data['Intensity'])*xt
+                yt=np.log(data['Intensity'])*xt
             elif plottype=='Guinier cross-section':
                 xt=data['q']**2
-                yt=pylab.log(data['Intensity'])*data['q']
+                yt=np.log(data['Intensity'])*data['q']
             elif plottype=='Porod':
                 xt=data['q']**4
                 yt=data['Intensity']*xt
@@ -479,19 +480,19 @@ def basicfittinggui(data,title='',blocking=False):
         pylab.gcf().plottype==plottype
         if plottype=='Guinier':
             x=q**2
-            y=pylab.log(I)
+            y=np.log(I)
             pylab.plot(x,y,'.')
             pylab.xlabel('q^2')
             pylab.ylabel('ln I')
         elif plottype=='Guinier thickness':
             x=q**2
-            y=pylab.log(I)*q**2
+            y=np.log(I)*q**2
             pylab.plot(x,y,'.')
             pylab.xlabel('q^2')
             pylab.ylabel('ln I*q^2')
         elif plottype=='Guinier cross-section':
             x=q**2
-            y=pylab.log(I)*q
+            y=np.log(I)*q
             pylab.plot(x,y,'.')
             pylab.xlabel('q^2')
             pylab.ylabel('ln I*q')            
@@ -539,7 +540,7 @@ def basicfittinggui(data,title='',blocking=False):
 #data quality tools
 def testsmoothing(x,y,smoothing=1e-5,slidermin=1e-6,slidermax=1e-2):
     ax=pylab.axes((0.2,0.85,0.7,0.05));
-    sl=matplotlib.widgets.Slider(ax,'',pylab.log10(slidermin),pylab.log10(slidermax),pylab.log10(smoothing));
+    sl=matplotlib.widgets.Slider(ax,'',np.log10(slidermin),np.log10(slidermax),np.log10(smoothing));
     fig=pylab.gcf()
     fig.smoothingdone=False
     ax=pylab.axes((0.1,0.85,0.1,0.05));
@@ -572,7 +573,7 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=1e-6,slidermax=1e-2):
     pylab.draw()
     return pow(10,sl.val)
 
-def testorigin(data,orig,mask=None,dmin=0,dmax=pylab.inf):
+def testorigin(data,orig,mask=None,dmin=0,dmax=np.inf):
     """Shows several test plots by which the validity of the determined origin
     can  be tested.
     
@@ -583,7 +584,7 @@ def testorigin(data,orig,mask=None,dmin=0,dmax=pylab.inf):
     """
     print "Creating origin testing images, please wait..."
     if mask is None:
-        mask=pylab.ones(data.shape)
+        mask=np.ones(data.shape)
     pylab.subplot(2,2,1)
     plot2dmatrix(data,mask=mask)
     pylab.plot([0,data.shape[1]],[orig[0],orig[0]],color='white')
@@ -600,12 +601,12 @@ def testorigin(data,orig,mask=None,dmin=0,dmax=pylab.inf):
     pylab.plot(c4,marker='o',color='red',markersize=6)
     pylab.subplot(2,2,3)
     maxr=max([len(c1),len(c2),len(c3),len(c4)])
-    pdata=utils2d.polartransform(data,pylab.arange(0,maxr),pylab.linspace(0,4*pylab.pi,600),orig[0],orig[1])
-    pmask=utils2d.polartransform(mask,pylab.arange(0,maxr),pylab.linspace(0,4*pylab.pi,600),orig[0],orig[1])
+    pdata=utils2d.polartransform(data,np.arange(0,maxr),np.linspace(0,4*np.pi,600),orig[0],orig[1])
+    pmask=utils2d.polartransform(mask,np.arange(0,maxr),np.linspace(0,4*np.pi,600),orig[0],orig[1])
     plot2dmatrix(pdata,mask=pmask)
     pylab.axis('scaled')
     pylab.subplot(2,2,4)
-    t,I,E,A=utils2d.azimintpix(data,pylab.ones(data.shape),orig,1-mask,dmin,dmin,dmax)
+    t,I,E,A=utils2d.azimintpix(data,np.ones(data.shape),orig,1-mask,dmin,dmin,dmax)
     pylab.plot(t,I,'b-')
     pylab.ylabel('Azimuthal intensity\n(nonperiodic for 2pi)')
     pylab.twinx()
@@ -662,7 +663,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel'):
         pylab.ylabel('Transmission')
         pylab.xlabel('FSN')
         pylab.grid('on')
-        legend1=legend1+['Energy (not calibrated) = %.1f eV\n Mean T = %.4f, std %.4f' % (energies[l],pylab.mean(transm1),pylab.std(transm1))]
+        legend1=legend1+['Energy (not calibrated) = %.1f eV\n Mean T = %.4f, std %.4f' % (energies[l],np.mean(transm1),np.std(transm1))]
         pylab.subplot(4,1,2)
         bbox=pylab.gca().get_position()
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
@@ -673,7 +674,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel'):
         pylab.ylabel('Position of beam center in X')
         pylab.xlabel('FSN')
         pylab.grid('on')
-        legend2=legend2+['Energy (not calibrated) = %.1f eV\n Mean x = %.4f, std %.4f' % (energies[l],pylab.mean(orix1),pylab.std(orix1))]
+        legend2=legend2+['Energy (not calibrated) = %.1f eV\n Mean x = %.4f, std %.4f' % (energies[l],np.mean(orix1),np.std(orix1))]
         pylab.subplot(4,1,3)
         bbox=pylab.gca().get_position()
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
@@ -684,7 +685,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel'):
         pylab.ylabel('Position of beam center in Y')
         pylab.xlabel('FSN')
         pylab.grid('on')
-        legend3=legend3+['Energy (not calibrated) = %.1f eV\n Mean y = %.4f, std %.4f' % (energies[l],pylab.mean(oriy1),pylab.std(oriy1))]
+        legend3=legend3+['Energy (not calibrated) = %.1f eV\n Mean y = %.4f, std %.4f' % (energies[l],np.mean(oriy1),np.std(oriy1))]
         pylab.subplot(4,1,4)
         bbox=pylab.gca().get_position()
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
@@ -695,7 +696,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel'):
         pylab.ylabel('Doris current (mA)')
         pylab.xlabel('FSN')
         pylab.grid('on')
-        legend4=legend4+['Energy (not calibrated) = %.1f eV\n Mean I = %.4f' % (energies[l],pylab.mean(doris1))]
+        legend4=legend4+['Energy (not calibrated) = %.1f eV\n Mean I = %.4f' % (energies[l],np.mean(doris1))]
         
     pylab.subplot(4,1,1)
     pylab.legend(legend1,loc=(1.03,0))
@@ -745,23 +746,23 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False):
         x1=xdata
         y1=ydata
     def gausscostfun(p,x,y):  #p: A,sigma,x0,y0
-        tmp= y-p[3]-p[0]/(pylab.sqrt(2*pylab.pi)*p[1])*pylab.exp(-(x-p[2])**2/(2*p[1]**2))
+        tmp= y-p[3]-p[0]/(np.sqrt(2*np.pi)*p[1])*np.exp(-(x-p[2])**2/(2*p[1]**2))
         return tmp
     def lorentzcostfun(p,x,y):
         tmp=y-p[3]-p[0]*utils.lorentzian(p[2],p[1],x)
         return tmp
     if mode=='Gauss':
         sigma0=0.25*(x1[-1]-x1[0])
-        p0=((y1.max()-y1.min())/(1/pylab.sqrt(2*pylab.pi*sigma0**2)),
+        p0=((y1.max()-y1.min())/(1/np.sqrt(2*np.pi*sigma0**2)),
             sigma0,
             0.5*(x1[-1]+x1[0]),
             y1.min())
         p1,ier=scipy.optimize.leastsq(gausscostfun,p0,args=(x1,y1),maxfev=10000)
         if not blind:
             if scaling=='log':
-                pylab.semilogy(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
+                pylab.semilogy(x1,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
             else:
-                pylab.plot(x1,p1[3]+p1[0]/(pylab.sqrt(2*pylab.pi)*p1[1])*pylab.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
+                pylab.plot(x1,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
     elif mode=='Lorentz':
         sigma0=0.25*(x1[-1]-x1[0])
         p0=((y1.max()-y1.min())/(1/sigma0),
@@ -826,7 +827,7 @@ def tweakfit(xdata,ydata,modelfun,fitparams):
         if fitparams[i]['mode']=='lin':
             sl.append(matplotlib.widgets.Slider(ax[-1],fitparams[i]['Label'],fitparams[i]['Min'],fitparams[i]['Max'],fitparams[i]['Val']))
         elif fitparams[i]['mode']=='log':
-            sl.append(matplotlib.widgets.Slider(ax[-1],fitparams[i]['Label'],pylab.log10(fitparams[i]['Min']),pylab.log10(fitparams[i]['Max']),pylab.log10(fitparams[i]['Val'])))
+            sl.append(matplotlib.widgets.Slider(ax[-1],fitparams[i]['Label'],np.log10(fitparams[i]['Min']),np.log10(fitparams[i]['Max']),np.log10(fitparams[i]['Val'])))
         else:
             raise ValueError('Invalid mode %s in fitparams' % fitparams[i]['mode']);
         fig.params.append(fitparams[i]['Val'])
@@ -852,13 +853,13 @@ def plotasa(asadata):
     """
     pylab.figure()
     pylab.subplot(211)
-    pylab.plot(pylab.arange(len(asadata['position'])),asadata['position'],label='Intensity',color='black')
+    pylab.plot(np.arange(len(asadata['position'])),asadata['position'],label='Intensity',color='black')
     pylab.xlabel('Channel number')
     pylab.ylabel('Counts')
     pylab.title('Scattering data')
     pylab.legend(loc='best')
     pylab.subplot(212)
-    x=pylab.arange(len(asadata['energy']))
+    x=np.arange(len(asadata['energy']))
     e1=asadata['energy'][(x<asadata['params']['Energywindow_Low'])]
     x1=x[(x<asadata['params']['Energywindow_Low'])]
     e2=asadata['energy'][(x>=asadata['params']['Energywindow_Low']) &

@@ -2,6 +2,7 @@
 #IO routines
 
 import pylab
+import numpy as np
 import types
 import os
 import gzip
@@ -41,16 +42,16 @@ def readasa(basename):
             pixels: the pixel numbers.
     """
     try:
-        p00=pylab.loadtxt('%s.P00' % basename)
+        p00=np.loadtxt('%s.P00' % basename)
     except IOError:
         try:
-            p00=pylab.loadtxt('%s.p00' % basename)
+            p00=np.loadtxt('%s.p00' % basename)
         except:
             raise IOError('Cannot find %s.p00, neither %s.P00.' % (basename,basename))
     if p00 is not None:
         p00=p00[1:] # cut the leading -1
     try:
-        e00=pylab.loadtxt('%s.E00' % basename)
+        e00=np.loadtxt('%s.E00' % basename)
     except IOError:
         try:
             e00=pylab.loadtxt('%s.e00' % basename)

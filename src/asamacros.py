@@ -1,5 +1,6 @@
 #asamacros.py
 
+import numpy as np
 import pylab
 import fitting
 import matplotlib.widgets
@@ -55,13 +56,13 @@ def directdesmear(data,smoothing,params,title=''):
         smoothing: smoothing parameter
     """
     #default values
-    dparams={'pixelmin':-pylab.inf,'pixelmax':pylab.inf,
+    dparams={'pixelmin':-np.inf,'pixelmax':np.inf,
              'beamnumh':1024,'beamnumv':0}
     dparams.update(params)
     params=dparams
     
     # calculate the matrix
-    if params.has_key('matrix') and type(params['matrix'])==pylab.ndarray:
+    if params.has_key('matrix') and type(params['matrix'])==np.ndarray:
         A=params['matrix']
     else:
         A=smearingmatrix(params['pixelmin'],params['pixelmax'],
@@ -71,14 +72,14 @@ def directdesmear(data,smoothing,params,title=''):
                          params['beamnumh'],params['beamnumv'])
         params['matrix']=A
     #x coordinates in pixels
-    pixels=pylab.arange(len(data))
+    pixels=np.arange(len(data))
     def smooth_and_desmear(pixels,data,params,smoothing,smmode):
         # smoothing the dataset. Errors of the data are sqrt(data), weight will be therefore 1/data
         indices=(pixels<=params['pixelmax']) & (pixels>=params['pixelmin'])
         data=data[indices]
         pixels=pixels[indices]
         data1=fitting.smoothcurve(pixels,data,smoothing,smmode,extrapolate='Linear')
-        ret=(pixels,pylab.solve(params['matrix'],data1.reshape(len(data1),1)),
+        ret=(pixels,np.linalg.linalg.solve(params['matrix'],data1.reshape(len(data1),1)),
              data1,params['matrix'],params,smoothing)
         return ret
     if type(smoothing)!=type({}):
@@ -96,9 +97,9 @@ def directdesmear(data,smoothing,params,title=''):
         b.on_clicked(buttclick)
         if smoothing['mode']=='log':
             sl=matplotlib.widgets.Slider(axsl,'Smoothing',
-                                         pylab.log(smoothing['low']),
-                                         pylab.log(smoothing['high']),
-                                         pylab.log(smoothing['val']))
+                                         np.log(smoothing['low']),
+                                         np.log(smoothing['high']),
+                                         np.log(smoothing['val']))
         elif smoothing['mode']=='lin':
             sl=matplotlib.widgets.Slider(axsl,'Smoothing',
                                          smoothing['low'],
@@ -112,7 +113,7 @@ def directdesmear(data,smoothing,params,title=''):
             if mode=='lin':
                 sm=sl.val
             else:
-                sm=pylab.exp(sl.val)
+                sm=np.exp(sl.val)
             [x1,y1,ysm,A,par,sm]=smooth_and_desmear(x,y,p,sm,smmode)
             a=ax.axis()
             ax.cla()
@@ -138,7 +139,7 @@ def directdesmear(data,smoothing,params,title=''):
         if smoothing['mode']=='lin':
             sm=sl.val
         elif smoothing['mode']=='log':
-            sm=pylab.exp(sl.val)
+            sm=np.exp(sl.val)
         else:
             raise ValueError('Invalid value for smoothingmode: %s',
                              smoothing['mode'])
@@ -176,19 +177,19 @@ def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68,retur
     for p in peaks:
         tmp=guitools.findpeak(xdata,ydata,('Zoom to peak %d and press ENTER' % p),peakmode,scaling='log')
         pcoord.append(tmp)
-    pcoord=pylab.array(pcoord)
-    n=pylab.array(peaks)
+    pcoord=np.array(pcoord)
+    n=np.array(peaks)
     a=(n*wavelength)/(2*d)
-    x=2*a*pylab.sqrt(1-a**2)/(1-2*a**2)
+    x=2*a*np.sqrt(1-a**2)/(1-2*a**2)
     LperH,xcent,LperHerr,xcenterr=fitting.linfit(x,pcoord)
     print 'pixelsize/dist:',1/LperH,'+/-',LperHerr/LperH**2
     print 'beam position:',xcent,'+/-',xcenterr
-    b=(pylab.array(xdata)-xcent)/LperH
+    b=(np.array(xdata)-xcent)/LperH
     if returnq:
-        return 4*pylab.pi*pylab.sqrt(0.5*(b**2+1-pylab.sqrt(b**2+1))/(b**2+1))/wavelength
+        return 4*np.pi*np.sqrt(0.5*(b**2+1-np.sqrt(b**2+1))/(b**2+1))/wavelength
     else:
         return 1/LperH,xcent,LperHerr/LperH**2,xcenterr
-def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*pylab.array([0.21739,0.25641,0.27027]),returnq=True):
+def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*np.pi*np.array([0.21739,0.25641,0.27027]),returnq=True):
     """Find q-range from Tripalmitine measurements.
     
     Inputs:
@@ -219,8 +220,8 @@ def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*pylab.pi*py
                      ('Zoom to peak %d (q = %f) and press ENTER' % (p,qvals[p])),
                      peakmode,scaling='lin')
         pcoord.append(tmp)
-    pcoord=pylab.array(pcoord)
-    n=pylab.array(peaks)
+    pcoord=np.array(pcoord)
+    n=np.array(peaks)
     a,b,aerr,berr=fitting.linfit(pcoord,qvals)
     if returnq:
         return a*xdata+b

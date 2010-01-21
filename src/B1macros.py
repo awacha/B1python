@@ -1,6 +1,7 @@
 #B1macros.py
 #Macros for data processing
 
+import numpy as np
 import pylab
 import types
 import B1io
@@ -182,10 +183,10 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
     me2=sum([h['Monitor'] for h in hEB2])
     md=sum([h['Monitor'] for h in headerDC])
     # calculate the transmissions
-    T1=pylab.array([h['Transm'] for h in hF1]).mean()
-    dT1=pylab.array([h['Transm'] for h in hF1]).std()
-    T2=pylab.array([h['Transm'] for h in hF2]).mean()
-    dT2=pylab.array([h['Transm'] for h in hF2]).std()
+    T1=np.array([h['Transm'] for h in hF1]).mean()
+    dT1=np.array([h['Transm'] for h in hF1]).std()
+    T2=np.array([h['Transm'] for h in hF2]).mean()
+    dT2=np.array([h['Transm'] for h in hF2]).std()
     
     # Dark current correction
     D1x=D1-t1/td*D # scattering matrices...
@@ -209,11 +210,11 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
     S=P1-Pe1-factor*(P2-Pe2)
     
     #two-theta for the pixels
-    tth=pylab.arctan(utils2d.calculateDmatrix(F1,pixelsize,origx,origy)/hF1[0]['Dist'])
+    tth=np.arctan(utils2d.calculateDmatrix(F1,pixelsize,origx,origy)/hF1[0]['Dist'])
 
     S=S*gasabsorptioncorrectiontheta(energyfluorescence,tth)
     print "Please mask erroneous areas!"
-    mask = guitools.makemask(pylab.ones(S.shape),S)
+    mask = guitools.makemask(np.ones(S.shape),S)
     S=mask*S
     S=S/S.sum()
 
@@ -272,16 +273,16 @@ def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluoresc
     datadc,headerdc=B1io.read2dB1data(_B1config['2dfileprefix'],fsnDC,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
     
     #subtract background, and correct for transmission (and sensitivity :-): to override this correction, ones() and zeros() are given)
-    A1,errA1=subdc(dataE1,headerE1,datadc,headerdc,pylab.ones(dataE1[0].shape),pylab.zeros(dataE1[0].shape))
-    A2,errA2=subdc(dataE2,headerE2,datadc,headerdc,pylab.ones(dataE2[0].shape),pylab.zeros(dataE2[0].shape))
-    eb1,erreb1=subdc(dataebE1,headerebE1,datadc,headerdc,pylab.ones(dataebE1[0].shape),pylab.zeros(dataebE1[0].shape))
-    eb2,erreb2=subdc(dataebE2,headerebE2,datadc,headerdc,pylab.ones(dataebE2[0].shape),pylab.zeros(dataebE2[0].shape))
+    A1,errA1=subdc(dataE1,headerE1,datadc,headerdc,np.ones(dataE1[0].shape),np.zeros(dataE1[0].shape))
+    A2,errA2=subdc(dataE2,headerE2,datadc,headerdc,np.ones(dataE2[0].shape),np.zeros(dataE2[0].shape))
+    eb1,erreb1=subdc(dataebE1,headerebE1,datadc,headerdc,np.ones(dataebE1[0].shape),np.zeros(dataebE1[0].shape))
+    eb2,erreb2=subdc(dataebE2,headerebE2,datadc,headerdc,np.ones(dataebE2[0].shape),np.zeros(dataebE2[0].shape))
     
     #theta for pixels
-    tth=pylab.arctan(utils2d.calculateDmatrix(A1,pixelsize,origx,origy)/headerE1[0]['Dist'])
+    tth=np.arctan(utils2d.calculateDmatrix(A1,pixelsize,origx,origy)/headerE1[0]['Dist'])
     #transmissions below and above the edge
-    transm1=pylab.array([h['Transm'] for h in headerE1])
-    transm2=pylab.array([h['Transm'] for h in headerE2])
+    transm1=np.array([h['Transm'] for h in headerE1])
+    transm2=np.array([h['Transm'] for h in headerE2])
     
     #angle-dependent absorption
     transmcorr1=absorptionangledependenttth(tth,transm1.mean())/transm1.mean()
@@ -290,19 +291,19 @@ def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluoresc
     #subtract empty beam
     B1=(A1/transm1.mean()-eb1)*transmcorr1
     B2=(A2/transm2.mean()-eb2)*transmcorr2
-    errB1=pylab.sqrt(errA1**2/(transm1.mean())**2+erreb1**2)*transmcorr1
-    errB2=pylab.sqrt(errA2**2/(transm2.mean())**2+erreb2**2)*transmcorr2
+    errB1=np.sqrt(errA1**2/(transm1.mean())**2+erreb1**2)*transmcorr1
+    errB2=np.sqrt(errA2**2/(transm2.mean())**2+erreb2**2)*transmcorr2
     
     factor=1 #empirical compensation factor to rule out small-angle scattering completely
     if (E1header['Energy']>E2header['Energy']):
         C=B1-factor*B2
-        Cerr=pylab.sqrt(errB1**2+factor**2*errB2**2)
+        Cerr=np.sqrt(errB1**2+factor**2*errB2**2)
     else:
         C=B2-factor*B1
-        Cerr=pylab.sqrt(errB2**2+factor**2*errB1**2)
+        Cerr=np.sqrt(errB2**2+factor**2*errB1**2)
     C=C*gasabsorptioncorrectiontheta(energyfluorescence,tth)
     print "Please mask erroneous areas!"
-    mask = guitools.makemask(pylab.ones(C.shape),C)
+    mask = guitools.makemask(np.ones(C.shape),C)
     C=(mask)*C
     cc=C.mean()
     sens=C/cc
@@ -373,7 +374,7 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
     GCdata=None
     for r in _B1config['refdata']:
         if abs(r['pos']-header[referencenumber]['PosRef'])<_B1config['refposprecision']:
-            GCdata=pylab.loadtxt("%s%s%s" % (_B1config['calibdir'],os.sep,r['data']))
+            GCdata=np.loadtxt("%s%s%s" % (_B1config['calibdir'],os.sep,r['data']))
             refthick=r['thick']
     if GCdata is None:
         print "No calibration data exists with ref. position %.2f +/- %.2f." % (header[referencenumber]['PosRef'],_B1config['refposprecision'])
@@ -433,9 +434,9 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
                     print "Did not find thickness for sample %s. Stopping." % header[k]['Title']
                     return qs,ints,errs,header
             print "Using thickness %f cm for sample %s" % (thick,header[k]['Title'])
-            errs[k]=pylab.sqrt((mult*errs[k])**2+(errmult*ints[k])**2)/thick
+            errs[k]=np.sqrt((mult*errs[k])**2+(errmult*ints[k])**2)/thick
             ints[k]=mult*ints[k]/thick
-            Aerrs[k]=pylab.sqrt((mult*Aerrs[k])**2+(errmult*As[k])**2)/thick
+            Aerrs[k]=np.sqrt((mult*Aerrs[k])**2+(errmult*As[k])**2)/thick
             As[k]=mult*As[k]/thick
             if ((header[k]['Current1']>header[referencenumber]['Current2']) and (k>referencenumber)) or \
                 ((header[k]['Current2']<header[referencenumber]['Current1']) and (k<referencenumber)):
@@ -591,7 +592,7 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             header[k]['BeamPosY']=orig1[1]
         header[k]['PixelSize']=pixelsize
         D=utils2d.calculateDmatrix(mask,pixelsize,header[k]['BeamPosX'],header[k]['BeamPosY'])
-        tth=pylab.arctan(D/header[k]['Dist'])
+        tth=np.arctan(D/header[k]['Dist'])
         spatialcorr=geomcorrectiontheta(tth,header[k]['Dist'])
         absanglecorr=absorptionangledependenttth(tth,header[k]['Transm'])
         gasabsorptioncorr=gasabsorptioncorrectiontheta(header[k]['EnergyCalibrated'],tth)
@@ -637,7 +638,7 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
         utils.pause()
     return qs,ints,errs,Areas,As,Aerrs,headerout
 def geomcorrectiontheta(tth,dist):
-    return dist**2/(pylab.cos(tth)**3)
+    return dist**2/(np.cos(tth)**3)
 def absorptionangledependenttth(tth,transm):
     """Create matrix for correction by angle-dependent X-ray absorption
     
@@ -650,11 +651,11 @@ def absorptionangledependenttth(tth,transm):
         angle-dependent absorption. The scattering data should be multiplied
         by this.
     """
-    mud=-pylab.log(transm);
-    cor=pylab.ones(tth.shape)
+    mud=-np.log(transm);
+    cor=np.ones(tth.shape)
     
-    #cor[tth>0]=transm/((1/(1-1/pylab.cos(tth[tth>0]))/mud)*(pylab.exp(-mud/pylab.cos(tth[tth>0]))-pylab.exp(-mud)))
-    cor[tth>0]=transm*mud*(1-1/pylab.cos(tth[tth>0]))/(pylab.exp(-mud/pylab.cos(tth[tth>0]))-pylab.exp(-mud))
+    #cor[tth>0]=transm/((1/(1-1/np.cos(tth[tth>0]))/mud)*(np.exp(-mud/np.cos(tth[tth>0]))-np.exp(-mud)))
+    cor[tth>0]=transm*mud*(1-1/np.cos(tth[tth>0]))/(np.exp(-mud/np.cos(tth[tth>0]))-np.exp(-mud))
     return cor
 def gasabsorptioncorrectiontheta(energycalibrated,tth,components=None):
     """Create matrix for correction by absorption of the various elements of the
@@ -691,18 +692,18 @@ def gasabsorptioncorrectiontheta(energycalibrated,tth,components=None):
                 {'name':'air gap','thick':50,'data':'TransmissionAir760Torr1mm298K.dat'},
                 {'name':'detector window','thick':0.1,'data':'TransmissionBe1mm.dat'},
                 {'name':'flight tube window','thick':0.15,'data':'TransmissionPolyimide1mm.dat'}]
-    cor=pylab.ones(tth.shape)
+    cor=np.ones(tth.shape)
     for c in components:
-        c['travel']=c['thick']/pylab.cos(tth)
-        spam=pylab.loadtxt("%s%s%s" % (_B1config['calibdir'],os.sep,c['data']))
+        c['travel']=c['thick']/np.cos(tth)
+        spam=np.loadtxt("%s%s%s" % (_B1config['calibdir'],os.sep,c['data']))
         if energycalibrated<spam[:,0].min():
             tr=spam[0,1]
         elif energycalibrated>spam[:,0].max():
             tr=spam[0,-1]
         else:
-            tr=pylab.interp(energycalibrated,spam[:,0],spam[:,1])
-        c['mu']=-pylab.log(tr) # in 1/mm
-        cor=cor/pylab.exp(-c['travel']*c['mu'])
+            tr=np.interp(energycalibrated,spam[:,0],spam[:,1])
+        c['mu']=-np.log(tr) # in 1/mm
+        cor=cor/np.exp(-c['travel']*c['mu'])
     return cor
 def subtractbg_old(fsn1,fsndc,sens,senserr,transm=None):
     """Subtract dark current and empty beam from the measurements and
@@ -758,7 +759,7 @@ def subtractbg_old(fsn1,fsndc,sens,senserr,transm=None):
             injectionEB.append('n')
         header[k]['injectionEB']=injectionEB[-1]
         Asub.append(A2-Abg) # they were already normalised by the transmission
-        errAsub.append(pylab.sqrt(A2err**2+Abgerr**2))
+        errAsub.append(np.sqrt(A2err**2+Abgerr**2))
         header[k]['FSNdc']=fsndc
         headerout.append(header[k])
     return Asub, errAsub, headerout, injectionEB
@@ -887,7 +888,7 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
         print "Sample: %g +/- %g" %((dCdA2DA2).mean(),dCdA2DA2.std())
         print "Empty beam: %g +/- %g" %((dCdB2DB2).mean(),(dCdB2DB2).std())
         print "Dark current: %g +/- %g" %((dCdD2DD2).mean(),(dCdD2DD2).std())
-        dC=pylab.sqrt(dCdTa**2*dTa**2 + dCdma**2*ma + dCdmb**2*mb + dCdmd**2*md + dCdS**2*senserr**2 +
+        dC=np.sqrt(dCdTa**2*dTa**2 + dCdma**2*ma + dCdmb**2*mb + dCdmd**2*md + dCdS**2*senserr**2 +
                       dCdaa**2*aa + dCdab**2*ab + dCdad**2*ad + dCdA2DA2 + dCdB2DB2 + dCdD2DD2)
         print "Total error: %g +/- %g" % ((dC**2).mean(),(dC**2).std())
         #normalize by beam size
@@ -930,7 +931,7 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     # summarize transmission, anode, monitor and measurement time data
     # for measurement files
     if transm is None:
-        transm=pylab.array([h['Transm'] for h in header])
+        transm=np.array([h['Transm'] for h in header])
         transmave=transm.mean() # average transmission
         transmerr=transm.std() # standard deviation of the transmission
     else:
@@ -968,16 +969,16 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     monitor1corrected=mo1-modc*meastime1/meastimedc
     
     # add up scattering patterns
-    A=sum(data) # do not use pylab.sum()
+    A=sum(data) # do not use np.sum()
     Adc=sum(datadc)
     
     #subtract the dark current from the scattering pattern
     sumA2=(A-Adc*meastime1/meastimedc).sum()
     # error of sumA2, not sum of error of A2.
-    sumA2err=pylab.sqrt((A+(meastime1/meastimedc)**2*Adc).sum())
+    sumA2err=np.sqrt((A+(meastime1/meastimedc)**2*Adc).sum())
     
     anA2=an1-andc*meastime1/meastimedc;
-    anA2err=pylab.sqrt(an1+(meastime1/meastimedc)**2*andc)
+    anA2err=np.sqrt(an1+(meastime1/meastimedc)**2*andc)
     
     # summarized scattering pattern, subtracted the dark current,
     # normalized by the monitor counter and the sensitivity
@@ -986,16 +987,16 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     print "Sum/Total of dark current: %.2f. Counts/s %.1f." % (100*Adc.sum()/andc,andc/meastimedc)
     print "Sum/Total before dark current correction: %.2f. Counts on anode %.1f cps. Monitor %.1f cps." %(100*A.sum()/an1,an1/meastime1,monitor1corrected/meastime1)
     print "Sum/Total after dark current correction: %.2f." % (100*sumA2/anA2)
-    errA=pylab.sqrt(A)
-    errAdc=pylab.sqrt(Adc)
+    errA=np.sqrt(A)
+    errAdc=np.sqrt(Adc)
     errmonitor1corrected=mo1+modc*meastime1/meastimedc
-    errA2=pylab.sqrt(1/(sens*monitor1corrected)**2*errA**2+
+    errA2=np.sqrt(1/(sens*monitor1corrected)**2*errA**2+
                      (meastime1/(meastimedc*sens*monitor1corrected))**2*errAdc**2+
                      (1/(monitor1corrected**2*sens)*(A-Adc*meastime1/meastimedc))**2*errmonitor1corrected**2+
                      (1/(monitor1corrected*sens**2)*(A-Adc*meastime1/meastimedc))**2*senserr**2)
                      
     A3=A2*anA2/(sumA2*transmave)
-    errA3=pylab.sqrt((anA2/(sumA2*transmave)*errA2)**2+
+    errA3=np.sqrt((anA2/(sumA2*transmave)*errA2)**2+
                      (A2/(sumA2*transmave)*anA2err)**2+
                      (A2*anA2/(sumA2**2*transmave)*sumA2err)**2+
                      (A2*anA2/(sumA2*transmave**2)*transmerr)**2)
@@ -1019,7 +1020,7 @@ def energycalibration(energymeas,energycalib,energy1):
         and energycalib on the parameter list.
     """
     a,b,aerr,berr=fitting.linfit(energymeas,energycalib)
-    if type(energy1)==pylab.np.ndarray:
+    if type(energy1)==np.ndarray:
         return a*energy1+b
     elif type(energy1)==types.ListType:
         return [a*e+b for e in energy1]
@@ -1036,7 +1037,7 @@ def rebin(data,qrange):
     Outputs:
         the re-binned dataset in a scattering data dictionary
     """
-    qrange=pylab.array(qrange)
+    qrange=np.array(qrange)
     if type(data)!=types.ListType:
         data=[data]
     data2=[];
@@ -1046,8 +1047,8 @@ def rebin(data,qrange):
         counter=counter+1
         tmp={};
         tmp['q']=qrange
-        tmp['Intensity']=pylab.interp(qrange,d['q'],d['Intensity'])
-        tmp['Error']=pylab.interp(qrange,d['q'],d['Error'])
+        tmp['Intensity']=np.interp(qrange,d['q'],d['Intensity'])
+        tmp['Error']=np.interp(qrange,d['q'],d['Error'])
         data2.append(tmp)
     return data2;
 def scalewaxs(fsns,mask2d):
@@ -1077,7 +1078,7 @@ def scalewaxs(fsns,mask2d):
         D=utils2d.calculateDmatrix(mask2d,param[0]['PixelSize'],param[0]['BeamPosX']-1,
                            param[0]['BeamPosY']-1)
         Dmax=D[mask2d!=0].max()
-        qmax=4*pylab.pi*pylab.sin(0.5*pylab.arctan(Dmax/float(param[0]['Dist'])))*param[0]['EnergyCalibrated']/float(HC)
+        qmax=4*np.pi*np.sin(0.5*np.arctan(Dmax/float(param[0]['Dist'])))*param[0]['EnergyCalibrated']/float(HC)
         qmin=min([waxsdata[0]['q'][i] for i in range(len(waxsdata[0]['q'])) 
                   if waxsdata[0]['Intensity'][i]>0])
         qrange=waxsdata[0]['q'][waxsdata[0]['q']<=qmax];
@@ -1105,7 +1106,7 @@ def scalewaxs(fsns,mask2d):
         mult,errmult=utils.multfactor(q,I,E,Iw,Ew)
         mult1=param[0]['NormFactor']
         errmult1=param[0]['NormFactorRelativeError']*mult1*0.01
-        waxsdata[0]['Error']=pylab.sqrt((waxsdata[0]['Error']*mult)**2+
+        waxsdata[0]['Error']=np.sqrt((waxsdata[0]['Error']*mult)**2+
                                      (errmult*waxsdata[0]['Intensity'])**2)
         waxsdata[0]['Intensity']=waxsdata[0]['Intensity']*mult
         print 'mult: ',mult,'+/-',errmult
@@ -1153,9 +1154,9 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
         <dirs>
     """
     if qrange is not None:
-        if type(qrange)!=types.ListType and type(qrange)!=pylab.ndarray:
+        if type(qrange)!=types.ListType and type(qrange)!=np.ndarray:
             qrange=[qrange]
-        qrange=pylab.array(qrange)
+        qrange=np.array(qrange)
         original_qrange=qrange.copy(); # take a copy of it
     else:
         original_qrange=None
@@ -1183,29 +1184,29 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
             sdparams=[p for p in sparams if p['Dist']==d];
             print 'Evaluating measurements with distance %f' %d
             if qrange is not None:
-                if (type(qrange) != types.ListType) and (type(qrange) != pylab.ndarray):
+                if (type(qrange) != types.ListType) and (type(qrange) != np.ndarray):
                     qrange=[qrange];
             if (qrange is None) or (len(qrange)<2) :
                 print 'Generating common q-range'
                 energymin=min([p['EnergyCalibrated'] for p in sdparams])
                 energymax=max([p['EnergyCalibrated'] for p in sdparams])
-                Y,X=pylab.meshgrid(pylab.arange(mask.shape[1]),pylab.arange(mask.shape[0]));
-                D=pylab.sqrt((sdparams[0]['PixelSize']*(X-sdparams[0]['BeamPosX']-1))**2+
+                Y,X=np.meshgrid(np.arange(mask.shape[1]),np.arange(mask.shape[0]));
+                D=np.sqrt((sdparams[0]['PixelSize']*(X-sdparams[0]['BeamPosX']-1))**2+
                             (sdparams[0]['PixelSize']*(Y-sdparams[0]['BeamPosY']-1))**2)
                 Dlin=D[mask!=0]
-                qmin=4*pylab.pi*pylab.sin(0.5*pylab.arctan(Dlin.min()/d))*energymax/HC;
-                qmax=4*pylab.pi*pylab.sin(0.5*pylab.arctan(Dlin.max()/d))*energymin/HC;
+                qmin=4*np.pi*np.sin(0.5*np.arctan(Dlin.min()/d))*energymax/HC;
+                qmax=4*np.pi*np.sin(0.5*np.arctan(Dlin.max()/d))*energymin/HC;
                 print 'Auto-determined qmin:',qmin
                 print 'Auto-determined qmax:',qmax
                 print 'qmin=4pi*sin(0.5*atan(Rmin/L))*energymax/HC'
                 print 'qmax=4pi*sin(0.5*atan(Rmax/L))*energymin/HC'
                 if qrange is None:
-                    NQ=pylab.ceil((Dlin.max()-Dlin.min())/sdparams[0]['PixelSize']*2)
+                    NQ=np.ceil((Dlin.max()-Dlin.min())/sdparams[0]['PixelSize']*2)
                     print 'Auto-determined number of q-bins:',NQ
                 else:
                     NQ=qrange[0];
                     print 'Number of q-bins (as given by the user):',NQ
-                qrange=pylab.linspace(qmin,qmax,NQ)
+                qrange=np.linspace(qmin,qmax,NQ)
             for p in sdparams:
                 print 'Loading 2d intensity for FSN %d' % p['FSN']
                 data,dataerr,tmp=B1io.read2dintfile(p['FSN'],dirs=dirs);
@@ -1269,7 +1270,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
                         if q.size!=intdata['q'].size:
                             print 'q-range of file %s differs from the others read before. Skipping.' % filename
                             continue
-                        if pylab.sum(q-intdata['q'])!=0:
+                        if np.sum(q-intdata['q'])!=0:
                             print 'q-range of file %s differs from the others read before. Skipping.' % filename
                             continue
                         Isum=Isum+intdata['Intensity']/(intdata['Error']**2)
@@ -1299,7 +1300,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
                     if qwaxs.size!=waxsdata['q'].size:
                         print 'q-range of file %s differs from the others read before. Skipping.' % waxsfilename
                         continue
-                    if pylab.sum(qwaxs-waxsdata['q'])!=0:
+                    if np.sum(qwaxs-waxsdata['q'])!=0:
                         print 'q-range of file %s differs from the others read before. Skipping.' % waxsfilename
                         continue
                     Iwaxs=Iwaxs+waxsdata['Intensity']/(waxsdata['Error']**2)

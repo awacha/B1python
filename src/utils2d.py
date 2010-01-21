@@ -1,6 +1,7 @@
 #utils2d.py
 
 import pylab
+import numpy as np
 import scipy.optimize
 import types
 
@@ -19,11 +20,11 @@ def polartransform(data,r,phi,origx,origy):
         pdata: a matrix of len(phi) rows and len(r) columns which contains the
             polar representation of the image.
     """
-    pdata=pylab.zeros((len(phi),len(r)))
+    pdata=np.zeros((len(phi),len(r)))
     for i in range(len(phi)):
         for j in range(len(r)):
-            x=origx-1+r[j]*pylab.cos(phi[i]);
-            y=origy-1+r[j]*pylab.sin(phi[i]);
+            x=origx-1+r[j]*np.cos(phi[i]);
+            y=origy-1+r[j]*np.sin(phi[i]);
             if (x>=0) and (y>=0) and (x<data.shape[0]) and (y<data.shape[1]):
                 pdata[i,j]=data[x,y];
     return pdata
@@ -36,21 +37,21 @@ def findbeam_gravity(data,mask):
     pylab.imshow(data1) # show the matrix
     pylab.gcf().show() #
     # vector of x (row) coordinates
-    x=pylab.arange(data1.shape[0])
+    x=np.arange(data1.shape[0])
     # vector of y (column) coordinates
-    y=pylab.arange(data1.shape[1])
+    y=np.arange(data1.shape[1])
 
     # two column vectors, both containing ones. The length of onex and
     # oney corresponds to length of x and y, respectively.
-    onex=pylab.ones((len(x),1))
-    oney=pylab.ones((len(y),1))
+    onex=np.ones((len(x),1))
+    oney=np.ones((len(y),1))
     # Multiply the matrix with x. Each element of the resulting column
     # vector will contain the center of gravity of the corresponding row
     # in the matrix, multiplied by the "weight". Thus: nix_i=sum_j( A_ij
     # * x_j). If we divide this by spamx_i=sum_j(A_ij), then we get the
     # center of gravity. The length of this column vector is len(y).
-    nix=pylab.dot(data1,x).flatten()
-    spamx=pylab.dot(data1,onex).flatten()
+    nix=np.dot(data1,x).flatten()
+    spamx=np.dot(data1,onex).flatten()
     # indices where both nix and spamx is nonzero.
     goodx=((nix!=0) & (spamx!=0))
     # trim y, nix and spamx by goodx, eliminate invalid points.
@@ -59,8 +60,8 @@ def findbeam_gravity(data,mask):
     spamx=spamx[goodx]
 
     # now do the same for the column direction.
-    niy=pylab.dot(data1.T,y).flatten()
-    spamy=pylab.dot(data1.T,oney).flatten()
+    niy=np.dot(data1.T,y).flatten()
+    spamy=np.dot(data1.T,oney).flatten()
     goody=((niy!=0) & (spamy!=0))
     x1=x[goody]
     niy=niy[goody]
@@ -90,9 +91,9 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
         a vector of length 2 with the x and y coordinates of the origin.
     """
     print "Finding beam, please be patient..."
-    orig=pylab.array(orig_initial)
+    orig=np.array(orig_initial)
     if mask is None:
-        mask=pylab.ones(data.shape)
+        mask=np.ones(data.shape)
     def targetfunc(orig,data,mask):
         #integrate four sectors
         print "integrating... (for finding beam)"
@@ -104,18 +105,18 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
         last=min(len(c1),len(c2),len(c3),len(c4))
         # first will be the first common point: the largest of the first
         # nonzero points of the integrated data
-        first=pylab.array([pylab.find(nc1!=0).min(),
+        first=np.array([pylab.find(nc1!=0).min(),
                            pylab.find(nc2!=0).min(),
                            pylab.find(nc3!=0).min(),
                            pylab.find(nc4!=0).min()]).max()
-        ret= pylab.array(((c1[first:last]-c3[first:last])**2+(c2[first:last]-c4[first:last])**2)/(last-first))
+        ret= np.array(((c1[first:last]-c3[first:last])**2+(c2[first:last]-c4[first:last])**2)/(last-first))
         print "orig:",orig[0],orig[1]
         print "last-first:",last-first
         print "sum(ret):",ret.sum()
         return ret
-    orig=scipy.optimize.leastsq(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxfev=maxiter,epsfcn=0.0001)
+    orig=scipy.optimize.leastsq(targetfunc,np.array(orig_initial),args=(data,1-mask),maxfev=maxiter,epsfcn=0.0001)
     return orig[0]
-def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,dmax=pylab.inf):
+def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,dmax=np.inf):
     """Find beam center using azimuthal integration
     
     Inputs:
@@ -134,12 +135,12 @@ def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,
         a vector of length 2 with the x and y coordinates of the origin.
     """
     print "Finding beam, please be patient..."
-    orig=pylab.array(orig_initial)
+    orig=np.array(orig_initial)
     if mask is None:
-        mask=pylab.ones(data.shape)
+        mask=np.ones(data.shape)
     def targetfunc(orig,data,mask):
         def sinfun(p,x,y):
-            return (y-pylab.sin(x+p[1])*p[0]-p[2])/pylab.sqrt(len(x))
+            return (y-np.sin(x+p[1])*p[0]-p[2])/np.sqrt(len(x))
         t,I,a=azimintpix(data,None,orig,mask,Ntheta,dmin,dmax)
         if len(a)>(a>0).sum():
             raise ValueError,'findbeam_azimuthal: non-complete azimuthal average, please consider changing dmin, dmax and/or orig_initial!'
@@ -147,7 +148,7 @@ def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,
         p=scipy.optimize.leastsq(sinfun,p,(t,I))[0]
         print "findbeam_azimuthal: orig=",orig,"amplitude=",abs(p[0])
         return abs(p[0])
-    orig1=scipy.optimize.fmin(targetfunc,pylab.array(orig_initial),args=(data,1-mask),maxiter=maxiter)
+    orig1=scipy.optimize.fmin(targetfunc,np.array(orig_initial),args=(data,1-mask),maxiter=maxiter)
     return orig1
 def findbeam_semitransparent(data,pri):
     """Find beam with 2D weighting of semitransparent beamstop area
@@ -160,16 +161,16 @@ def findbeam_semitransparent(data,pri):
     Outputs: bcx,bcy
         the x and y coordinates of the primary beam
     """
-    Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),
-                       pylab.arange(data.shape[0]))
+    Y,X=np.meshgrid(np.arange(data.shape[1]),
+                       np.arange(data.shape[0]))
     indices=((X<=pri[2]) & (X>=pri[0]) & (Y<=pri[3]) & (Y>=pri[1]))
     d=data[indices]
     x=X[indices]
     y=Y[indices]
-    bcx=pylab.sum(d*x)/pylab.sum(d)
-    bcy=pylab.sum(d*y)/pylab.sum(d)
+    bcx=np.sum(d*x)/np.sum(d)
+    bcy=np.sum(d*y)/np.sum(d)
     return bcx,bcy
-def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=pylab.inf):
+def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=np.inf):
     """Perform azimuthal integration of image.
 
     Inputs:
@@ -187,11 +188,11 @@ def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=pylab.inf):
     """
     # create the distance matrix: the distances of the pixels from the origin,
     # expressed in pixel units.
-    Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),pylab.arange(data.shape[0]))
+    Y,X=np.meshgrid(np.arange(data.shape[1]),np.arange(data.shape[0]))
     X=X-orig[0]+1
     Y=Y-orig[1]+1
-    D=pylab.sqrt(X**2+Y**2)
-    Phi=pylab.arctan2(Y,X) # the angle matrix
+    D=np.sqrt(X**2+Y**2)
+    Phi=np.arctan2(Y,X) # the angle matrix
 
     # remove invalid pixels (masked or falling outside [dmin,dmax])
     valid=((mask==0)&(D<=dmax)&(D>=dmin))
@@ -201,23 +202,23 @@ def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=pylab.inf):
         err=error[valid]
     phi=Phi[valid]
 
-    theta=pylab.linspace(0,2*pylab.pi,Ntheta) # the abscissa of the results
-    I=pylab.zeros(theta.shape) # vector of intensities
-    A=pylab.zeros(theta.shape) # vector of effective areas
+    theta=np.linspace(0,2*np.pi,Ntheta) # the abscissa of the results
+    I=np.zeros(theta.shape) # vector of intensities
+    A=np.zeros(theta.shape) # vector of effective areas
     if error is not None:
-        E=pylab.zeros(theta.shape)
+        E=np.zeros(theta.shape)
         for i in range(len(dat)):
-            if (pylab.isfinite(err[i])) and (err[i]>0):
-                index=pylab.floor(phi[i]/(2*pylab.pi)*Ntheta)
+            if (np.isfinite(err[i])) and (err[i]>0):
+                index=np.floor(phi[i]/(2*np.pi)*Ntheta)
                 I[index]+=dat[i]/(err[i]**2)
                 E[index]+=1/(err[i]**2)
                 A[index]+=1
         I[A>0]=I[A>0]/E[A>0]
-        E=pylab.sqrt(1/E)
+        E=np.sqrt(1/E)
         return theta,I,E,A
     else: # if error is None
         for i in range(len(dat)):
-            index=pylab.floor(phi[i]/(2*pylab.pi)*Ntheta)
+            index=np.floor(phi[i]/(2*np.pi)*Ntheta)
             I[index]+=dat[i]
             A[index]+=1
         I[A>0]=I[A>0]/A[A>0]
@@ -237,23 +238,23 @@ def imageint(data,orig,mask,fi=None,dfi=None):
         
     Note: based on the work of Mika Torkkeli
     """
-    Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),pylab.arange(data.shape[0]))
+    Y,X=np.meshgrid(np.arange(data.shape[1]),np.arange(data.shape[0]))
     X=X-orig[0]+1
     Y=Y-orig[1]+1
-    D=pylab.sqrt(X**2+Y**2)
+    D=np.sqrt(X**2+Y**2)
     d=D[mask==0]
     dat=data[mask==0]
     if (fi is not None) and (dfi is not None):
         x=X[mask==0]
         y=Y[mask==0]
-        phi=pylab.fmod(pylab.arctan2(y,x)-pylab.pi/180.0*fi+10*pylab.pi,2*pylab.pi)
-        d=d[phi<=dfi*pylab.pi/180.0]
-        dat=dat[phi<=dfi*pylab.pi/180.0]
-    C=pylab.zeros(pylab.ceil(d.max()))
-    NC=pylab.zeros(pylab.ceil(d.max()))
+        phi=np.fmod(np.arctan2(y,x)-np.pi/180.0*fi+10*np.pi,2*np.pi)
+        d=d[phi<=dfi*np.pi/180.0]
+        dat=dat[phi<=dfi*np.pi/180.0]
+    C=np.zeros(np.ceil(d.max()))
+    NC=np.zeros(np.ceil(d.max()))
     for i in range(len(dat)):
-        C[pylab.floor(d[i])]+=dat[i]
-        NC[pylab.floor(d[i])]+=1
+        C[np.floor(d[i])]+=dat[i]
+        NC[np.floor(d[i])]+=1
     C[NC>0]=C[NC>0]/NC[NC>0];
     return C,NC
 def sectint(data,fi,orig,mask):
@@ -271,7 +272,7 @@ def sectint(data,fi,orig,mask):
         
     Note: based on the work of Mika Torkkeli
     """
-    fi=pylab.array(fi)
+    fi=np.array(fi)
     return imageint(data,orig,mask,fi=fi.min(),dfi=fi.max()-fi.min())
 def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,a=None,shutup=True):
     """Do radial integration on 2D scattering images
@@ -318,14 +319,14 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,a=None,shutup=Tr
     if not shutup:
         print "Creating D matrix...",
     # Creating D matrix which is the distance of the sub-pixels from the origin.
-    Y,X=pylab.meshgrid(pylab.arange(data.shape[1]),pylab.arange(data.shape[0]));
-    D=pylab.sqrt((res[0]*(X-bcx))**2+
+    Y,X=np.meshgrid(np.arange(data.shape[1]),np.arange(data.shape[0]));
+    D=np.sqrt((res[0]*(X-bcx))**2+
                  (res[1]*(Y-bcy))**2)
     if not shutup:
         print "done"
         print "Calculating q-matrix...",
     # Q-matrix is calculated from the D matrix
-    q1=4*pylab.pi*pylab.sin(0.5*pylab.arctan(D/float(distance)))*energy/float(HC)
+    q1=4*np.pi*np.sin(0.5*np.arctan(D/float(distance)))*energy/float(HC)
     if not shutup:
         print "done"
         print "Masking...",
@@ -346,16 +347,16 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,a=None,shutup=Tr
         qmin=min(q1) # the lowest non-masked q-value
         qmax=max(q1) # the highest non-masked q-value
         #qstep=(qmax-qmin)/10
-        qstep=(qmax-qmin)/(pylab.sqrt(M*M+N*N))
-        q=pylab.arange(qmin,qmax,qstep)
+        qstep=(qmax-qmin)/(np.sqrt(M*M+N*N))
+        q=np.arange(qmin,qmax,qstep)
         if not shutup:
             print "done"
     else:
-        q=pylab.array(q)
+        q=np.array(q)
     # initialize the output vectors
-    Intensity=pylab.zeros(q.size)
-    Error=pylab.zeros(q.size)
-    Area=pylab.zeros(q.size)
+    Intensity=np.zeros(q.size)
+    Error=np.zeros(q.size)
+    Area=np.zeros(q.size)
     # square the error
     dataerr=dataerr**2
     if not shutup:
@@ -363,23 +364,23 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,a=None,shutup=Tr
     # set the bounds of the q-bins in qmin and qmax
     qmin=map(lambda a,b:(a+b)/2.0,q[1:],q[:-1])
     qmin.insert(0,q[0])
-    qmin=pylab.array(qmin)
+    qmin=np.array(qmin)
     qmax=map(lambda a,b:(a+b)/2.0,q[1:],q[:-1])
     qmax.append(q[-1])
-    qmax=pylab.array(qmax)
+    qmax=np.array(qmax)
     # go through every q-bin
     for l in range(len(q)):
-        indices=((q1<=qmax[l])&(q1>qmin[l]) & (pylab.isfinite(dataerr)) & (dataerr>0)) # the indices of the pixels which belong to this q-bin
-        Intensity[l]=pylab.sum((data[indices])/(dataerr[indices]**2)) # sum the intensities weighted by 1/sigma**2
-        Error[l]=1/pylab.sum(1/(dataerr[indices]**2)) # error of the weighted average
-#        Intensity[l]=pylab.sum(data[indices])
-#        Error[l]=pylab.sum(dataerr[indices]**2)
-        Area[l]=pylab.sum(indices) # collect the area
+        indices=((q1<=qmax[l])&(q1>qmin[l]) & (np.isfinite(dataerr)) & (dataerr>0)) # the indices of the pixels which belong to this q-bin
+        Intensity[l]=np.sum((data[indices])/(dataerr[indices]**2)) # sum the intensities weighted by 1/sigma**2
+        Error[l]=1/np.sum(1/(dataerr[indices]**2)) # error of the weighted average
+#        Intensity[l]=np.sum(data[indices])
+#        Error[l]=np.sum(dataerr[indices]**2)
+        Area[l]=np.sum(indices) # collect the area
         # normalization by the area
         Intensity[l]=Intensity[l]*Error[l] # Error[l] is 1/sum_i(1/sigma^2_i)
-        Error[l]=pylab.sqrt(Error[l])
+        Error[l]=np.sqrt(Error[l])
 #        Intensity[l]=Intensity[l]/Area[l]
-#        Error[l]=pylab.sqrt(Error[l])/Area[l]
+#        Error[l]=np.sqrt(Error[l])/Area[l]
     if not shutup:
         print "done"
     
@@ -403,7 +404,7 @@ def calculateDmatrix(mask,res,bcx,bcy):
         res=[res]
     if len(res)<2:
         res=res*2
-    Y,X=pylab.meshgrid(pylab.arange(mask.shape[1]),pylab.arange(mask.shape[0]));
-    D=pylab.sqrt((res[0]*(X-bcx))**2+
+    Y,X=np.meshgrid(np.arange(mask.shape[1]),np.arange(mask.shape[0]));
+    D=np.sqrt((res[0]*(X-bcx))**2+
                  (res[1]*(Y-bcy))**2)
     return D

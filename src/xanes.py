@@ -7,6 +7,7 @@ import os
 import pylab
 import guitools
 import B1macros
+import numpy as np
 
 def smoothabt(muddict,smoothing):
     """Smooth mu*d data with splines
@@ -47,13 +48,13 @@ def execchooch(mud,element,edge,choochexecutable='/opt/chooch/chooch/bin/chooch'
     a=os.system(cmd);
     if (a==32512):
         raise IOError( "The chooch executable cannot be found at %s. Please supply another path." % choochexecutable)
-    tmp=pylab.loadtxt('choochout.tmp');
-    data=pylab.zeros((tmp.shape[0],3))
+    tmp=np.loadtxt('choochout.tmp');
+    data=np.zeros((tmp.shape[0],3))
     data[:,0]=tmp[:,0];
     data[:,1]=tmp[:,2];
     data[:,2]=tmp[:,1];
     return data;
-def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-pylab.inf,endpoint=pylab.inf,postsmoothing=[],prechoochcutoff=[-pylab.inf,pylab.inf]):
+def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-np.inf,endpoint=np.inf,postsmoothing=[],prechoochcutoff=[-np.inf,np.inf]):
     """Calculate anomalous correction factors from a XANES scan.
     
     Inputs:
@@ -83,7 +84,7 @@ def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-
     """
     pylab.clf()
     for p in substitutepoints:
-        index=pylab.find(pylab.absolute(mud['Energy']-p)<1)
+        index=pylab.find(np.absolute(mud['Energy']-p)<1)
         mud['Mud'][index]=0.5*(mud['Mud'][index-1]+mud['Mud'][index+1])
     
     indices=mud['Energy']<endpoint;
