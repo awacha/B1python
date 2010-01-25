@@ -1269,7 +1269,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 if len(data)<1:
                     continue
                 print 'Re-integrating...'
-                qs,ints,errs,areas=utils2d.radint(data[0],dataerr[0],p['EnergyCalibrated'],
+                qs,ints,errs,areas=utils2d.radintC(data[0],dataerr[0],p['EnergyCalibrated'],
                                         p['Dist'],p['PixelSize'],p['BeamPosX']-1,
                                         p['BeamPosY']-1,1-mask,qrange);
                 B1io.writeintfile(qs,ints,errs,p,areas,filetype=savefiletype)

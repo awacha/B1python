@@ -504,15 +504,18 @@ def readintfile(filename,dirs=[]):
             'Intensity' being the intensity vector and 'Error' has the error
             values. These three fields are numpy ndarrays.
     """
-    print "readintfile: ",filename
     if type(dirs)==type(''):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
     ret={}
     for d in dirs:
-        try:            
-            fid=open("%s%s%s" %(d,os.sep,filename),'rt');
+        try:
+            if d=='.':
+                fname=filename
+            else:
+                fname= "%s%s%s" % (d,os.sep,filename)
+            fid=open(fname,'rt');
             lines=fid.readlines();
             fid.close();
             ret['q']=[]
@@ -547,10 +550,6 @@ def readintfile(filename,dirs=[]):
             break # file was found, do not iterate over other directories
         except IOError:
             continue
-    if len(ret)>0:
-        print "succeeded"
-    else:
-        print "failed loading file"
     return ret
 def writeintfile(qs, ints, errs, header, areas=None, filetype='intnorm'):
     """Save 1D scattering data to intnorm files.
@@ -616,13 +615,11 @@ def readintnorm(fsns, filetype='intnorm',dirs=[]):
             tmp=readintfile(filename)
             if len(tmp)>0:
                 currdata=tmp
-                print "datafile found"
                 break # file was already found, do not try in another directory
         for d in dirs:
             tmp2=readlogfile(fsn,d)
             if len(tmp2)>0:
                 currlog=tmp2
-                print "logfile found"
                 break # file was already found, do not try in another directory
         if len(currdata)>0 and len(currlog)>0:
             data.append(currdata);

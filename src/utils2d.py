@@ -4,30 +4,9 @@ import pylab
 import numpy as np
 import scipy.optimize
 import types
-
+from c_utils2d import polartransform, radintC
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
-def polartransform(data,r,phi,origx,origy):
-    """Calculates a matrix of a polar representation of the image.
-    
-    Inputs:
-        data: the 2D matrix
-        r: vector of polar radii
-        phi: vector of polar angles
-        origx: the x (row) coordinate of the origin
-        origy: the y (column) coordinate of the origin
-    Outputs:
-        pdata: a matrix of len(phi) rows and len(r) columns which contains the
-            polar representation of the image.
-    """
-    pdata=np.zeros((len(phi),len(r)))
-    for i in range(len(phi)):
-        for j in range(len(r)):
-            x=origx-1+r[j]*np.cos(phi[i]);
-            y=origy-1+r[j]*np.sin(phi[i]);
-            if (x>=0) and (y>=0) and (x<data.shape[0]) and (y<data.shape[1]):
-                pdata[i,j]=data[x,y];
-    return pdata
 def findbeam_gravity(data,mask):
     # for each row and column find the center of gravity
     data1=data.copy() # take a copy, because elements will be tampered
@@ -171,7 +150,6 @@ def findbeam_semitransparent(data,pri):
                        np.arange(data.shape[0]))
     indices=((C<=xmax) & (C>=xmin) & (R<=ymax) & (R>=ymin))
     d=data[indices]
-    print len(d)
     x=R[indices]
     y=C[indices]
     bcx=np.sum(d*x)/np.sum(d)
