@@ -547,6 +547,10 @@ def readintfile(filename,dirs=[]):
             break # file was found, do not iterate over other directories
         except IOError:
             continue
+    if len(ret)>0:
+        print "succeeded"
+    else:
+        print "failed loading file"
     return ret
 def writeintfile(qs, ints, errs, header, areas=None, filetype='intnorm'):
     """Save 1D scattering data to intnorm files.
@@ -612,11 +616,13 @@ def readintnorm(fsns, filetype='intnorm',dirs=[]):
             tmp=readintfile(filename)
             if len(tmp)>0:
                 currdata=tmp
+                print "datafile found"
                 break # file was already found, do not try in another directory
         for d in dirs:
             tmp2=readlogfile(fsn,d)
             if len(tmp2)>0:
                 currlog=tmp2
+                print "logfile found"
                 break # file was already found, do not try in another directory
         if len(currdata)>0 and len(currlog)>0:
             data.append(currdata);

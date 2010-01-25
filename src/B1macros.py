@@ -118,7 +118,7 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
             the sensitivity is invalid. This should be used as a base
             for further mask matrices.
     """
-    
+    # Watch out: this part is VERY UGLY. 
     global _B1config
     
     pixelsize=_B1config['pixelsize']
@@ -187,8 +187,29 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
     dT1=np.array([h['Transm'] for h in hF1]).std()
     T2=np.array([h['Transm'] for h in hF2]).mean()
     dT2=np.array([h['Transm'] for h in hF2]).std()
+
+    # error values of anode counts
+    da1=np.sqrt(a1)
+    da2=np.sqrt(a2)
+    dae1=np.sqrt(ae1)
+    dae2=np.sqrt(ae2)
+    dad=np.sqrt(ad)
+
+    # errors of monitor counts
+    dm1=np.sqrt(m1)
+    dm2=np.sqrt(m2)
+    dme1=np.sqrt(me1)
+    dme2=np.sqrt(me2)
+    dmd=np.sqrt(md)
+
+    # errors of 2d detector counts
+    dD1=np.sqrt(D1)
+    dD2=np.sqrt(D2)
+    dE1=np.sqrt(E1)
+    dE2=np.sqrt(E2)
+    dD=np.sqrt(D)
     
-    # Dark current correction
+    # Dark current correction: abc -> abcx
     D1x=D1-t1/td*D # scattering matrices...
     D2x=D2-t2/td*D
     E1x=E1-te1/td*D
@@ -202,22 +223,57 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
     me1x=me1-te1/td*md
     me2x=me2-te2/td*md
     
+    #two-theta for the pixels
+    tth=np.arctan(utils2d.calculateDmatrix(F1,pixelsize,origx,origy)/hF1[0]['Dist'])
+
     # some auxiliary variables:
     P1=D1x*a1x/(T1*m1x*D1x.sum())
     Pe1=E1x*ae1x/(me1x*E1x.sum())
     P2=D2x*a2x/(T2*m2x*D2x.sum())
     Pe2=E2x*ae2x/(me2x*E2x.sum())
-    S=P1-Pe1-factor*(P2-Pe2)
     
-    #two-theta for the pixels
-    tth=np.arctan(utils2d.calculateDmatrix(F1,pixelsize,origx,origy)/hF1[0]['Dist'])
-
-    S=S*gasabsorptioncorrectiontheta(energyfluorescence,tth)
+    # the unnormalized, unmasked sensitivity matrix.
+    S1=(P1-Pe1-factor*(P2-Pe2))*gasabsorptioncorrectiontheta(energyfluorescence,tth);
+    
     print "Please mask erroneous areas!"
-    mask = guitools.makemask(np.ones(S.shape),S)
-    S=mask*S
-    S=S/S.sum()
+    mask = guitools.makemask(np.ones(S1.shape),S1)
+    
+    # multiply the matrix by the mask: masked areas will be zeros.
+    S1=S1*mask
+    # summarize the matrix (masking is taken into account already)
+    S1S=S1.sum()
+    S=S1/S1S # normalize.
+    
+    #now we put together the error of S. The terms are denoted ET_<variable>
+    ET_a1=(1/S1S*P1/a1x-S1/S1S**2*(P1/a1x).sum())**2 * da1**2;
+    ET_a2=factor*factor*(-1/S1S*P2/a2x+S1/S1S**2*(P2/a2x).sum())**2 * da2**2;
+    ET_ae1=(-1/S1S*Pe1/ae1x+S1/S1S**2*(Pe1/ae1x).sum())**2 * dae1**2;
+    ET_ae2=factor*factor*(1/S1S*Pe2/ae2x-S1/S1S**2*(Pe2/ae2x).sum())**2 * dae2**2;
 
+    ET_m1=(-1/S1S*P1/m1x+S1/S1S**2*(P1/m1x).sum())**2 * dm1**2;
+    ET_m2=factor*factor*(1/S1S*P2/m2x-S1/S1S**2*(P2/m2x).sum())**2 * dm2**2;
+    ET_me1=(1/S1S*Pe1/me1x-S1/S1S**2*(Pe1/me1x).sum())**2 * dme1**2;
+    ET_me2=factor*factor*(-1/S1S*Pe2/me2x+S1/S1S**2*(Pe2/me2x).sum())**2 * dme2**2;
+    
+    ET_ad=(1/S1S*(t2/td*factor*P2/a2x-t1/td*P1/a1x+Pe1/ae1x*te1/td-factor*Pe2/ae2x*te2/td)+
+           S1/S1S**2*(factor*P2/a2x*t2/td-P1*t1/a1x/td+Pe1*te1/ae1x/td-factor*Pe2*te2/ae2x/td).sum())**2*dad**2
+    ET_md=(1/S1S*(-t2/td*factor*P2/m2x+t1/td*P1/m1x-Pe1/me1x*te1/td+factor*Pe2/me2x*te2/td)+
+           S1/S1S**2*(-factor*P2/m2x*t2/td+P1*t1/m1x/td-Pe1*te1/me1x/td+factor*Pe2*te2/me2x/td).sum())**2*dmd**2
+    
+    ET_D1=((1/S1S*P1/D1x)**2+2/S1S*P1/D1x*(S1/S1S**2*P1.sum()/D1x.sum()-P1/S1S/D1x.sum())- \
+           2*S1/S1S**3 * P1**2/D1x**2 ) * dD1**2 + \
+           (S1/S1S**2*P1.sum()/D1x.sum()-1/S1S*P1/D1x.sum())**2*(dD1**2).sum()+ \
+           S1**2/S1S**4*( (P1/D1x)**2*dD1**2 ).sum()- \
+           -2*S1/S1S**2*(S1/S1S**2*P1.sum()/D1x.sum()-1/S1S*P1/D1x.sum())*(P1/D1x*dD1**2).sum()
+          
+    ET_D2=0
+    ET_E1=0
+    ET_E2=0
+    ET_D=0
+
+    # the error matrix
+    dS=np.sqrt(ET_a1+ET_a2+ET_ae1+ET_ae2+ET_ad+ET_m1+ET_m2+ET_me1+ET_me2+ET_md+
+               ET_D1+ET_D2+ET_E1+ET_E2+ET_D)
 def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluorescence,origx,origy):
     """Create matrix for detector sensitivity correction
     

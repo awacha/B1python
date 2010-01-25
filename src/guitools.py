@@ -145,10 +145,19 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
                   # matrix were modified.
     if maxval is not None:
         tmp[tmp>maxval]=max(tmp[tmp<=maxval])
+    t0=time.time()
     nonpos=(tmp<=0)
+    t1=time.time()
     tmp[nonpos]=tmp[tmp>0].min()
+    t2=time.time()
     tmp=np.log(tmp);
-    tmp[np.isnan(tmp)]=tmp[1-np.isnan(tmp)].min();
+    t3=time.time()
+    tmp[np.isnan(tmp)]=tmp[-np.isnan(tmp)].min();
+    t4=time.time()
+    print t1-t0
+    print t2-t1
+    print t3-t2
+    print t4-t3
     if (header is not None) and (showqscale):
         xmin=0-(header['BeamPosX']-1)*header['PixelSize']
         xmax=(tmp.shape[0]-(header['BeamPosX']-1))*header['PixelSize']
@@ -614,7 +623,7 @@ def testorigin(data,orig,mask=None,dmin=0,dmax=np.inf):
     pylab.ylabel('Effective area\n(should be definitely flat)')
     pylab.gcf().show()
     print "... image ready!"
-def assesstransmission(fsns,titleofsample,mode='Gabriel'):
+def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
     """Plot transmission, beam center and Doris current vs. FSNs of the given
     sample.
     
@@ -627,13 +636,13 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel'):
     if type(fsns)!=types.ListType:
         fsns=[fsns]
     if mode=='Gabriel':
-        header1=B1io.readheader('ORG',fsns,'.DAT')
+        header1=B1io.readheader('ORG',fsns,'.DAT',dirs=dirs)
     elif mode=='Pilatus300k':
-        header1=B1io.readheader('org_',fsns,'.header')
+        header1=B1io.readheader('org_',fsns,'.header',dirs=dirs)
     else:
         print "invalid mode argument. Possible values: 'Gabriel', 'Pilatus300k'"
         return
-    params1=B1io.readlogfile(fsns)
+    params1=B1io.readlogfile(fsns,dirs=dirs)
     header=[]
     for h in header1:
         if h['Title']==titleofsample:
