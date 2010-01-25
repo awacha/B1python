@@ -543,8 +543,8 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             A) a vector/list/tuple of two: findbeam_sector() will be
                 tried. In this case this is the initial value of the
                 beam center
-            B) a vector/list/tuple of four: row0,column0,row1,column1:
-                the corners of the rectangle, around the beam, if a
+            B) a vector/list/tuple of four: xmin,xmax,ymin,ymax:
+                the borders of the rectangle, around the beam, if a
                 semitransparent beam-stop was used. In this case
                 findbeam_semitransparent() will be tried, and the beam
                 center will be determined for each measurement,

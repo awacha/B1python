@@ -155,7 +155,7 @@ def findbeam_semitransparent(data,pri):
 
     Inputs:
         data: scattering matrix
-        pri: list of four: [x0,y0,x1,y1] for the corners of the beam
+        pri: list of four: [xmin,xmax,ymin,ymax] for the borders of the beam
             area under the semitransparent beamstop
 
     Outputs: bcx,bcy
@@ -163,7 +163,7 @@ def findbeam_semitransparent(data,pri):
     """
     Y,X=np.meshgrid(np.arange(data.shape[1]),
                        np.arange(data.shape[0]))
-    indices=((X<=pri[2]) & (X>=pri[0]) & (Y<=pri[3]) & (Y>=pri[1]))
+    indices=((X<=pri[1]) & (X>=pri[0]) & (Y<=pri[3]) & (Y>=pri[2]))
     d=data[indices]
     x=X[indices]
     y=Y[indices]
