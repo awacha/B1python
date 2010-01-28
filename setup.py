@@ -17,6 +17,7 @@ ext_modules = [Extension("B1python.c_asamacros", ["src/c_asamacros.pyx"]),
                ]
 
 setup(name='B1python',version='0.1', author='Andras Wacha',
+      author_email='awacha@gmail.com',url='http://github.com/awacha/B1python',
       description='Python macros for (A)SAXS evaluation',
       packages=['B1python'],
       package_dir={'B1python': 'src'},

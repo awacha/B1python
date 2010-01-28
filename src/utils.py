@@ -1,6 +1,7 @@
 #utils.py
 
 import pylab
+import numpy as np
 import time
 import types
 import scipy.special

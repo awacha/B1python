@@ -14,8 +14,6 @@ import fitting
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
-
-
 _B1config={'measdatadir':'.',
            'evaldatadir':'.',
            'calibdir':'.',
@@ -1145,9 +1143,9 @@ def scalewaxs(fsns,mask2d):
             continue
         print 'Common q-range consists of %d points.'%len(qrange)
         print 'Re-integrating 2D data for FSN %d'% fsn
-        [q,I,E,Area]=utils2d.radint(A[0],Aerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],
+        [q,I,E,Area]=utils2d.radintC(A[0],Aerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],
                          param[0]['PixelSize'],param[0]['BeamPosX']-1,
-                         param[0]['BeamPosY']-1,mask2d==0,qrange)
+                         param[0]['BeamPosY']-1,1-mask2d,qrange)
         q=q[Area>0]
         I=I[Area>0]
         E=E[Area>0]
@@ -1168,9 +1166,9 @@ def scalewaxs(fsns,mask2d):
         print 'mult: ',mult,'+/-',errmult
 #        print 'mult1: ',mult1,'+/-',errmult1
         B1io.writeintfile(waxsdata[0]['q'],waxsdata[0]['Intensity'],waxsdata[0]['Error'],param[0],filetype='waxsscaled')
-        [q,I,E,Area]=utils2d.radint(A[0],Aerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],
+        [q,I,E,Area]=utils2d.radintC(A[0],Aerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],
                             param[0]['PixelSize'],param[0]['BeamPosX']-1,
-                            param[0]['BeamPosY']-1,mask2d==0)
+                            param[0]['BeamPosY']-1,1-mask2d,q=np.linspace(0,qmax,np.sqrt(mask2d.shape[0]**2+mask2d.shape[1]**2)))
         pylab.figure()
         pylab.subplot(1,1,1)
         pylab.loglog(q,I,label='SAXS')
@@ -1179,7 +1177,7 @@ def scalewaxs(fsns,mask2d):
         pylab.title('FSN %d: %s' % (param[0]['FSN'], param[0]['Title']))
         pylab.xlabel(u'q (1/%c)' % 197)
         pylab.ylabel('Scattering cross-section (1/cm)')
-        pylab.savefig('scalewaxs%d.eps' % param[0]['FSN'],dpi=300,transparent='True',format='eps')
+        pylab.savefig('scalewaxs%d.png' % param[0]['FSN'],dpi=300,transparent='True',format='png')
         pylab.close(pylab.gcf())
 def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned',dirs=[]):
     """Re-integrate (re-bin) 2d intensity data

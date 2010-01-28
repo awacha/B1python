@@ -127,12 +127,25 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         print "Creating D matrix...",
 #    # if the q-scale was not supplied, create one.
     if q is None:
-        raise NotImplementedError('Auto-guessing of the q-range in radintC is not yet supported!')
         if not shutup:
             print "Creating q-scale...",
-        qmin1=min(q1) # the lowest non-masked q-value
-        qmax1=max(q1) # the highest non-masked q-value
-        #qstep=(qmax1-qmin1)/10
+        qmin1=0
+        qmax1=0
+        for ix from 0<=ix<M:
+            for iy from 0<=iy<N:
+                if mask[ix,iy]:
+                    continue
+                x=((ix-bcx)*xres)
+                y=((iy-bcy)*yres)
+                q1=4*M_PI*sin(0.5*atan(sqrt(x*x+y*y)/distance))*energy/HC
+                if (qmax1==0):
+                    qmax1=q1
+                if (qmin1==0):
+                    qmin1=q1
+                if (q1>qmax1):
+                    qmax1=q1
+                if (q1<qmin1):
+                    qmin1=q1
         qstep1=(qmax1-qmin1)/(sqrt(M*M+N*N))
         qout=np.arange(qmin1,qmax1,qstep1,dtype=np.double)
         if not shutup:
@@ -181,21 +194,26 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 continue
             # go through every q-bin
             for l from 0<=l<K:
-                if (q1>=qmin[l]) and (q1<=qmax[l]):
-                    Intensity[l]+=data[ix,iy]/(dataerr[ix,iy]**2)
-                    Error[l]+=1/(dataerr[ix,iy]**2)
+                if (q1<=qmax[l]):
+                    Intensity[l]+=data[ix,iy]
+                    Error[l]+=dataerr[ix,iy]**2
+#                    Intensity[l]+=data[ix,iy]/(dataerr[ix,iy]**2)
+#                    Error[l]+=1/(dataerr[ix,iy]**2)
                     Area[l]+=1
-                    #break
-                # normalization by the area
+                    break
     free(qmin)
     free(qmax)
     for l from 0<=l<K:
-        if Error[l]>0:        
-            Intensity[l]=Intensity[l]/Error[l] # Error[l] is sum_i(1/sigma^2_i)
-            Error[l]=1/sqrt(Error[l])
-        else:
-            #Intensity[l]=0
-            Error[l]=NAN
+        if Area[l]>0:
+            Intensity[l]/=Area[l]
+            Error[l]/=Area[l]
+            Error[l]=sqrt(Error[l])
+#        if Error[l]>0:        
+#            Intensity[l]=Intensity[l]/Error[l] # Error[l] is sum_i(1/sigma^2_i)
+#            Error[l]=1/sqrt(Error[l])
+#        else:
+#            Intensity[l]=NAN
+#            Error[l]=NAN
     if not shutup:
         print "done"
     print "Finished integration."

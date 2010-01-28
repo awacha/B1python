@@ -204,8 +204,9 @@ def readheader(filename,fsn=None,fileend=None,dirs=[]):
                 filefound=True
                 break # we have already found the file, do not search for it in other directories
             except IOError:
-                print 'Cannot find file %s.' %name1
                 pass #continue with the next directory
+        if not filefound:
+            print 'readheader: Cannot find file %s.' % name
     return headers
 def read2dB1data(filename,files=None,fileend=None,dirs=[]):
     """Read 2D measurement files, along with their header data
@@ -449,6 +450,7 @@ def read2dintfile(fsns,dirs=[],norm=True):
     err2d=[]
     params=[]
     for fsn in fsns: # this also works if len(fsns)==1
+        filefound=False
         for d in dirs:
             try: # first try to load the mat file. This is the most effective way.
                 if norm:
@@ -459,11 +461,11 @@ def read2dintfile(fsns,dirs=[],norm=True):
                 tmp1=tmp0['Error'].copy()
             except IOError: # if mat file is not found, try the ascii files
                 if norm:
-                    print 'Cannot find file int2dnorm%d.mat: trying to read int2dnorm%d.dat(.gz|.zip) and err2dnorm%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
+#                    print 'Cannot find file int2dnorm%d.mat: trying to read int2dnorm%d.dat(.gz|.zip) and err2dnorm%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
                     tmp=read2dascii('%s%sint2dnorm%d.dat' % (d,os.sep,fsn));
                     tmp1=read2dascii('%s%serr2dnorm%d.dat' % (d,os.sep,fsn));
                 else:
-                    print 'Cannot find file int2darb%d.mat: trying to read int2darb%d.dat(.gz|.zip) and err2darb%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
+#                    print 'Cannot find file int2darb%d.mat: trying to read int2darb%d.dat(.gz|.zip) and err2darb%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
                     tmp=read2dascii('%s%sint2darb%d.dat' % (d,os.sep,fsn));
                     tmp1=read2dascii('%s%serr2darb%d.dat' % (d,os.sep,fsn));
             except TypeError: # if mat file was found but scipy.io.loadmat was unable to read it
@@ -474,7 +476,10 @@ def read2dintfile(fsns,dirs=[],norm=True):
                 int2d.append(tmp)
                 err2d.append(tmp1)
                 params.append(tmp2[0])
+                filefound=True
                 break # file was found, do not try to load it again from another directory
+        if not filefound:
+            print "read2dintfile: Cannot find file(s ) for FSN %d" % fsn
     return int2d,err2d,params # return the lists
 def write2dintfile(A,Aerr,params,norm=True):
     """Save the intensity and error matrices to int2dnorm<FSN>.mat
@@ -839,7 +844,7 @@ def readwaxscor(fsns,dirs=[]):
         for d in dirs:
             try:
                 filename='%s%swaxs_%05d.cor' % (d,os.sep,fsn)
-                tmp=pylab.load(filename)
+                tmp=pylab.loadtxt(filename)
                 if tmp.shape[1]==3:
                     tmp1={'q':tmp[:,0],'Intensity':tmp[:,1],'Error':tmp[:,2]}
                 waxsdata.append(tmp1)

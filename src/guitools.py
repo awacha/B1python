@@ -75,10 +75,10 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
                 for e in range(min(len(colors),len(energies))):
                     if abs(param[k]['Energy']-energies[e])<2:
                         print 'plotints', e, param[k]['FSN'], param[k]['Title'],k
-                        #h=ax.loglog(data[k]['q'],
-                        #               data[k]['Intensity']*mult[s],
-                        #               marker=marker[s],
-                        #               color=colors[e])
+                        h=ax.loglog(data[k]['q'],
+                                       data[k]['Intensity']*mult[s],
+                                       marker=marker[s],
+                                       color=colors[e])
                         #h=ax.semilogy(data[k]['q'],
                         #                data[k]['Intensity']*mult[s],
                         #                marker=symboll[s],
@@ -87,11 +87,11 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
                         #                 data[k]['Intensity']*mult[s],
                         #                 marker=symboll[s],
                         #                 color=colors[e])
-                        h=ax.errorbar(data[k]['q'],data[k]['Intensity']*mult[s],
-                                      data[k]['Error']*mult[s],
-                                      marker=marker[s],color=colors[e])
-                        ax.set_xscale('log')
-                        ax.set_yscale('log')
+                        #h=ax.errorbar(data[k]['q'],data[k]['Intensity']*mult[s],
+                        #              data[k]['Error']*mult[s],
+                        #              marker=marker[s],color=colors[e])
+                        #ax.set_xscale('log')
+                        #ax.set_yscale('log')
                         if gui==True:
                             texts.append('%d(%s) @%.2f eV' % (param[k]['FSN'], param[k]['Title'], param[k]['Energy']))
                             handles.append(h[0])
@@ -660,12 +660,15 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
     legend2=[]
     legend3=[]
     legend4=[]
+    print "Assesstransmission"
     for l in range(len(energies)):
+        print "  Energy: ",energies[l]
         pylab.subplot(4,1,1)
         bbox=pylab.gca().get_position()
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
         fsn=[h['FSN'] for h in header if abs(h['Energy']-energies[l])<2]
         transm1=[h['Transm'] for h in params if abs(h['Energy']-energies[l])<2]
+        print "    Transmission: mean=",np.mean(transm1),"std=",np.std(transm1)
         pylab.plot(fsn,transm1,'-o',
                   markerfacecolor=(1/(l+1),(len(energies)-l)/len(energies),0.6),
                   linewidth=1)
@@ -677,6 +680,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
         bbox=pylab.gca().get_position()
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
         orix1=[h['BeamPosX'] for h in params if abs(h['Energy']-energies[l])<2]
+        print "    BeamcenterX: mean=",np.mean(orix1),"std=",np.std(orix1)
         pylab.plot(fsn,orix1,'-o',
                   markerfacecolor=(1/(l+1),(len(energies)-l)/len(energies),0.6),
                   linewidth=1)
@@ -688,6 +692,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
         bbox=pylab.gca().get_position()
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
         oriy1=[h['BeamPosY'] for h in params if abs(h['Energy']-energies[l])<2]
+        print "    BeamcenterY: mean=",np.mean(oriy1),"std=",np.std(oriy1)
         pylab.plot(fsn,oriy1,'-o',
                   markerfacecolor=(1/(l+1),(len(energies)-l)/len(energies),0.6),
                   linewidth=1)
@@ -699,6 +704,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
         bbox=pylab.gca().get_position()
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
         doris1=[h['Current1'] for h in header if abs(h['Energy']-energies[l])<2]
+        print "    Doris current: mean=",np.mean(doris1),"std=",np.std(doris1)
         pylab.plot(fsn,doris1,'o',
                   markerfacecolor=(1/(l+1),(len(energies)-l)/len(energies),0.6),
                   linewidth=1)
