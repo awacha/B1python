@@ -6,7 +6,7 @@ import fitting
 import matplotlib.widgets
 import guitools
 import time
-from cythonized import smearingmatrix, smearingmatrix1
+from c_asamacros import smearingmatrix, smearingmatrix1
 
 def directdesmear(data,smoothing,params,title=''):
     """Desmear the scattering data according to the direct desmearing
