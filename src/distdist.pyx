@@ -75,7 +75,7 @@ def ddistcylinder(double R, double h,np.ndarray[np.double_t,ndim=1] d not None,P
     return result
 
 def ddistsphere(double R,np.ndarray[np.double_t,ndim=1] d not None,Py_ssize_t NMC):
-    """Calculate the distance distribution function p(r) for a cylinder.
+    """Calculate the distance distribution function p(r) for a sphere.
     
     Inputs:
         R: radius
@@ -136,8 +136,72 @@ def ddistsphere(double R,np.ndarray[np.double_t,ndim=1] d not None,Py_ssize_t NM
     free(myresult)
     return result
 
+def ddistellipsoid(double a, double b, double c,np.ndarray[np.double_t,ndim=1] d not None,Py_ssize_t NMC):
+    """Calculate the distance distribution function p(r) for an ellipsoid.
+    
+    Inputs:
+        a,b,c: radii
+        d: vector of the values for r
+        NMC: number of Monte-Carlo steps
+    
+    Outputs:
+        a vector, of the same size as d. Normalized that its integral with respect
+            to d is the square of the volume of the particle
+    """
+    cdef Py_ssize_t i,j,lend
+    cdef double xa,ya,za,xb,yb,zb
+    cdef double d1
+    cdef double *myd
+    cdef double *myresult
+    cdef np.ndarray[np.double_t, ndim=1] result
+    
+
+    lend=len(d)
+    result=np.zeros(lend,dtype=np.double)
+    myd=<double*>malloc(sizeof(double)*lend)
+    myresult=<double*>malloc(sizeof(double)*lend)
+    
+    for i from 0<=i<lend:
+        myd[i]=d[i]
+        myresult[i]=0
+    
+    for i from 0<=i<NMC:
+        xa=rand()/<double>RAND_MAX*2*a-a
+        ya=rand()/<double>RAND_MAX*2*b-b
+        za=rand()/<double>RAND_MAX*2*c-c
+        if (xa*xa/a**2+ya*ya/b**2+za*za/c**2)>1:
+            i-=1
+            continue
+        xb=rand()/<double>RAND_MAX*2*a-a
+        yb=rand()/<double>RAND_MAX*2*b-b
+        zb=rand()/<double>RAND_MAX*2*c-c
+        if (xb*xb/a**2+yb*yb/b**2+zb*zb/c**2)>1:
+            i-=1
+            continue
+        d1=sqrt((xa-xb)**2+(ya-yb)**2+(za-zb)**2)
+        if (d1<myd[0]) or (d1>myd[lend-1]):
+            i-=1
+            continue
+        if d1>0.5*(myd[lend-2]+myd[lend-1]):
+            myresult[lend-1]+=1
+        else:
+            for j from 0<=j<lend:
+                if d1<0.5*(myd[j]+myd[j+1]):
+                    myresult[j]+=1
+                    break
+    #now normalize by the bin width and the number of MC steps, then multiply by the square of the volume
+    result[0]=myresult[0]/<double>NMC/(0.5*(myd[1]+myd[0])-myd[0])*(4*a*b*c*M_PI/3)**2
+    for i from 1<=i<lend-1:
+        result[i]=myresult[i]/<double>NMC/(0.5*(myd[i]+myd[i+1])-0.5*(myd[i]+myd[i-1]))*(4*a*b*c*M_PI/3)**2
+    result[lend-1]=myresult[lend-1]/<double>NMC/(myd[lend-1]-0.5*(myd[lend-1]+myd[lend-2]))*(4*a*b*c*M_PI/3)**2
+    free(myd)
+    free(myresult)
+    return result
+
+    
+    
 def ddistbrick(double a, double b, double c,np.ndarray[np.double_t,ndim=1] d not None,Py_ssize_t NMC):
-    """Calculate the distance distribution function p(r) for a cylinder.
+    """Calculate the distance distribution function p(r) for a rectangular brick.
     
     Inputs:
         a: length of one side

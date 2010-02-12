@@ -7,6 +7,24 @@ import utils
 import types
 
 def smoothcurve(x,y,param,mode='spline',extrapolate='reflect'):
+    """General function for smoothing
+    
+    Inputs:
+        x: abscissa
+        y: ordinate
+        param: parameter for fitting. For spline smoothing, this is the smoothing
+            parameter (the larger the smoother), for convolution smoothing, this
+            is the window length in points.
+        mode: 'spline' for spline smoothing, or 'flat', 'hamming', 'hanning',
+            'bartlett' or 'blackman' for different windows. Case-insensitive.
+        extrapolate: for convolution smoothing the curve is extrapolated at the
+            ends to suppress termination effects. This parameter defines the
+            method of the extrapolation. Use 'reflect' if you have a periodic
+            curve, and anything else to do a linear extrapolation.
+    
+    Output:
+        the smoothed curve (length is the same as that of y)
+    """
     if mode.upper()!='SPLINE':
         param=int(param)
         if param<2:
@@ -181,6 +199,23 @@ def subconstbg(data,bg,bgerror):
     return {'q':data['q'].copy(),
            'Intensity':data['Intensity']-bg,
            'Error':np.sqrt(data['Error']**2+bgerror**2)};
+def sublinbg(data,bga,bgaerror,bgb,bgberror):
+    """Subtract a constant background from the 1D dataset.
+    
+    Inputs:
+        data: 1D data dictionary
+        bga: constant part of the background
+        bgaerror: error of bga
+        bgb: first-order part of the background
+        bgberror: error of bgb
+    
+    Output:
+        the background-corrected 1D data.
+    """
+    return {'q':data['q'].copy(),
+           'Intensity':data['Intensity']-bga-bgb*data['q'],
+           'Error':np.sqrt(data['Error']**2+bgaerror**2+data['q']**2*bgberror**2)};
+
 def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
     """Do a Shull-Roess fitting on the scattering data dictionary.
     
@@ -444,6 +479,43 @@ def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
     return a,b,aerr,berr
+def powerfitwithlinearbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
+    """Fit a power-law on the dataset (I=B*q^A+C+D*q)
+    
+    Inputs:
+        data: 1D scattering data dictionary
+        qmin: lowest q-value to take into account. Default is -infinity
+        qmax: highest q-value to take into account. Default is infinity
+        testimage: if a test image is desired. Default is false.
+    
+    Outputs:
+        the exponent
+        the prefactor
+        the constant part of the background
+        the first order part of the background
+        the calculated error of the exponent
+        the calculated error of the prefactor
+        the calculated error of the constant background
+        the calculated error of the first order part of the background
+    """
+    data1=trimq(data,qmin,qmax)
+    x1=data1['q'];
+    err1=data1['Error'];
+    y1=data1['Intensity'];
+    def costfunc(p,x,y,err):
+        res= (y-x**p[0]*p[1]-p[2]-p[3]*x)/err
+        return res
+    Cinit=0
+    Ainit=-4
+    Binit=1#(y1[0]-Cinit)/x1[0]**Ainit
+    Dinit=1
+    res=scipy.optimize.leastsq(costfunc,np.array([Ainit,Binit,Cinit,Dinit]),args=(x1,y1,err1),full_output=1)
+    if testimage:
+        pylab.loglog(data1['q'],data1['Intensity'],'.');
+        pylab.loglog(data1['q'],res[0][1]*pow(data1['q'],res[0][0])+res[0][2]+data1['q']*res[0][3],'-',color='red');
+        pylab.xlabel('$q$ (1/%c)' % 197)
+        pylab.ylabel('I');
+    return res[0][0],res[0][1],res[0][2],res[0][3],np.sqrt(res[1][0][0]),np.sqrt(res[1][1][1]),np.sqrt(res[1][2][2]),np.sqrt(res[1][3][3])    
 def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Fit a power-law on the dataset (I=B*q^A+C)
     

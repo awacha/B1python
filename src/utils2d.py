@@ -208,6 +208,7 @@ def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=np.inf):
             A[index]+=1
         I[A>0]=I[A>0]/A[A>0]
         return theta,I,A
+    
 def imageint(data,orig,mask,fi=None,dfi=None):
     """Perform radial averaging on the image.
     

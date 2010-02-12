@@ -431,8 +431,8 @@ def basicfittinggui(data,title='',blocking=False):
     fig=pylab.figure()
     pylab.clf()
     plots=['Guinier','Guinier thickness','Guinier cross-section','Porod','lin-lin','lin-log','log-lin','log-log']
-    buttons=['Guinier','Guinier thickness','Guinier cross-section','Porod','Power law','Power law with background']
-    fitfuns=[fitting.guinierfit,fitting.guinierthicknessfit,fitting.guiniercrosssectionfit,fitting.porodfit,fitting.powerfit,fitting.powerfitwithbackground]
+    buttons=['Guinier','Guinier thickness','Guinier cross-section','Porod','Power law','Power law with c.background','Power law with l.background']
+    fitfuns=[fitting.guinierfit,fitting.guinierthicknessfit,fitting.guiniercrosssectionfit,fitting.porodfit,fitting.powerfit,fitting.powerfitwithbackground,fitting.powerfitwithlinearbackground]
     for i in range(len(buttons)):
         ax=pylab.axes((leftborder,topborder-(i+1)*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))))
         but=matplotlib.widgets.Button(ax,buttons[i])

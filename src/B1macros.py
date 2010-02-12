@@ -693,24 +693,33 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
     return qs,ints,errs,Areas,As,Aerrs,headerout
 def geomcorrectiontheta(tth,dist):
     return dist**2/(np.cos(tth)**3)
-def absorptionangledependenttth(tth,transm):
+def absorptionangledependenttth(tth,transm,diffaswell=False):
     """Create matrix for correction by angle-dependent X-ray absorption
     
     Inputs:
         tth: two-theta values
         transm: transmission (e^(-mu*d))
-    
-    Output:
-        a matrix of the sape of tth, containing the correction factors for
+        diffaswell: set True if you want to calculate the derivative (with
+            respect to trasm) as well
+    Output: C, [dC]
+        C: a matrix of the sape of tth, containing the correction factors for
         angle-dependent absorption. The scattering data should be multiplied
         by this.
+        dC: the derivative of C, with respect of transm. Only returned if
+            diffaswell was True.
     """
     mud=-np.log(transm);
     cor=np.ones(tth.shape)
     
     #cor[tth>0]=transm/((1/(1-1/np.cos(tth[tth>0]))/mud)*(np.exp(-mud/np.cos(tth[tth>0]))-np.exp(-mud)))
     cor[tth>0]=transm*mud*(1-1/np.cos(tth[tth>0]))/(np.exp(-mud/np.cos(tth[tth>0]))-np.exp(-mud))
-    return cor
+    if diffaswell:
+        K=1/np.cos(tth)
+        dcor=np.zeros(tth.shape)
+        dcor[tth>0]=(K-1)/(transm**K-transm)**2*(transm**K*np.log(transm)*(1-K)+(transm**K-transm))
+        return cor,dcor
+    else:
+        return cor
 def gasabsorptioncorrectiontheta(energycalibrated,tth,components=None):
     """Create matrix for correction by absorption of the various elements of the
     X-ray scattering set-up

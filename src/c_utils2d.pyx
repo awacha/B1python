@@ -8,17 +8,13 @@ cdef extern from "math.h":
     double sin(double)
     double sqrt(double)
     double atan(double)
+    double floor(double)
+    double atan2(double,double)
     double M_PI
     double NAN
+    double INFINITY
 
-#cdef double M_PI=3.14159265358979323846
 cdef double HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
-    
-def test(np.ndarray[np.double_t, ndim=2] data):
-    if data is None:
-        print "test(): data is None!"
-    else:
-        print "test(): data is not None!"
     
 def polartransform(np.ndarray[np.double_t, ndim=2] data not None, np.ndarray[np.double_t, ndim=1] r, np.ndarray[np.double_t, ndim=1] phi, double origx, double origy):
     """Calculates a matrix of a polar representation of the image.
@@ -59,8 +55,9 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             double bcx, double bcy,
             np.ndarray[np.uint8_t, ndim=2] mask not None,
             np.ndarray[np.double_t, ndim=1] q=None,
-            bint shutup=True):
-    """Do radial integration on 2D scattering images
+            bint shutup=True, bint returnavgq=False):
+    """Do radial integration on 2D scattering images. Now this takes the
+        functional determinant dq/dr into account.
     
     Inputs:
         data: the intensity matrix
@@ -77,9 +74,12 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             starting from ZERO
         mask: the mask matrix (of the same size as data). Nonzero is masked,
             zero is not masked
-        q: the q points at which the integration is requested. Note that 
-            auto-guessing is not yet supported! It should be defined in 1/Angstroems.
+        q: the q points at which the integration is requested. It should be
+            defined in 1/Angstroems.
         shutup: if True, work quietly (do not print messages).
+        returnavgq: if True, returns the average q value for each bin, ie. the
+            average of the q-values corresponding to the centers of the pixels
+            which fell into each q-bin.
         
     Outputs: four ndarrays.
         the q vector
@@ -96,11 +96,13 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     cdef Py_ssize_t ix,iy
     cdef Py_ssize_t l
     cdef double x,y,q1
-    cdef double * qmin
     cdef double * qmax
+    cdef double *weight
+    cdef double w
     cdef double qmin1
     cdef double qmax1
     cdef double qstep1
+    cdef double rho
     cdef Py_ssize_t K
     cdef Py_ssize_t lowescape, hiescape, masked, zeroerror
     
@@ -147,30 +149,29 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 if (q1<qmin1):
                     qmin1=q1
         qstep1=(qmax1-qmin1)/(sqrt(M*M+N*N))
-        qout=np.arange(qmin1,qmax1,qstep1,dtype=np.double)
+        q=np.arange(qmin1,qmax1,qstep1,dtype=np.double)
         if not shutup:
             print "done"
     else:
-        qout=q
-    K=len(qout)
+        pass
+        # do nothing, as q already contains the q-values
+    K=len(q)
     # initialize the output vectors
     Intensity=np.zeros(K,dtype=np.double)
     Error=np.zeros(K,dtype=np.double)
     Area=np.zeros(K,dtype=np.double)
+    qout=np.zeros(K,dtype=np.double)
     if not shutup:
         print "Integrating..."
     # set the bounds of the q-bins in qmin and qmax
-    qmin=<double *>malloc(K*sizeof(double))
     qmax=<double *>malloc(K*sizeof(double))
+    weight=<double *>malloc(K*sizeof(double))
     for l from 0<=l<K:
-        if l==0:
-            qmin[l]=qout[0]
-        else:
-            qmin[l]=0.5*(qout[l]+qout[l-1])
+        weight[l]=0
         if l==K-1:
-            qmax[l]=qout[len(qout)-1]
+            qmax[l]=q[K-1]
         else:
-            qmax[l]=0.5*(qout[l]+qout[l+1])
+            qmax[l]=0.5*(q[l]+q[l+1])
     lowescape=0
     hiescape=0
     masked=0
@@ -185,40 +186,114 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 continue
             x=((ix-bcx)*xres)
             y=((iy-bcy)*yres)
-            q1=4*M_PI*sin(0.5*atan(sqrt(x*x+y*y)/distance))*energy/HC
-            if q1<qmin[0]:
+            rho=sqrt(x*x+y*y)/distance
+            q1=4*M_PI*sin(0.5*atan(rho))*energy/HC
+            if q1<q[0]:
                 lowescape+=1
                 continue
             if q1>qmax[K-1]:
                 hiescape+=1
                 continue
             # go through every q-bin
+            w=(2*M_PI*energy/HC/distance)**2*(2+rho**2+2*sqrt(1+rho**2))/( (1+rho**2+sqrt(1+rho**2))**2*sqrt(1+rho**2) )
             for l from 0<=l<K:
                 if (q1<=qmax[l]):
-                    Intensity[l]+=data[ix,iy]
-                    Error[l]+=dataerr[ix,iy]**2
-#                    Intensity[l]+=data[ix,iy]/(dataerr[ix,iy]**2)
-#                    Error[l]+=1/(dataerr[ix,iy]**2)
+                    qout[l]+=q1
+                    Intensity[l]+=data[ix,iy]*w
+                    Error[l]+=dataerr[ix,iy]**2*w
                     Area[l]+=1
+                    weight[l]+=w
                     break
-    free(qmin)
     free(qmax)
+    free(weight)
     for l from 0<=l<K:
         if Area[l]>0:
-            Intensity[l]/=Area[l]
-            Error[l]/=Area[l]
+            qout[l]/=weight[l]
+            Intensity[l]/=weight[l]
+            Error[l]/=weight[l]
             Error[l]=sqrt(Error[l])
-#        if Error[l]>0:        
-#            Intensity[l]=Intensity[l]/Error[l] # Error[l] is sum_i(1/sigma^2_i)
-#            Error[l]=1/sqrt(Error[l])
-#        else:
-#            Intensity[l]=NAN
-#            Error[l]=NAN
     if not shutup:
-        print "done"
-    print "Finished integration."
-    print "Lowescape: ",lowescape
-    print "Hiescape: ",hiescape
-    print "Masked: ",masked
-    print "ZeroError: ",zeroerror
-    return qout,Intensity,Error,Area # return
+        print "Finished integration."
+        print "Lowescape: ",lowescape
+        print "Hiescape: ",hiescape
+        print "Masked: ",masked
+        print "ZeroError: ",zeroerror
+    if returnavgq:
+        return qout,Intensity,Error,Area
+    else:
+        return q,Intensity,Error,Area
+    
+def azimintpix(np.ndarray[np.double_t, ndim=2] data not None,
+               np.ndarray[np.double_t, ndim=2] error,
+               orig,
+               np.ndarray[np.uint8_t, ndim=2] mask not None,
+               Py_ssize_t Ntheta=100,
+               double dmin=0,
+               double dmax=INFINITY):
+    """Perform azimuthal integration of image.
+
+    Inputs:
+        data: matrix to average
+        error: error matrix. If not applicable, set it to None
+        orig: vector of beam center coordinates, starting from 1.
+        mask: mask matrix; 1 means masked, 0 means non-masked
+        Ntheta: number of desired points on the abscissa
+        dmin: the lower bound of the circle stripe (expressed in pixel units)
+        dmax: the upper bound of the circle stripe (expressed in pixel units)
+
+    Outputs: theta,I,[E],A
+        theta: theta-range, in radians
+        I: intensity points
+        E: error values (returned only if the "error" argument was not None)
+        A: effective area points
+    """
+    cdef np.ndarray[np.double_t, ndim=1] theta
+    cdef np.ndarray[np.double_t, ndim=1] I
+    cdef np.ndarray[np.double_t, ndim=1] E
+    cdef np.ndarray[np.double_t, ndim=1] A
+    cdef Py_ssize_t ix,iy
+    cdef Py_ssize_t M,N
+    cdef Py_ssize_t index
+    cdef double bcx, bcy
+    cdef double d,x,y,phi
+    cdef int errornone
+    
+    M=data.shape[0]
+    N=data.shape[1]
+    if (mask.shape[0]!=M) or (mask.shape[1]!=N):
+        raise ValueError, "The size and shape of data and mask should be the same."
+    bcx=orig[0]
+    bcy=orig[1]
+    
+    theta=np.linspace(0,2*np.pi,Ntheta) # the abscissa of the results
+    I=np.zeros(Ntheta,dtype=np.double) # vector of intensities
+    A=np.zeros(Ntheta,dtype=np.double) # vector of effective areas
+    E=np.zeros(Ntheta,dtype=np.double)
+
+    errornone=(error is None)
+
+    for ix from 0<=ix<M:
+        for iy from 0<=iy<N:
+            if mask[ix,iy]:
+                continue
+            x=ix-bcx+1
+            y=iy-bcy+1
+            d=sqrt(x**2+y**2)
+            if (d<dmin) or (d>dmax):
+                continue
+            phi=atan2(y,x)
+            index=<Py_ssize_t>floor(phi/(2*M_PI)*Ntheta)
+            I[index]+=data[ix,iy]
+            if not errornone:
+                E[index]+=error[ix,iy]**2
+            A[index]+=1
+    for index from 0<=index<Ntheta:
+        if A[index]>0:
+            I[index]/=A[index]
+            if not errornone:
+                E[index]=sqrt(E[index]/A[index])
+    if errornone:
+        return theta,I,A
+    else:
+        return theta,I,E,A
+ 
