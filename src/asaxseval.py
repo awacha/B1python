@@ -1,4 +1,14 @@
-#asaxseval.py
+#-----------------------------------------------------------------------------
+# Name:        asaxseval.py
+# Purpose:     ASAXS evaluation functions
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: asaxseval.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
 
 import numpy as np
 import pylab

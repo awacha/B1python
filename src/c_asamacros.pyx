@@ -5,7 +5,8 @@ from stdlib cimport malloc, free
 cdef extern from "math.h":
     double sqrt(double)
     double floor(double)
-cdef double *trapezoidshapefunction(double lengthbase,double lengthtop, double *x, Py_ssize_t lenx):
+    
+cdef double *ctrapezoidshapefunction(double lengthbase,double lengthtop, double *x, Py_ssize_t lenx):
     cdef double * T
     cdef Py_ssize_t i
     cdef double lb2mlt2
@@ -25,6 +26,9 @@ cdef double *trapezoidshapefunction(double lengthbase,double lengthtop, double *
             T[i]=2.0/(lengthbase+lengthtop)
         else:
             T[i]=(-4.0*x[i]+lengthbase*2.0)/lb2mlt2
+    for i from 0<=i<lenx:
+        if (x[i]<=-lengthbase/2) or (x[i]>=lengthbase/2):
+            T[i]=0
     return T
 
 def test(a):
@@ -121,8 +125,8 @@ def smearingmatrix(Py_ssize_t pixelmin, Py_ssize_t pixelmax, double beamcenter,
         centerv=1
     #beam profile vector (trapezoid centered at the origin. Only a half of it
     # is taken into account)
-    H=trapezoidshapefunction(lengthbaseh,lengthtoph,yb,beamnumh)
-    V=trapezoidshapefunction(lengthbasev,lengthtopv,xb,beamnumv)
+    H=ctrapezoidshapefunction(lengthbaseh,lengthtoph,yb,beamnumh)
+    V=ctrapezoidshapefunction(lengthbasev,lengthtopv,xb,beamnumv)
     center=centerh*centerv
     # scale y to detector pixel units
     A=np.zeros((npixels,npixels),dtype=np.double)
@@ -147,21 +151,24 @@ def smearingmatrix(Py_ssize_t pixelmin, Py_ssize_t pixelmax, double beamcenter,
     free(V)
     return A
     
-#----------------RETIRED MACROS----------------------
 
-def trapezoidshapefunction1(lengthbase,lengthtop,x):
+def trapezoidshapefunction(lengthbase,lengthtop,x):
     x=np.array(x)
     if len(x)<2:
         return np.array(1)
     T=np.zeros(x.shape)
+    indofflimits=(x<=-lengthbase/2.0)|(x>=lengthbase/2.0)
     indslopeleft=(x<=-lengthtop/2.0)
     indsloperight=(x>=lengthtop/2.0)
     indtop=(x<=lengthtop/2.0)&(x>=-lengthtop/2.0)
     T[indsloperight]=-4.0/(lengthbase**2-lengthtop**2)*x[indsloperight]+lengthbase*2.0/(lengthbase**2-lengthtop**2)
     T[indtop]=2.0/(lengthbase+lengthtop)
     T[indslopeleft]=4.0/(lengthbase**2-lengthtop**2)*x[indslopeleft]+lengthbase*2.0/(lengthbase**2-lengthtop**2)
+    T[indofflimits]=0
     return T
    
+#----------------RETIRED MACROS----------------------
+
 def smearingmatrix1(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
                    lengthtoph,lengthbasev=0,lengthtopv=0,beamnumh=1024,
                    beamnumv=1):
@@ -212,8 +219,8 @@ def smearingmatrix1(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
     Xb,Yb=np.meshgrid(xb,yb)
     #beam profile vector (trapezoid centered at the origin. Only a half of it
     # is taken into account)
-    H=trapezoidshapefunction1(lengthbaseh,lengthtoph,yb)
-    V=trapezoidshapefunction1(lengthbasev,lengthtopv,xb)
+    H=trapezoidshapefunction(lengthbaseh,lengthtoph,yb)
+    V=trapezoidshapefunction(lengthbasev,lengthtopv,xb)
     P=np.kron(H,V)
     center=centerh*centerv
     # scale y to detector pixel units

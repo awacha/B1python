@@ -1,3 +1,14 @@
+#-----------------------------------------------------------------------------
+# Name:        xanes.py
+# Purpose:     Functions for evaluating XANES measurements
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: xanes.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
 #xanes.py
 #XANES and EXAFS analysis
 

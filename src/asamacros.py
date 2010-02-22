@@ -1,4 +1,14 @@
-#asamacros.py
+#-----------------------------------------------------------------------------
+# Name:        asamacros.py
+# Purpose:     Macros for processing 1D SAXS data (line focus, Hecus-ASA)
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: asamacros.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
 
 import numpy as np
 import pylab
@@ -6,7 +16,7 @@ import fitting
 import matplotlib.widgets
 import guitools
 import time
-from c_asamacros import smearingmatrix, smearingmatrix1
+from c_asamacros import smearingmatrix, trapezoidshapefunction
 
 def directdesmear(data,smoothing,params,title=''):
     """Desmear the scattering data according to the direct desmearing

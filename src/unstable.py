@@ -1,15 +1,27 @@
-#unstable.py
+#-----------------------------------------------------------------------------
+# Name:        unstable.py
+# Purpose:     Unstable macros! Use with caution!
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: unstable.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
+
 import numpy as np
 import pylab
 import utils
 import types
 import scipy.stats.stats
+import scipy.signal
 import matplotlib.widgets
 import B1io
 import guitools
 import asamacros
 import fitting
-
+from c_unstable import indirectdesmear
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
 #EXPERIMENTAL (DANGER ZONE)

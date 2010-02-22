@@ -1,10 +1,21 @@
-#fitting.py
+#-----------------------------------------------------------------------------
+# Name:        fitting.py
+# Purpose:     fitting different models onto 1D scattering data
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: fitting.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
 import numpy as np
 import pylab
 import scipy.interpolate
 import matplotlib.widgets
 import utils
 import types
+from c_fitting import Ctheorspheres, Ctheorspheregas
 
 def smoothcurve(x,y,param,mode='spline',extrapolate='reflect'):
     """General function for smoothing

@@ -1,3 +1,14 @@
+#-----------------------------------------------------------------------------
+# Name:        utils.py
+# Purpose:     various utility macros
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: utils.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
 #utils.py
 
 import pylab

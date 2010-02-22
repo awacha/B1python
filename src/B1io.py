@@ -1,5 +1,14 @@
-#io.py: I/O components for B1python
-#IO routines
+#-----------------------------------------------------------------------------
+# Name:        B1io.py
+# Purpose:     I/O components for B1python
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: B1io.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
 
 import pylab
 import numpy as np
@@ -11,6 +20,9 @@ import string
 import scipy.io
 import utils
 import B1macros
+
+class int1d(dict):
+    pass
 
 def readasa(basename):
     """Load SAXS/WAXS measurement files from ASA *.INF, *.P00 and *.E00 files.
@@ -239,23 +251,12 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
                 else:
                     fid=open(filename1,'rt')
                 lines=fid.readlines()
-                fid.close()
                 nx=int(string.strip(lines[10]))
                 ny=int(string.strip(lines[11]))
-                data=pylab.zeros((nx,ny),order='F')
-                row=0;
-                col=0;
-                def incrowcol(row,col):
-                    if row<nx-1:
-                        row=row+1;
-                    else:
-                        row=0;
-                        col=col+1;
-                    return row,col
-                for line in lines[133:]:
-                    for i in line.split():
-                        data[row,col]=float(i);
-                        row,col=incrowcol(row,col)
+                fid.rewind()
+                data=np.loadtxt(fid,skiprows=133)
+                data=data.reshape((nx,ny))
+                fid.close()
                 return data
             except IOError:
                 pass

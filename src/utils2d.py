@@ -1,3 +1,14 @@
+#-----------------------------------------------------------------------------
+# Name:        utils2d.py
+# Purpose:     utility macros for images
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: utils2d.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
 #utils2d.py
 
 import pylab

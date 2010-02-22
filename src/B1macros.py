@@ -1,5 +1,14 @@
-#B1macros.py
-#Macros for data processing
+#-----------------------------------------------------------------------------
+# Name:        B1macros.py
+# Purpose:     Macros for data processing
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: B1macros.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
 
 import numpy as np
 import pylab

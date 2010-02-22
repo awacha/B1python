@@ -16,13 +16,16 @@ cdef extern from "math.h":
 
 cdef double HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
     
-def polartransform(np.ndarray[np.double_t, ndim=2] data not None, np.ndarray[np.double_t, ndim=1] r, np.ndarray[np.double_t, ndim=1] phi, double origx, double origy):
+def polartransform(np.ndarray[np.double_t, ndim=2] data not None,
+                   np.ndarray[np.double_t, ndim=1] r,
+                   np.ndarray[np.double_t, ndim=1] phi,
+                   double origx, double origy):
     """Calculates a matrix of a polar representation of the image.
     
     Inputs:
         data: the 2D matrix
         r: vector of polar radii
-        phi: vector of polar angles
+        phi: vector of polar angles (degrees)
         origx: the x (row) coordinate of the origin
         origy: the y (column) coordinate of the origin
     Outputs:

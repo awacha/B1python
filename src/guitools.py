@@ -1,5 +1,15 @@
-#guitools.py
-#GUI utilities
+#-----------------------------------------------------------------------------
+# Name:        guitools.py
+# Purpose:     GUI utilities
+#
+# Author:      Andras Wacha
+#
+# Created:     2010/02/22
+# RCS-ID:      $Id: guitools.py $
+# Copyright:   (c) 2010
+# Licence:     GPLv2
+#-----------------------------------------------------------------------------
+
 
 import types
 import numpy as np
