@@ -7,7 +7,8 @@ cdef extern from "math.h":
     double sin(double)
     double cos(double)
     double sqrt(double)
-
+    double M_PI
+    
 cdef inline double fsphere(double q, double R):
     """Scattering factor of a sphere
     
@@ -20,6 +21,53 @@ cdef inline double fsphere(double q, double R):
     """
     return 1/q**3*(sin(q*R)-q*R*cos(q*R))
 
+def Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
+                   double dist, double wavelength, Py_ssize_t Nx,
+                   Py_ssize_t Ny, double pixelsizex, double pixelsizey,
+                   double dx=0,double dy=0):
+    cdef double *x,*y,*z,*R,*rho
+    cdef np.ndarray[np.double_t, ndim=2] output
+    cdef Py_ssize_t i,j,k,l
+    cdef Py_ssize_t numspheres
+    cdef double tmp,I
+    cdef double qx,qy,qz,q
+    cdef double sx,sy,sz
+    
+    if data.shape[1]<5:
+        raise ValueError('the shape of the input matrix should be 5.')
+    output=np.zeros((Ny,Nx),dtype=np.double)
+    numspheres=data.shape[0]
+    x=<double*>malloc(sizeof(double)*numspheres)
+    y=<double*>malloc(sizeof(double)*numspheres)
+    z=<double*>malloc(sizeof(double)*numspheres)
+    R=<double*>malloc(sizeof(double)*numspheres)
+    rho=<double*>malloc(sizeof(double)*numspheres)
+    for i from 0<=i<numspheres:
+        x[i]=data[i,0]
+        y[i]=data[i,1]
+        z[i]=data[i,2]
+        R[i]=data[i,3]
+        rho[i]=data[i,4]
+    for i from 0<=i<Nx:
+        for j from 0<=j<Ny:
+            sx=((i-Nx/2.0)*pixelsizex+dx)
+            sy=((j-Ny/2.0)*pixelsizey+dy)
+            sz=dist
+            tmp=sqrt(sx**2+sy**2+sz**2)
+            qx=sx/tmp*2*M_PI/wavelength
+            qy=sy/tmp*2*M_PI/wavelength
+            qz=(sz/tmp-1)*2*M_PI/wavelength
+            q=sqrt(qx**2+qy**2+qz**2)
+            I=0
+            for k from 0<=k<numspheres:
+                I+=fsphere(q,R[k])**2*(rho[k]**2)
+                for l from k<l<numspheres:
+                    tmp=(x[k]-x[l])*qx+(y[k]-y[l])*qy+(z[k]-z[l])*qz
+                    I+=fsphere(q,R[k])*fsphere(q,R[l])*2*rho[k]*rho[l]*cos(tmp)
+            output[j,i]=I
+        print "column",i,"/",Nx,"done"
+    free(rho); free(R); free(z); free(y); free(x);
+    return output
 def Ctheorspheregas(np.ndarray[np.double_t, ndim=1] qrange not None,
                     np.ndarray[np.double_t, ndim=1] R not None,
                     np.ndarray[np.double_t, ndim=1] rho not None):

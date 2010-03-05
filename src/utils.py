@@ -18,6 +18,16 @@ import types
 import scipy.special
 _pausemode=True
 
+def matrixsummary(matrix,name):
+    """Returns numerical summary of a matrix as a string
+
+    Inputs:
+        matrix: the matrix to be summarized
+        name: the name of the matrix
+    """
+    nonnan=-np.isnan(matrix)
+    return "%s: %g +/- %g (min: %g; max: %g); NaNs: %d" % (name,matrix[nonnan].mean(),matrix[nonnan].std(),np.nanmin(matrix),np.nanmax(matrix),(1-nonnan).sum())
+    
 def pause(setto=None):
     """Pause function
     

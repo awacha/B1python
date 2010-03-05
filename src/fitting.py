@@ -9,13 +9,28 @@
 # Copyright:   (c) 2010
 # Licence:     GPLv2
 #-----------------------------------------------------------------------------
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.
+
 import numpy as np
 import pylab
 import scipy.interpolate
 import matplotlib.widgets
 import utils
 import types
-from c_fitting import Ctheorspheres, Ctheorspheregas
+from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D
 
 def smoothcurve(x,y,param,mode='spline',extrapolate='reflect'):
     """General function for smoothing
@@ -694,3 +709,40 @@ def theorspheres(qrange, spheres):
     return Intensity            
                 
 
+def propfit(xdata,ydata,errdata=None):
+    """Fit an y=a*x function (proportionality)
+
+    Inputs:
+        xdata: a list (list, tuple, np.ndarray) of x values
+        ydata: a list (list, tuple, np.ndarray) of y values
+        errdata: a list (list, tuple, np.ndarray) of y error values, or
+            None.
+            
+    Outputs: a,aerr
+        a: the mean value
+        aerr: the standard deviation of a
+    """
+    xdata=np.array(xdata);
+    ydata=np.array(ydata);
+    if xdata.size != ydata.size:
+        print "The sizes of xdata and ydata should be the same."
+        return
+    if errdata is not None:
+        if ydata.size !=errdata.size:
+            print "The sizes of ydata and errdata should be the same."
+            return
+        errdata=np.array(errdata);
+        Sx=np.sum(xdata/(errdata**2))
+        Sxy=np.sum(xdata*ydata/(errdata**2))
+        Sxx=np.sum(xdata*xdata/(errdata**2))
+    else:
+        Sx=np.sum(xdata)
+        Sxy=np.sum(xdata*ydata)
+        Sxx=np.sum(xdata*xdata)
+    print "Sx:",Sx
+    print "Sxy:",Sxy
+    print "Sxx:",Sxx
+    a=Sxy/Sx
+    aerr=np.sqrt(Sxx)/Sx;
+    return a,aerr
+    

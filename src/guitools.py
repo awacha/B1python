@@ -9,6 +9,20 @@
 # Copyright:   (c) 2010
 # Licence:     GPLv2
 #-----------------------------------------------------------------------------
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.
 
 
 import types
@@ -24,7 +38,6 @@ import time
 import B1io
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
-
 
 def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
     """Plot intensities
@@ -155,19 +168,19 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
                   # matrix were modified.
     if maxval is not None:
         tmp[tmp>maxval]=max(tmp[tmp<=maxval])
-    t0=time.time()
+#    t0=time.time()
     nonpos=(tmp<=0)
-    t1=time.time()
+#    t1=time.time()
     tmp[nonpos]=tmp[tmp>0].min()
-    t2=time.time()
+#    t2=time.time()
     tmp=np.log(tmp);
-    t3=time.time()
+#    t3=time.time()
     tmp[np.isnan(tmp)]=tmp[-np.isnan(tmp)].min();
-    t4=time.time()
-    print t1-t0
-    print t2-t1
-    print t3-t2
-    print t4-t3
+#    t4=time.time()
+#    print t1-t0
+#    print t2-t1
+#    print t3-t2
+#    print t4-t3
     if (header is not None) and (showqscale):
         xmin=0-(header['BeamPosX']-1)*header['PixelSize']
         xmax=(tmp.shape[0]-(header['BeamPosX']-1))*header['PixelSize']
@@ -215,7 +228,8 @@ def makemask(mask,A,savefile=None):
         A: background image. The size of mask and this should be equal.
         savefile [optional]: a file name to save the mask to.
     Output:
-        the mask matrix.
+        the mask matrix. The masked (shaded in the GUI) pixels will be
+        False, non-masked True
     """
     def clickevent(event):
         fig=pylab.gcf()
@@ -732,7 +746,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
     pylab.subplot(4,1,4)
     pylab.legend(legend4,loc=(1.03,0))
     
-def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False):
+def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,return_error=False):
     """GUI tool for locating peaks by zooming on them
     
     Inputs:
@@ -742,9 +756,11 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False):
         mode: 'Lorentz' or 'Gauss'
         scaling: scaling of the y axis. 'lin' or 'log' 
         blind: do everything blindly (no user interaction)
+        return_error: return the error of the peak position as well.
         
     Outputs:
-        the peak position
+        the peak position, and if return_error is True, the error of it
+        too
         
     Usage:
         Zoom to the desired peak then press ENTER on the figure.
@@ -782,7 +798,10 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False):
             sigma0,
             0.5*(x1[-1]+x1[0]),
             y1.min())
-        p1,ier=scipy.optimize.leastsq(gausscostfun,p0,args=(x1,y1),maxfev=10000)
+        res=scipy.optimize.leastsq(gausscostfun,p0,args=(x1,y1),maxfev=10000,full_output=True)
+        p1=res[0]
+        cov=res[1]
+        ier=res[4]
         if not blind:
             if scaling=='log':
                 pylab.semilogy(x1,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
@@ -794,7 +813,10 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False):
             sigma0,
             0.5*(x1[-1]+x1[0]),
             y1.min())
-        p1,ier=scipy.optimize.leastsq(lorentzcostfun,p0,args=(x1,y1),maxfev=10000)
+        res=scipy.optimize.leastsq(lorentzcostfun,p0,args=(x1,y1),maxfev=10000,full_output=True)
+        p1=res[0]
+        cov=res[1]
+        ier=res[4]
         if not blind:
             if scaling=='log':
                 pylab.semilogy(x1,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x1),'r-')
@@ -804,7 +826,10 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False):
         raise ValueError('Only Gauss and Lorentz modes are supported in findpeak()')
     if not blind:
         pylab.gcf().show()
-    return p1[2]
+    if return_error:
+        return p1[2],np.sqrt(cov[2][2])
+    else:
+        return p1[2]
 def tweakfit(xdata,ydata,modelfun,fitparams):
     """"Fit" an arbitrary model function on the given dataset.
     
@@ -903,3 +928,44 @@ def plotasa(asadata):
     pylab.legend(loc='best')
     pylab.suptitle(asadata['params']['Title'])
 
+def fitperiodicity(data,ns):
+    """Determine periodicity from q values of Bragg-peaks
+
+    Inputs:
+        data: users have two possibilities:
+            1) a 1D scattering dictionary
+            2) a list (list, tuple, np.ndarray) of q values
+        ns: a list of diffraction orders (n-s)
+
+    Outputs: d0, dd
+        d0: the mean value for d
+        dd: the standard deviation of d
+
+    Notes:
+        the way this function works depends on the format of parameter
+        <data>. In case 1), a matplotlib window pops up and prompts the
+        user to zoom on peaks found in <ns>. A Gaussian curve will be
+        fit on the peaks, to determine the q values corresponding to the
+        Bragg reflections. After this, a linear fit (with the constant
+        term being 0) will be done, by taking the errors of q-s in
+        account. In case 2), only the fit is done, neglecting the
+        (unknown) error of q.
+    """
+    try:
+        qs=[]
+        dqs=[]
+        for n in ns:
+            q,dq=findpeak(data['q'],data['Intensity'],prompt='Zoom to peak %d and press ENTER' % n,scaling='log',return_error=True)
+            qs.append(q)
+            dqs.append(dq)
+            print "determined peak",n,"to be",q,"+/-",dq
+        ns=np.array(ns)
+        qs=np.array(qs)
+        dqs=np.array(dqs)
+        a,aerr=fitting.propfit(ns,qs,dqs)
+    except KeyError:
+        qs=np.array(data)
+        ns=np.array(ns)
+        a,aerr=fitting.propfit(ns,qs,None)
+    return 2*np.pi/a, aerr*2*np.pi/a**2
+    

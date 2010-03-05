@@ -20,6 +20,7 @@ import utils
 import os
 import time
 import fitting
+import scipy.io
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
@@ -91,7 +92,7 @@ def addfsns(fileprefix,fsns,fileend,fieldinheader=None,valueoffield=None,dirs=[]
                 headerout.append(h)
                 summed.append(h['FSN'])
     return dataout,headerout,summed
-def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energycalib,energyfluorescence,origx,origy):
+def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energycalib,energyfluorescence,origx,origy,mask=None,savefile=None):
     """Create matrix for detector sensitivity correction
     
     Inputs:
@@ -106,181 +107,381 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
         energycalib: calibrated energies for energy calibration
         energyfluorescence: energy of the fluorescence
         origx, origy: the centers of the beamstop.
-    
+        mask: a mask to apply (1 for valid, 0 for masked pixels). If None,
+            a makemask() window will pop up for user interaction.
+        savefile: a .npz file to save results to. None to skip saving.
+        
     Outputs: sensdict,mask
         sens: a dictionary of the following fields:
             sens: the sensitivity matrix of the 2D detector, by which all
                 measured data should be divided pointwise. The matrix is
                 normalized to 1 on the average.
             errorsens: the calculated error of the sensitivity matrix
-            dSdmd: the diff(S_ij)/diff(m_d) matrix where m_d is the dark current
-                of the monitor counter
-            dSdad: the diff(S_ij)/diff(a_d) matrix where a_d is the dark current
-                of the anode counter
-            dSdD: this is sum_{mn}(diff(S_ij)/diff(D_mn)D^2D_mn where D_mn is the
-                dark current matrix of the detector and D^2D_mn is its error.
-            NOTE that the last three matrices are for the more correct error
-                propagation.
+            chia, chim, alpha, beta, S1S: these values (4 matrices and
+                a scalar) are needed for calculation of the correction
+                terms (taking the dependence of a_0... and S into
+                account)
         mask: mask matrix created by the user. This masks values where
             the sensitivity is invalid. This should be used as a base
             for further mask matrices.
     """
-    # Watch out: this part is VERY UGLY. 
+    # Watch out: this part is VERY UGLY. If you want to understand what
+    # this does (and you better want it ;-)) please take a look at the
+    # PDF file attached to the source
     global _B1config
     
     pixelsize=_B1config['pixelsize']
-    factor=1
+
+    # these are controls for non-physical tampering. Their theoretical
+    # value is in [brackets]
+    factor=1 # tune this if the scattering is not completely subtracted
+                # from the fluorescence [1]
+    t0scaling=1 # multiply the dark-current measurement time by this [1]
+    hackDCsub=True # set nonpositive elements of DC-subtracted PSD counts to their smallest positive value. [False]
+    transmerrors=True #if the error of the transmission should be accounted for [True]
+    
     # some housekeeping...
-    if energypost<energypre:
+    if energypost<energypre: # if the two energies were input as swapped
         tmp=energypost
         energypost=energypre
         energypre=tmp
-    if type(title)==type(''):
+    if type(title)==type(''): # make a list of "title"
         title=[title]
     #read in every measurement file
+    print "makesensitivity: reading files"
     data,header=B1io.read2dB1data(_B1config['2dfileprefix'],fsnrange,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
     dataDC,headerDC=B1io.read2dB1data(_B1config['2dfileprefix'],fsnDC,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
     
-    #sort out the indices (with respect to data[] and header[]) for empty beam and foil measurements
-    idxEB1=[(h['Title']==_B1config['ebtitle']) & (abs(h['Energy']-energypre)<=_B1config['energyprecision']) for h in header]
-    idxEB2=[(h['Title']==_B1config['ebtitle']) & (abs(h['Energy']-energypost)<=_B1config['energyprecision']) for h in header]
-    idxfoil1=[(h['Title'] in title) & (abs(h['Energy']-energypre)<=_B1config['energyprecision']) for h in header]
-    idxfoil2=[(h['Title'] in title) & (abs(h['Energy']-energypost)<=_B1config['energyprecision']) for h in header]
-    
+   
     EB1=[]; hEB1=[]
     EB2=[]; hEB2=[]
     F1=[]; hF1=[]
     F2=[]; hF2=[]
+    print "makesensitivity: summarizing"
     # now summarize...
+    print "list of sample titles:",title
+    print "pre-edge energy:",energypre
+    print "post-edge energy:",energypost
+        
     for i in range(len(data)):
-        if idxEB1[i]:
-            EB1.append(data[i])
-            hEB1.append(header[i])
-        elif idxEB2[i]:
-            EB2.append(data[i])
-            hEB2.append(header[i])
-        elif idxfoil1[i]:
-            F1.append(data[i])
-            hF1.append(header[i])
-        elif idxfoil2[i]:
-            F2.append(data[i])
-            hF2.append(header[i])
+        if abs(header[i]['Energy']-energypost)<=_B1config['energyprecision']:
+            if header[i]['Title']==_B1config['ebtitle']:
+                EB1.append(data[i])
+                hEB1.append(header[i])
+            elif header[i]['Title'] in title:
+                F1.append(data[i])
+                hF1.append(header[i])
+            else:
+                print "Unknown title (neither empty beam, nor sample): ","*%s*" % header[i]['Title']
+                print "(FSN: ",header[i]['FSN'],", Energy: ",header[i]['Energy'],")"
+        elif abs(header[i]['Energy']-energypre)<=_B1config['energyprecision']:
+            if header[i]['Title']==_B1config['ebtitle']:
+                EB2.append(data[i])
+                hEB2.append(header[i])
+            elif header[i]['Title'] in title:
+                F2.append(data[i])
+                hF2.append(header[i])
+            else:
+                print "Unknown title (neither empty beam, nor sample): ","*%s*" % header[i]['Title']
+                print "(FSN: ",header[i]['FSN'],", Energy: ",header[i]['Energy'],")"
+        else:
+            print "Unknown energy (neither preedge, nor post-edge): ",header[i]['Energy']
+            print "(FSN: ",header[i]['FSN'],", Title: ",header[i]['Title'],")"
+            print "Neglecting this file."
+            # go on, this is not an error, just a warning.
+    #print a short summary
+    print "Empty beam measurements before the edge:",len(EB2)
+    print "Empty beam measurements after the edge:",len(EB1)
+    print "Foil measurements before the edge:",len(F2)
+    print "Foil measurements after the edge:",len(F1)
+    print "Energy precision:",_B1config['energyprecision']
     #summarize the scattering matrices
     D1=sum(F1) # the builtin sum function
     D2=sum(F2)
     E1=sum(EB1)
     E2=sum(EB2)
-    D=sum(dataDC)
+    D0=sum(dataDC)
     # summarize the measurement times
     t1=sum([h['MeasTime'] for h in hF1])
     t2=sum([h['MeasTime'] for h in hF2])
     te1=sum([h['MeasTime'] for h in hEB1])
     te2=sum([h['MeasTime'] for h in hEB2])
-    td=sum([h['MeasTime'] for h in headerDC])
+    t0=sum([h['MeasTime'] for h in headerDC])*t0scaling
     # summarize the anode counts
     a1=sum([h['Anode'] for h in hF1])
     a2=sum([h['Anode'] for h in hF2])
     ae1=sum([h['Anode'] for h in hEB1])
     ae2=sum([h['Anode'] for h in hEB2])
-    ad=sum([h['Anode'] for h in headerDC])
+    a0=sum([h['Anode'] for h in headerDC])
     # summarize the monitor counts
     m1=sum([h['Monitor'] for h in hF1])
     m2=sum([h['Monitor'] for h in hF2])
     me1=sum([h['Monitor'] for h in hEB1])
     me2=sum([h['Monitor'] for h in hEB2])
-    md=sum([h['Monitor'] for h in headerDC])
+    m0=sum([h['Monitor'] for h in headerDC])
     # calculate the transmissions
     T1=np.array([h['Transm'] for h in hF1]).mean()
-    dT1=np.array([h['Transm'] for h in hF1]).std()
     T2=np.array([h['Transm'] for h in hF2]).mean()
-    dT2=np.array([h['Transm'] for h in hF2]).std()
+    if transmerrors:
+        print "Taking error of transmission into account"
+        dT1=np.array([h['Transm'] for h in hF1]).std()
+        dT2=np.array([h['Transm'] for h in hF2]).std()
+    else:
+        print "NOT taking error of transmission into account"
+        dT1=0
+        dT2=0
+    print "Transmission before the edge:",T2,"+/-",dT2
+    print "Transmission after the edge:",T1,"+/-",dT1
+    print "monitor_sample_above: ",m1
+    print "monitor_sample_below: ",m2
+    print "monitor_empty_above: ",me1
+    print "monitor_empty_below: ",me2
+    print "monitor_dark: ",m0
 
+    print "anode_sample_above: ",a1
+    print "anode_sample_below: ",a2
+    print "anode_empty_above: ",ae1
+    print "anode_empty_below: ",ae2
+    print "anode_dark: ",a0
+
+    print "time_sample_above: ",t1
+    print "time_sample_below: ",t2
+    print "time_empty_above: ",te1
+    print "time_empty_below: ",te2
+    print "time_dark: ",t0
+
+    print "makesensitivity: calculating auxiliary values"
     # error values of anode counts
-    da1=np.sqrt(a1)
-    da2=np.sqrt(a2)
-    dae1=np.sqrt(ae1)
-    dae2=np.sqrt(ae2)
-    dad=np.sqrt(ad)
+    da1=np.sqrt(a1);    da2=np.sqrt(a2);    dae1=np.sqrt(ae1);
+    dae2=np.sqrt(ae2);    da0=np.sqrt(a0)
 
     # errors of monitor counts
-    dm1=np.sqrt(m1)
-    dm2=np.sqrt(m2)
-    dme1=np.sqrt(me1)
-    dme2=np.sqrt(me2)
-    dmd=np.sqrt(md)
+    dm1=np.sqrt(m1);    dm2=np.sqrt(m2);    dme1=np.sqrt(me1);
+    dme2=np.sqrt(me2);    dm0=np.sqrt(m0)
 
     # errors of 2d detector counts
-    dD1=np.sqrt(D1)
-    dD2=np.sqrt(D2)
-    dE1=np.sqrt(E1)
-    dE2=np.sqrt(E2)
-    dD=np.sqrt(D)
+    dD1=np.sqrt(D1);    dD2=np.sqrt(D2);    dE1=np.sqrt(E1);
+    dE2=np.sqrt(E2);    dD0=np.sqrt(D0)
     
     # Dark current correction: abc -> abcx
-    D1x=D1-t1/td*D # scattering matrices...
-    D2x=D2-t2/td*D
-    E1x=E1-te1/td*D
-    E2x=E2-te2/td*D
-    a1x=a1-t1/td*ad # anode counts...
-    a2x=a2-t2/td*ad
-    ae1x=ae1-te1/td*ad
-    ae2x=ae2-te2/td*ad
-    m1x=m1-t1/td*md # monitor...
-    m2x=m2-t2/td*md
-    me1x=me1-te1/td*md
-    me2x=me2-te2/td*md
-    
-    #two-theta for the pixels
-    tth=np.arctan(utils2d.calculateDmatrix(F1,pixelsize,origx,origy)/hF1[0]['Dist'])
+    D1x=D1-t1/t0*D0 # scattering matrices...
+    D2x=D2-t2/t0*D0
+    E1x=E1-te1/t0*D0
+    E2x=E2-te2/t0*D0
+    a1x=a1-t1/t0*a0 # anode counts...
+    a2x=a2-t2/t0*a0
+    ae1x=ae1-te1/t0*a0
+    ae2x=ae2-te2/t0*a0
+    m1x=m1-t1/t0*m0 # monitor...
+    m2x=m2-t2/t0*m0
+    me1x=me1-te1/t0*m0
+    me2x=me2-te2/t0*m0
 
+    if hackDCsub:
+        #In principle, correction for dark current should not make
+        # scattering images negative. This hack corrects that problem.
+        print "Tampering with dark current subtraction: setting negative values to positive!"
+        D1x[D1x<=0]=np.nanmin(D1x[D1x>0])
+        D2x[D2x<=0]=np.nanmin(D2x[D2x>0])
+        E1x[E1x<=0]=np.nanmin(E1x[E1x>0])
+        E2x[E2x<=0]=np.nanmin(E2x[E2x>0])
+        print "Tampering done."
+    
+    print "Scattering images, corrected by dark current:"
+    print utils.matrixsummary(D1x,"D1x")
+    print utils.matrixsummary(E1x,"E1x")
+    print utils.matrixsummary(D2x,"D2x")
+    print utils.matrixsummary(E2x,"E2x")
+
+
+    #two-theta for the pixels
+    tth=np.arctan(utils2d.calculateDmatrix(D1,pixelsize,origx,origy)/hF1[0]['Dist'])
+
+    # angle-dependent correction matrices
+    C0=gasabsorptioncorrectiontheta(energyfluorescence,tth)
+    C1,dC1=absorptionangledependenttth(tth,T1,diffaswell=True)
+    C2,dC2=absorptionangledependenttth(tth,T2,diffaswell=True)
+    print "Angle-dependent correction matrices:"
+    print utils.matrixsummary(C1,"C1")
+    print utils.matrixsummary(C2,"C2")
+    print utils.matrixsummary(dC1,"dC1")
+    print utils.matrixsummary(dC2,"dC2")
+    
     # some auxiliary variables:
-    P1=D1x*a1x/(T1*m1x*D1x.sum())
-    Pe1=E1x*ae1x/(me1x*E1x.sum())
-    P2=D2x*a2x/(T2*m2x*D2x.sum())
-    Pe2=E2x*ae2x/(me2x*E2x.sum())
-    
+    P1=D1x*a1x/(T1*m1x*D1x.sum())*C0*C1
+    Q1=-E1x*ae1x/(me1x*E1x.sum())*C0
+    P2=-factor*D2x*a2x/(T2*m2x*D2x.sum())*C0*C2
+    Q2=factor*E2x*ae2x/(me2x*E2x.sum())*C0
+
+#    pylab.figure();    pylab.imshow(C0);    pylab.title('C0');    pylab.gcf().show(); pylab.colorbar()
+#    pylab.figure();    pylab.imshow(C1);    pylab.title('C1');    pylab.gcf().show(); pylab.colorbar()
+#    pylab.figure();    pylab.imshow(C2);    pylab.title('C2');    pylab.gcf().show(); pylab.colorbar()
+#    pylab.figure();    pylab.imshow(P1);    pylab.title('P1');    pylab.gcf().show(); pylab.colorbar()
+#    pylab.figure();    pylab.imshow(P2);    pylab.title('P2');    pylab.gcf().show(); pylab.colorbar()
+#    pylab.figure();    pylab.imshow(Q1);    pylab.title('Q1');    pylab.gcf().show(); pylab.colorbar()
+#    pylab.figure();    pylab.imshow(Q2);    pylab.title('Q2');    pylab.gcf().show(); pylab.colorbar()
+
     # the unnormalized, unmasked sensitivity matrix.
-    S1=(P1-Pe1-factor*(P2-Pe2))*gasabsorptioncorrectiontheta(energyfluorescence,tth);
-    
-    print "Please mask erroneous areas!"
-    mask = guitools.makemask(np.ones(S1.shape),S1)
-    
+    S1=P1+Q1+P2+Q2
+#    pylab.figure();    pylab.imshow(S1);    pylab.title('S1');    pylab.gcf().show(); pylab.colorbar()
+    if mask is None:
+        mask=np.ones(S1.shape)
+    pylab.figure()
+    print "makesensitivity: Please mask erroneous areas!"
+    mask = guitools.makemask(mask,S1)
+
+#    pylab.figure();    guitools.plot2dmatrix(D1x,mask=mask,blacknegative=True);    pylab.title('D1x');    pylab.gcf().show(); pylab.colorbar()
+#    pylab.figure();    guitools.plot2dmatrix(E1x,mask=mask,blacknegative=True);    pylab.title('E1x');    pylab.gcf().show(); pylab.colorbar()
+#    pylab.figure();    guitools.plot2dmatrix(D2x,mask=mask,blacknegative=True);    pylab.title('D2x');    pylab.gcf().show(); pylab.colorbar()
+#    pylab.figure();    guitools.plot2dmatrix(E2x,mask=mask,blacknegative=True);    pylab.title('E2x');    pylab.gcf().show(); pylab.colorbar()
+
+    P1=P1*mask
+    Q1=Q1*mask
+    P2=P2*mask
+    Q2=Q2*mask
     # multiply the matrix by the mask: masked areas will be zeros.
     S1=S1*mask
-    # summarize the matrix (masking is taken into account already)
+    # summarize the matrix (masking was already taken into account)
     S1S=S1.sum()
     S=S1/S1S # normalize.
-    
-    #now we put together the error of S. The terms are denoted ET_<variable>
-    ET_a1=(1/S1S*P1/a1x-S1/S1S**2*(P1/a1x).sum())**2 * da1**2;
-    ET_a2=factor*factor*(-1/S1S*P2/a2x+S1/S1S**2*(P2/a2x).sum())**2 * da2**2;
-    ET_ae1=(-1/S1S*Pe1/ae1x+S1/S1S**2*(Pe1/ae1x).sum())**2 * dae1**2;
-    ET_ae2=factor*factor*(1/S1S*Pe2/ae2x-S1/S1S**2*(Pe2/ae2x).sum())**2 * dae2**2;
 
-    ET_m1=(-1/S1S*P1/m1x+S1/S1S**2*(P1/m1x).sum())**2 * dm1**2;
-    ET_m2=factor*factor*(1/S1S*P2/m2x-S1/S1S**2*(P2/m2x).sum())**2 * dm2**2;
-    ET_me1=(1/S1S*Pe1/me1x-S1/S1S**2*(Pe1/me1x).sum())**2 * dme1**2;
-    ET_me2=factor*factor*(-1/S1S*Pe2/me2x+S1/S1S**2*(Pe2/me2x).sum())**2 * dme2**2;
+    # now the S matrix is ready.
+    print "makesensitivity: calculating error terms"
     
-    ET_ad=(1/S1S*(t2/td*factor*P2/a2x-t1/td*P1/a1x+Pe1/ae1x*te1/td-factor*Pe2/ae2x*te2/td)+
-           S1/S1S**2*(factor*P2/a2x*t2/td-P1*t1/a1x/td+Pe1*te1/ae1x/td-factor*Pe2*te2/ae2x/td).sum())**2*dad**2
-    ET_md=(1/S1S*(-t2/td*factor*P2/m2x+t1/td*P1/m1x-Pe1/me1x*te1/td+factor*Pe2/me2x*te2/td)+
-           S1/S1S**2*(-factor*P2/m2x*t2/td+P1*t1/m1x/td-Pe1*te1/me1x/td+factor*Pe2*te2/me2x/td).sum())**2*dmd**2
+    #we put together the error of S. The terms are denoted ET_<variable>,
+    # each corresponding to (\frac{d S_{ij}}{d <variable>})^2*Delta^2 <variable>,
+    # with exception of the matrices, where ET_<mx> corresponds to
+    # \sum_{mn}(\frac{d S_{ij}}{d <mx>_{mn}})^2Delta^2<mx>_{mn}.
+
+    diff=P1/a1x
+    ET_a1=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*da1**2
+    diff=P2/a2x
+    ET_a2=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*da2**2
+    diff=Q1/ae1x
+    ET_ae1=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dae1**2
+    diff=Q2/ae2x
+    ET_ae2=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dae2**2
+
+    diff=P1/m1x
+    ET_m1=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dm1**2
+    diff=P2/m2x
+    ET_m2=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dm2**2
+    diff=Q1/me1x
+    ET_me1=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dme1**2
+    diff=Q2/me2x
+    ET_me2=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dme2**2
+
+    diff=-(t1/t0*P1/a1x+te1/t0*Q1/ae1x+t2/t0*P2/a2x+te2/t0*Q2/ae2x)
+    ET_a0=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*da0**2
+    chia=diff # save it for returning
     
-    ET_D1=((1/S1S*P1/D1x)**2+2/S1S*P1/D1x*(S1/S1S**2*P1.sum()/D1x.sum()-P1/S1S/D1x.sum())- \
-           2*S1/S1S**3 * P1**2/D1x**2 ) * dD1**2 + \
-           (S1/S1S**2*P1.sum()/D1x.sum()-1/S1S*P1/D1x.sum())**2*(dD1**2).sum()+ \
-           S1**2/S1S**4*( (P1/D1x)**2*dD1**2 ).sum()- \
-           -2*S1/S1S**2*(S1/S1S**2*P1.sum()/D1x.sum()-1/S1S*P1/D1x.sum())*(P1/D1x*dD1**2).sum()
-          
-    ET_D2=0
-    ET_E1=0
-    ET_E2=0
-    ET_D=0
+    diff=(t1/t0*P1/m1x+te1/t0*Q1/me1x+t2/t0*P2/m2x+te2/t0*Q2/me2x)
+    ET_m0=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dm0**2
+    chim=diff # save it for returning
+
+    # the error of the transmissions also have this form, only diff differs.
+    diff=-P1/T1+P1/C1*dC1
+    ET_T1=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dT1**2
+
+    diff=-P2/T2+P2/C2*dC2
+    ET_T2=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dT2**2
+
+    #we should take extra care here. Some elements of D1x can be zero.
+    # This shouldn't be a problem, as zero elements are invalid, so they
+    # should be under the mask. Numpy signals float divisions by zero
+    # by setting the result to NaN (not-a-number). Summarizing a matrix
+    # however, if it contains NaN elements, renders the sum to be NaN
+    # as well. Therefore we use np.nansum() instead of sum().
+    alpha=P1/D1x
+    beta=P1/np.nansum(D1x)**2
+    dD=dD1
+    ET_D1=1/S1S**2*(alpha**2-2*alpha*beta-2*S*alpha*(alpha-np.nansum(beta)))*dD**2+ \
+          1/S1S**2*(beta**2+S**2*np.nansum(beta)**2-2*S*beta*np.nansum(beta))*np.nansum(dD**2) + \
+          1/S1S**2*S*np.nansum(alpha**2*dD**2)+ \
+          1/S1S**2*(2*S*beta-2*S**2*np.nansum(beta))*np.nansum(alpha*dD**2)
+    alpha=Q1/E1x
+    beta=Q1/np.nansum(E1x)**2
+    dD=dE1
+    ET_E1=1/S1S**2*(alpha**2-2*alpha*beta-2*S*alpha*(alpha-np.nansum(beta)))*dD**2+ \
+          1/S1S**2*(beta**2+S**2*np.nansum(beta)**2-2*S*beta*np.nansum(beta))*np.nansum(dD**2) + \
+          1/S1S**2*S*np.nansum(alpha**2*dD**2)+ \
+          1/S1S**2*(2*S*beta-2*S**2*np.nansum(beta))*np.nansum(alpha*dD**2)
+    alpha=P2/D2x
+    beta=P2/np.nansum(D2x)**2
+    dD=dD2
+    ET_D2=1/S1S**2*(alpha**2-2*alpha*beta-2*S*alpha*(alpha-np.nansum(beta)))*dD**2+ \
+          1/S1S**2*(beta**2+S**2*np.nansum(beta)**2-2*S*beta*np.nansum(beta))*np.nansum(dD**2) + \
+          1/S1S**2*S*np.nansum(alpha**2*dD**2)+ \
+          1/S1S**2*(2*S*beta-2*S**2*np.nansum(beta))*np.nansum(alpha*dD**2)
+    alpha=Q2/E2x
+    beta=Q2/np.nansum(E2x)**2
+    dD=dE2
+    ET_E2=1/S1S**2*(alpha**2-2*alpha*beta-2*S*alpha*(alpha-np.nansum(beta)))*dD**2+ \
+          1/S1S**2*(beta**2+S**2*np.nansum(beta)**2-2*S*beta*np.nansum(beta))*np.nansum(dD**2) + \
+          1/S1S**2*S*np.nansum(alpha**2*dD**2)+ \
+          1/S1S**2*(2*S*beta-2*S**2*np.nansum(beta))*np.nansum(alpha*dD**2)
+
+    alpha=P1/D1x+P2/D2x+Q1/E1x+Q2/E2x
+    beta=P1/np.nansum(D1x)**2+P2/np.nansum(D2x)**2+Q1/np.nansum(E1x)**2+Q2/np.nansum(E2x)**2
+    dD=dD0
+    ET_D0=1/S1S**2*(alpha**2-2*alpha*beta-2*S*alpha*(alpha-np.nansum(beta)))*dD**2+ \
+          1/S1S**2*(beta**2+S**2*np.nansum(beta)**2-2*S*beta*np.nansum(beta))*np.nansum(dD**2) + \
+          1/S1S**2*S*np.nansum(alpha**2*dD**2)+ \
+          1/S1S**2*(2*S*beta-2*S**2*np.nansum(beta))*np.nansum(alpha*dD**2)
+    #the last alpha and beta are returned!!!
 
     # the error matrix
-    dS=np.sqrt(ET_a1+ET_a2+ET_ae1+ET_ae2+ET_ad+ET_m1+ET_m2+ET_me1+ET_me2+ET_md+
-               ET_D1+ET_D2+ET_E1+ET_E2+ET_D)
+    dS=np.sqrt(ET_a1+ET_a2+ET_ae1+ET_ae2+ET_a0+ET_m1+ET_m2+ET_me1+ET_me2+ET_m0+ \
+               ET_D1+ET_D2+ET_E1+ET_E2+ET_D0+ET_T1+ET_T2)
+    print "The error terms:"
+    print utils.matrixsummary(ET_a1,"ET_a1")
+    pylab.hist(ET_a1.flatten(),bins=100,log=True)
+    print utils.matrixsummary(ET_a2,"ET_a2")
+    print utils.matrixsummary(ET_ae1,"ET_ae1")
+    print utils.matrixsummary(ET_ae2,"ET_ae2")
+    print utils.matrixsummary(ET_a0,"ET_a0")
+    print utils.matrixsummary(ET_m1,"ET_m1")
+    print utils.matrixsummary(ET_m2,"ET_m2")
+    print utils.matrixsummary(ET_me1,"ET_me1")
+    print utils.matrixsummary(ET_me2,"ET_me2")
+    print utils.matrixsummary(ET_m0,"ET_m0")
+    print utils.matrixsummary(ET_T1,"ET_T1")
+    print utils.matrixsummary(ET_T2,"ET_T2")
+    print utils.matrixsummary(ET_D1,"ET_D1")
+    print utils.matrixsummary(ET_D2,"ET_D2")
+    print utils.matrixsummary(ET_E1,"ET_E1")
+    print utils.matrixsummary(ET_E2,"ET_E2")
+    print utils.matrixsummary(ET_D0,"ET_D0")
+    print "----------------"
+    print utils.matrixsummary(dS**2,"dS^2")
+    print utils.matrixsummary(dS,"dS")
+    print utils.matrixsummary(S,"S")
+    print utils.matrixsummary(dS/S,"dS/S")
+    # set nans to zero
+    pylab.figure()
+    dS[np.isnan(dS)]=0
+    guitools.plot2dmatrix(S,mask=mask,blacknegative=True)
+    pylab.colorbar()
+    pylab.title('Sensitivity')
+    pylab.gcf().show()
+    pylab.figure()
+    guitools.plot2dmatrix(dS,mask=mask,blacknegative=True)
+    pylab.colorbar()
+    pylab.title('Error of sensitivity')
+    pylab.gcf().show()
+    pylab.figure()
+    guitools.plot2dmatrix(dS/S,mask=mask,blacknegative=True)
+    pylab.colorbar()
+    pylab.title('Relative error of sensitivity')
+    pylab.gcf().show()
+
+    result={'sens':S,'errorsens':dS,'chia':chia,'chim':chim,'S1S':S1S,'alpha':alpha,'beta':beta,'mask':mask,'D0':D0,'a0':a0,'m0':m0,'t0':t0}
+    if savefile is not None:
+        if savefile[-4:].upper()=='.MAT':
+            scipy.io.savemat(savefile,result,appendmat=False)
+        else:
+            np.savez(savefile,**result)
+    return result
 def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluorescence,origx,origy):
     """Create matrix for detector sensitivity correction
     
@@ -395,9 +596,11 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
             will be the coordinates of the origin and no auto-searching
             will be performed.
         fsndc: one FSN or a list of FSNS corresponding to the empty beam
-            measurements
-        sens: sensitivity matrix
-        errorsens: error of the sensitivity matrix
+            measurements. If sens is a sensitivity dict, this value will
+            be disregarded.
+        sens: sensitivity matrix, or a sensitivity dict.
+        errorsens: error of the sensitivity matrix. If sens is a sensitivity
+            dict, this value will be disregarded.
         mask: mask matrix
         energymeas: list of apparent energies, for energy calibration
         energycalib: list of theoretical energies, corresponding to the
@@ -527,9 +730,11 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
         fsn1: range of fsns. The first should be the empty beam
             measurement.
         fsndc: one FSN or a list of FSNS corresponding to the empty beam
-            measurements
-        sens: sensitivity matrix
-        errorsens: error of the sensitivity matrix
+            measurements. If sens is a sensitivity dict, this value will
+            be disregarded.
+        sens: sensitivity matrix, or a sensitivity dict.
+        errorsens: error of the sensitivity matrix. If sens is a
+            sensitivity dict, this value will be disregarded.
         orifsn: which element of the sequence should be used for
             determining the origin. 0 means empty beam...
             Or you can give a tuple or a list of two: in this case these
@@ -725,7 +930,7 @@ def absorptionangledependenttth(tth,transm,diffaswell=False):
     if diffaswell:
         K=1/np.cos(tth)
         dcor=np.zeros(tth.shape)
-        dcor[tth>0]=(K-1)/(transm**K-transm)**2*(transm**K*np.log(transm)*(1-K)+(transm**K-transm))
+        dcor[tth>0]=(K[tth>0]-1)/(transm**K[tth>0]-transm)**2*(transm**K[tth>0]*np.log(transm)*(1-K[tth>0])+(transm**K[tth>0]-transm))
         return cor,dcor
     else:
         return cor
@@ -845,9 +1050,11 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
         fsn1: list of file sequence numbers (or just one number)
         fsndc: FSN for the dark current measurements. Can be a single
             integer number or a list of numbers. In the latter case the
-            DC data are summed up.
-        sens: sensitivity matrix
-        senserr: error of the sensitivity matrix
+            DC data are summed up. However, if sens is a sensitivity
+            dict, this value will be disregarded.
+        sens: sensitivity matrix, or a sensitivity dict.
+        senserr: error of the sensitivity matrix. If sens is a
+            sensitivity dict, this value will be disregarded.
         transm: if given, disregard the measured transmission of the
             sample.
     
@@ -865,12 +1072,19 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
     #sum up darkcurrent measurements, if more.
     # summarize transmission, anode, monitor and measurement time data
     # for dark current files
-    ad=sum([h['Anode'] for h in headerdc])
-    md=sum([h['Monitor'] for h in headerdc])
-    td=sum([h['MeasTime'] for h in headerdc])    
-    D=sum(datadc)
-    
-    S=sens
+    if type(sens)==type({}):
+        ad=sens['a0']
+        md=sens['m0']
+        td=sens['t0']
+        D=sens['D0']
+        S=sens['sens']
+        senserr=sens['errorsens']
+    else:
+        ad=sum([h['Anode'] for h in headerdc])
+        md=sum([h['Monitor'] for h in headerdc])
+        td=sum([h['MeasTime'] for h in headerdc])    
+        D=sum(datadc)
+        S=sens
 
     Asub=[]
     errAsub=[]
@@ -905,21 +1119,27 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
             print "Note that this may foul the calibration into absolute intensity units!"
             print ""
             print ""
-            print "(sleeping for 5 seconds)"
-            time.sleep(5)
+            utils.pause()
             Ta=_B1config['GCtransmission']
             header[k]['Transm']=Ta
-        # <anything>1 will be the DC corrected version of <anything>
-        A1=A-D*ta/td
-        ma1=ma-md*ta/td	
-        aa1=aa-ad*ta/td
-        B1=B-D*tb/td
-        mb1=mb-md*tb/td
-        ab1=ab-ad*tb/td
-        # C is the resulting matrix (corrected for dark current, 
+        # <anything>x will be the DC corrected version of <anything>
+        Ax=A-D*ta/td
+        max=ma-md*ta/td	
+        aax=aa-ad*ta/td
+        Bx=B-D*tb/td
+        mbx=mb-md*tb/td
+        abx=ab-ad*tb/td
+
+        #angle-dependent corrections:
+        C0=gasabsorptioncorrectiontheta(energycalibrated,tth)*geomcorrectiontheta(tth,dist)
+        
+        #auxiliary variables:
+        P=Ax/(Ta*max*S)*aa/np.nansum(Ax)*C0*Ca
+        
+        # K is the resulting matrix (corrected for dark current, 
         # lost anode counts (dead time), sensitivity, monitor,
-        # transmission, background)
-        C=A1/(Ta*S*ma1)*(aa1/A1.sum())-B1/(S*mb1)*(ab1/B1.sum())
+        # transmission, background, and various angle-dependent errors)
+        K=A1/(Ta*S*ma1)*(aa1/A1.sum())-B1/(S*mb1)*(ab1/B1.sum())
         # for the error propagation, calculate various derivatives. The
         # names of the variables might seem a bit cryptic, but they
         # aren't: dCdTa means simply (dC/dTa), a matrix of the same size
@@ -1350,7 +1570,9 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
                     counter=counter+1
                 if counter>0:
                     Esum=1/w
+                    Esum[np.isnan(Esum)]=0
                     Isum=Isum/w
+                    Isum[np.isnan(Isum)]=0
                     B1io.writeintfile(q,Isum,Esum,edsparams[0],filetype='summed')
                 else:
                     print 'No files were found for summing.'
@@ -1380,7 +1602,9 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
                 waxscounter=waxscounter+1
             if waxscounter>0:
                 Ewaxs=1/wwaxs
+                Ewaxs[np.isnan(Ewaxs)]=0
                 Iwaxs=Iwaxs/wwaxs
+                Iwaxs[np.isnan(Iwaxs)]=0
                 B1io.writeintfile(qwaxs,Iwaxs,Ewaxs,esparams[0],filetype='waxssummed')
             else:
                 print 'No waxs file was found'

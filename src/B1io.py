@@ -9,6 +9,20 @@
 # Copyright:   (c) 2010
 # Licence:     GPLv2
 #-----------------------------------------------------------------------------
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.
 
 import pylab
 import numpy as np
@@ -253,7 +267,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
                 lines=fid.readlines()
                 nx=int(string.strip(lines[10]))
                 ny=int(string.strip(lines[11]))
-                fid.rewind()
+                fid.seek(0,0)
                 data=np.loadtxt(fid,skiprows=133)
                 data=data.reshape((nx,ny))
                 fid.close()
@@ -498,7 +512,7 @@ def write2dintfile(A,Aerr,params,norm=True):
     else:
         filename='int2darb%d.mat' % params['FSN'];
     scipy.io.savemat(filename,{'Intensity':A,'Error':Aerr});
-def readintfile(filename,dirs=[]):
+def readintfile(filename,dirs=[],sanitize=True):
     """Read intfiles.
 
     Input:
@@ -508,7 +522,8 @@ def readintfile(filename,dirs=[]):
     Output:
         A dictionary with 'q' holding the values for the momentum transfer,
             'Intensity' being the intensity vector and 'Error' has the error
-            values. These three fields are numpy ndarrays.
+            values. These three fields are numpy ndarrays. An empty dict
+            is returned if file is not found.
     """
     if type(dirs)==type(''):
         dirs=[dirs]
@@ -540,6 +555,9 @@ def readintfile(filename,dirs=[]):
                             tmpa=float(sp[3]);
                         else:
                             tmpa=pylab.nan;
+                        if sanitize:
+                            if not (np.isfinite(tmpI) and np.isfinite(tmpe)):
+                                continue
                         ret['q'].append(tmpq);
                         ret['Intensity'].append(tmpI);
                         ret['Error'].append(tmpe);
