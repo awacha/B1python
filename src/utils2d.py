@@ -15,10 +15,20 @@ import pylab
 import numpy as np
 import scipy.optimize
 import types
-from c_utils2d import polartransform, radintC
+from c_utils2d import polartransform, radintC,imageintC,azimintpixC
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
 def findbeam_gravity(data,mask):
+    """Find beam center with the "gravity" method
+
+    Inputs:
+        data: scattering image
+        mask: mask matrix
+
+    Output:
+        a vector of length 2 with the x (row) and y (column) coordinates
+         of the origin, starting from 1
+    """
     # for each row and column find the center of gravity
     data1=data.copy() # take a copy, because elements will be tampered
                       # with
@@ -66,9 +76,9 @@ def findbeam_gravity(data,mask):
     pylab.plot(y1,ycent,'.',label='ycent')
     pylab.gcf().show()
     # return the mean values as the centers.
-    return xcent.mean(),ycent.mean()
+    return [xcent.mean()+1,ycent.mean()+1]
 def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
-    """Find beam center
+    """Find beam center with the "slices" method
     
     Inputs:
         data: scattering matrix
@@ -78,7 +88,8 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
             should be of the same size as data. Nonzero means non-masked.
         maxiter: maximum number of iterations for scipy.optimize.fmin
     Output:
-        a vector of length 2 with the x and y coordinates of the origin.
+        a vector of length 2 with the x (row) and y (column) coordinates
+         of the origin.
     """
     print "Finding beam, please be patient..."
     orig=np.array(orig_initial)
@@ -87,10 +98,10 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
     def targetfunc(orig,data,mask):
         #integrate four sectors
         print "integrating... (for finding beam)"
-        c1,nc1=imageint(data,orig,mask,35,20)
-        c2,nc2=imageint(data,orig,mask,35+90,20)
-        c3,nc3=imageint(data,orig,mask,35+180,20)
-        c4,nc4=imageint(data,orig,mask,35+270,20)
+        c1,nc1=imageintC(data,orig,mask,35,20)
+        c2,nc2=imageintC(data,orig,mask,35+90,20)
+        c3,nc3=imageintC(data,orig,mask,35+180,20)
+        c4,nc4=imageintC(data,orig,mask,35+270,20)
         # the common length is the lowest of the lengths
         last=min(len(c1),len(c2),len(c3),len(c4))
         # first will be the first common point: the largest of the first
@@ -122,7 +133,8 @@ def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,
         dmax: pixels farther from the origin than this will be excluded from
             the azimuthal integration
     Output:
-        a vector of length 2 with the x and y coordinates of the origin.
+        a vector of length 2 with the x and y coordinates of the origin,
+            starting from 1
     """
     print "Finding beam, please be patient..."
     orig=np.array(orig_initial)
@@ -206,6 +218,8 @@ def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=np.inf):
         for i in range(len(dat)):
             if (np.isfinite(err[i])) and (err[i]>0):
                 index=np.floor(phi[i]/(2*np.pi)*Ntheta)
+                if index>=Ntheta:
+                    continue
                 I[index]+=dat[i]/(err[i]**2)
                 E[index]+=1/(err[i]**2)
                 A[index]+=1
@@ -284,9 +298,9 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,a=None,shutup=Tr
             be given if wished, in a list with two elements. A scalar value
             means that the pixel size is equal in both directions
         bcx: the coordinate of the beam center in the x (row) direction,
-            starting from ZERO
+            starting from 1
         bcy: the coordinate of the beam center in the y (column) direction,
-            starting from ZERO
+            starting from 1
         mask: the mask matrix (of the same size as data). Nonzero is masked,
             zero is not masked
         q: the q points at which the integration is requested. If None, the
@@ -389,19 +403,19 @@ def calculateDmatrix(mask,res,bcx,bcy):
     Inputs:
         mask: mask matrix (only its shape is used)
         res: pixel size in mm-s. Can be a vector of length 2 or a scalar
-        bcx: Beam center in pixels, in the row direction
-        bcy: Beam center in pixels, in the column direction
+        bcx: Beam center in pixels, in the row direction, starting from 1
+        bcy: Beam center in pixels, in the column direction, starting from 1
         
     Output:
         A matrix of the shape of <mask>. Each element contains the distance
         of the centers of the pixels from the origin (bcx,bcy), expressed in
         mm-s.
     """
-    if type(res)!=types.ListType:
+    if type(res)!=type([]) and type(res)!=type(()):
         res=[res]
     if len(res)<2:
         res=res*2
     Y,X=np.meshgrid(np.arange(mask.shape[1]),np.arange(mask.shape[0]));
-    D=np.sqrt((res[0]*(X-bcx))**2+
-                 (res[1]*(Y-bcy))**2)
+    D=np.sqrt((res[0]*(X-bcx-1))**2+
+                 (res[1]*(Y-bcy-1))**2)
     return D

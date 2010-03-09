@@ -106,12 +106,12 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
         energymeas: apparent energies for energy calibration
         energycalib: calibrated energies for energy calibration
         energyfluorescence: energy of the fluorescence
-        origx, origy: the centers of the beamstop.
+        origx, origy: the centers of the beamstop (row, column), starting from 1.
         mask: a mask to apply (1 for valid, 0 for masked pixels). If None,
             a makemask() window will pop up for user interaction.
         savefile: a .npz file to save results to. None to skip saving.
         
-    Outputs: sensdict,mask
+    Outputs: sensdict
         sens: a dictionary of the following fields:
             sens: the sensitivity matrix of the 2D detector, by which all
                 measured data should be divided pointwise. The matrix is
@@ -121,9 +121,6 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
                 a scalar) are needed for calculation of the correction
                 terms (taking the dependence of a_0... and S into
                 account)
-        mask: mask matrix created by the user. This masks values where
-            the sensitivity is invalid. This should be used as a base
-            for further mask matrices.
     """
     # Watch out: this part is VERY UGLY. If you want to understand what
     # this does (and you better want it ;-)) please take a look at the
@@ -373,7 +370,7 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
 
     diff=-(t1/t0*P1/a1x+te1/t0*Q1/ae1x+t2/t0*P2/a2x+te2/t0*Q2/ae2x)
     ET_a0=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*da0**2
-    chia=diff # save it for returning
+    chia=-diff # save it for returning
     
     diff=(t1/t0*P1/m1x+te1/t0*Q1/me1x+t2/t0*P2/m2x+te2/t0*Q2/me2x)
     ET_m0=1/S1S**2*(diff**2+S**2*diff.sum()**2-2*S*diff*diff.sum())*dm0**2
@@ -474,6 +471,10 @@ def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energy
     pylab.colorbar()
     pylab.title('Relative error of sensitivity')
     pylab.gcf().show()
+    
+    #take care of zeros (mask them and set them to 1 afterwards to avoid division by zero)
+    mask[S<=0]=0
+    S[S<=0]=1
 
     result={'sens':S,'errorsens':dS,'chia':chia,'chim':chim,'S1S':S1S,'alpha':alpha,'beta':beta,'mask':mask,'D0':D0,'a0':a0,'m0':m0,'t0':t0}
     if savefile is not None:
@@ -494,7 +495,7 @@ def makesensitivity(fsn1,fsn2,fsnend,fsnDC,energymeas,energycalib,energyfluoresc
         energymeas: apparent energies for energy calibration
         energycalib: calibrated energies for energy calibration
         energyfluorescence: energy of the fluorescence
-        origx, origy: the centers of the beamstop.
+        origx, origy: the centers of the beamstop (row,column), starting from 1
     
     Outputs: sens,errorsens,mask
         sens: the sensitivity matrix of the 2D detector, by which all
@@ -649,14 +650,14 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
     
     #re-integrate GC measurement to the same q-bins
     print "Re-integrating GC data to the same bins at which the reference is defined"
-    qGC,intGC,errGC,AGC=utils2d.radint(As[referencenumber],
+    qGC,intGC,errGC,AGC=utils2d.radintC(As[referencenumber],
                                Aerrs[referencenumber],
                                header[referencenumber]['EnergyCalibrated'],
                                header[referencenumber]['Dist'],
                                header[referencenumber]['PixelSize'],
                                header[referencenumber]['BeamPosX'],
                                header[referencenumber]['BeamPosY'],
-                               1-mask,
+                               (1-mask).astype('uint8'),
                                GCdata[:,0])
     print "Re-integration done."
     GCdata=GCdata[(AGC>=_B1config['GCareathreshold']) & (intGC>=_B1config['GCintsthreshold']),:]
@@ -723,6 +724,102 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
             else:
                 B1io.writeintfile(qs[k],ints[k],errs[k],header[k],areas[k],filetype='intarb')
             B1io.write2dintfile(As[k],Aerrs[k],header[k],norm=norm)
+def B1findbeam(data,header,orifsn,orig,mask):
+    """Find origin (beam position) on scattering images
+    
+    Inputs:
+        data: list of scattering image matrices of one sequence
+        header: list of header structures corresponding to data.
+        orifsn: which element of <data> and <header> should be used for
+            determining the origin. 0 means empty beam.
+            Or you can give a tuple or a list of two: in this case these
+            will be the coordinates of the origin and no auto-searching
+            will be performed.
+        mask: mask matrix. 1 for non-masked, 0 for masked
+        orig: helper data for the beam finding procedures. You have
+            several possibilities:
+            A) a vector/list/tuple of TWO: findbeam_sector() will be
+                tried. In this case this is the initial value of the
+                beam center
+            B) a vector/list/tuple of FOUR: xmin,xmax,ymin,ymax:
+                the borders of the rectangle, around the beam, if a
+                semitransparent beam-stop was used. In this case
+                findbeam_semitransparent() will be tried, and the beam
+                center will be determined for each measurement,
+                independently (disregarding the value of orifsn).
+            C) a vector/list/tuple of FIVE: Ntheta,dmin,dmax,bcx,bcy:
+                findbeam_azimuthal will be used. Ntheta, dmin and dmax
+                are the respective parameters for azimintpix(), while
+                bcx and bcy are the x and y coordinates for the origin
+                at the first guess.
+            D) a mask matrix (1 means nonmasked, 0 means masked), the
+                same size as that of the measurement data. In this
+                case findbeam_gravity() will be used.
+        transm: you can give this if you know the transmission of the
+            sample from another measurement. Leave it None to use the
+            measured transmission.
+            
+    Outputs: 
+        coords: a list of tuples: each tuple contains the beam center
+            coordinates of the corresponding scattering measurement. The
+            beam positions are saved to the headers as well.
+    """
+    try:
+        lenorifsn=len(orifsn) # if orifsn is not a list, a TypeError exception gets thrown here.
+        if lenorifsn==2:
+            orig=(orifsn[0],orifsn[1])
+            coords=[orig]*len(data)
+            return coords
+        else:
+            print "Malformed orifsn parameter for B1integrate: ",orifsn
+            raise ValueError("Malformed orifsn parameter for B1integrate()")
+    except TypeError: # which means that len(orifsn) was not valid -> orifsn is a scalar.
+        orig1=None
+        try:
+            print "Finding beam, len(orig)=",len(orig)
+            if len(orig)==2:
+                print "Determining origin (by the 'slices' method) from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
+                orig1=utils2d.findbeam_slices(data[orifsn],orig,mask)
+                print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
+                guitools.testorigin(data[orifsn],orig1,mask)
+                utils.pause()
+                coords=[(orig1[0],orig1[1])]*len(data)
+                print coords
+            elif len(orig)==5:
+                print "Determining origin (by the 'azimuthal' method) from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
+                orig1=utils2d.findbeam_azimuthal(data[orifsn],orig[3:5],mask,Ntheta=orig[0],dmin=orig[1],dmax=orig[2])
+                print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
+                guitools.testorigin(data[orifsn],orig1,mask,dmin=orig[1],dmax=orig[2])
+                utils.pause()
+                coords=[(orig1[0],orig1[1])]*len(data)
+                print coords
+            elif len(orig)==4:
+                coords=[]
+                for k in range(len(data)):
+                    print "Determining origin (by the 'semitransparent' method) for file FSN %d %s" %(header[k]['FSN'],header[k]['Title'])
+                    orig1=utils2d.findbeam_semitransparent(data[k],orig)
+                    print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
+                    coords.append((orig1[0],orig1[1]))
+                    guitools.testorigin(data[orifsn],orig1,mask)
+                    utils.pause()
+                print coords
+            elif orig.shape==data[orifsn].shape:
+                print "Determining origin (by the 'gravity' method) from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
+                orig1=utils2d.findbeam_gravity(data[orifsn],orig)
+                print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
+                coords=[(orig1[0],orig1[1])]*len(data)
+                guitools.testorigin(data[orifsn-1],orig1,mask)
+                utils.pause()
+                print coords
+        except:
+            print "Finding the origin did not succeed"
+            raise
+            return None
+    print "Saving origins into headers..."
+    for k in range(len(header)):
+        header[k]['BeamPosX']=coords[k][0]
+        header[k]['BeamPosY']=coords[k][1]
+    return coords
 def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,distminus=0,detshift=0,orig=[122,123.5],transm=None):
     """Integrate a sequence
     
@@ -786,10 +883,15 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
     global _B1config
     distancetoreference=_B1config['distancetoreference'] #mm. The references are nearer to the detector than the samples
     pixelsize=_B1config['pixelsize']
-    # subtract the background and the dark current, normalise by sensitivity and transmission
-    Asub,errAsub,header,injectionEB = subtractbg(fsn1,fsndc,sens,errorsens,transm)
+
+    #load measurement files
+    data,header=B1io.read2dB1data(_B1config['2dfileprefix'],fsn1,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+
+    #finding beamcenter
+    origs=B1findbeam(data,header,orifsn,orig,mask)
+
     print "B1integrate: doing energy calibration and correction for reference distance"
-    for k in range(len(Asub)):
+    for k in range(len(data)):
         if header[k]['Title']=='Reference_on_GC_holder_before_sample_sequence':
             header[k]['Dist']=header[k]['Dist']-distancetoreference-detshift
             print "Corrected sample-detector distance for fsn %d (ref. before)." % header[k]['FSN']
@@ -800,50 +902,11 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             header[k]['Dist']=header[k]['Dist']-distminus-detshift
         header[k]['EnergyCalibrated']=energycalibration(energymeas,energycalib,header[k]['Energy'])
         print "Calibrated energy for FSN %d (%s): %f -> %f" %(header[k]['FSN'],header[k]['Title'],header[k]['Energy'],header[k]['EnergyCalibrated'])
-    #finding beamcenter
+        header[k]['XPixel']=pixelsize
+        header[k]['YPixel']=pixelsize
+    # subtract the background and the dark current, normalise by sensitivity and transmission
+    Asub,errAsub,header,injectionEB = subtractbg(data,header,fsndc,sens,errorsens,transm)
     
-    try:
-        lenorifsn=len(orifsn)
-        if lenorifsn==2:
-            orig=orifsn
-        else:
-            print "Malformed orifsn parameter for B1integrate: ",orifsn
-            raise ValueError("Malformed orifsn parameter for B1integrate()")
-    except TypeError:
-        orig1=None
-        try:
-            print "Finding beam, len(orig)=",len(orig)
-            if len(orig)==2:
-                print "Determining origin (by the 'slices' method) from file FSN %d %s" %(header[orifsn-1]['FSN'],header[orifsn-1]['Title'])
-                orig1=utils2d.findbeam_slices(Asub[orifsn-1],orig,mask)
-                print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
-                guitools.testorigin(Asub[orifsn-1],orig1,mask)
-                utils.pause()
-            elif len(orig)==5:
-                print "Determining origin (by the 'azimuthal' method) from file FSN %d %s" %(header[orifsn-1]['FSN'],header[orifsn-1]['Title'])
-                orig1=utils2d.findbeam_azimuthal(Asub[orifsn-1],orig[3:5],mask,Ntheta=orig[0],dmin=orig[1],dmax=orig[2])
-                print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
-                guitools.testorigin(Asub[orifsn-1],orig1,mask,dmin=orig[1],dmax=orig[2])
-                utils.pause()
-            elif len(orig)==4:
-                for k in range(len(Asub)):
-                    print "Determining origin (by the 'semitransparent' method) for file FSN %d %s" %(header[k]['FSN'],header[k]['Title'])
-                    orig1=utils2d.findbeam_semitransparent(Asub[k],orig)
-                    print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
-                    header[k]['BeamPosX']=orig1[0]
-                    header[k]['BeamPosY']=orig1[1]
-                    guitools.testorigin(Asub[orifsn],orig1,mask)
-                    utils.pause()
-            elif orig.shape==Asub[orifsn-1].shape:
-                print "Determining origin (by the 'gravity' method) from file FSN %d %s" %(header[orifsn-1]['FSN'],header[orifsn-1]['Title'])
-                orig1=utils2d.findbeam_gravity(Asub[orifsn-1],orig)
-                print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
-                guitools.testorigin(Asub[orifsn-1],orig1,mask)
-                utils.pause()
-        except:
-            print "Finding the origin did not succeed"
-            return [],[],[],[],[],[],[]
-        
     qs=[]
     ints=[]
     errs=[]
@@ -855,17 +918,9 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
     for k in range(len(Asub)):
         if header[k]['Title']==_B1config['ebtitle']:
             continue
-        if len(orig)!=4:
-            header[k]['BeamPosX']=orig1[0]
-            header[k]['BeamPosY']=orig1[1]
         header[k]['PixelSize']=pixelsize
-        D=utils2d.calculateDmatrix(mask,pixelsize,header[k]['BeamPosX'],header[k]['BeamPosY'])
-        tth=np.arctan(D/header[k]['Dist'])
-        spatialcorr=geomcorrectiontheta(tth,header[k]['Dist'])
-        absanglecorr=absorptionangledependenttth(tth,header[k]['Transm'])
-        gasabsorptioncorr=gasabsorptioncorrectiontheta(header[k]['EnergyCalibrated'],tth)
-        As.append(Asub[k]*spatialcorr*absanglecorr*gasabsorptioncorr)
-        Aerrs.append(errAsub[k]*spatialcorr*absanglecorr*gasabsorptioncorr)
+        As.append(Asub[k])
+        Aerrs.append(errAsub[k])
         pylab.clf()
         guitools.plot2dmatrix(Asub[k],None,mask,header[k],blacknegative=True)
         pylab.gcf().suptitle('FSN %d (%s) Corrected, log scale\nBlack: nonpositives; Faded: masked pixels' % (header[k]['FSN'],header[k]['Title']))
@@ -874,9 +929,9 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
         #now do the integration
         print "Now integrating..."
         spam=time.time()
-        q,I,e,A=utils2d.radint(As[-1],Aerrs[-1],header[k]['EnergyCalibrated'],header[k]['Dist'],
+        q,I,e,A=utils2d.radintC(As[-1],Aerrs[-1],header[k]['EnergyCalibrated'],header[k]['Dist'],
                        header[k]['PixelSize'],header[k]['BeamPosX'],
-                       header[k]['BeamPosY'],1-mask)
+                       header[k]['BeamPosY'],(1-mask).astype('uint8'))
         qs.append(q)
         ints.append(I)
         errs.append(e)
@@ -889,7 +944,8 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
         pylab.cla()
         #print qs[-1]
         #print ints[-1]
-        pylab.errorbar(qs[-1],ints[-1],errs[-1])
+        valid=np.isfinite(ints[-1])&np.isfinite(errs[-1])
+        pylab.errorbar(qs[-1][valid],ints[-1][valid],errs[-1][valid])
         pylab.axis('tight')
         pylab.xlabel(u'q (1/%c)' % 197)
         pylab.ylabel('Intensity (arb. units)')
@@ -982,72 +1038,14 @@ def gasabsorptioncorrectiontheta(energycalibrated,tth,components=None):
         c['mu']=-np.log(tr) # in 1/mm
         cor=cor/np.exp(-c['travel']*c['mu'])
     return cor
-def subtractbg_old(fsn1,fsndc,sens,senserr,transm=None):
+def subtractbg(data,header,fsndc,sens,senserr,transm=None,oldversion=False):
     """Subtract dark current and empty beam from the measurements and
     carry out corrections for detector sensitivity, dead time and beam
-    flux (monitor counter). subdc() is called... NOTE: the error propagation
-    of this is not very good, please consider using subtractbg().
+    flux (monitor counter).
     
     Inputs:
-        fsn1: list of file sequence numbers (or just one number)
-        fsndc: FSN for the dark current measurements. Can be a single
-            integer number or a list of numbers. In the latter case the
-            DC data are summed up.
-        sens: sensitivity matrix
-        senserr: error of the sensitivity matrix
-        transm: if given, disregard the measured transmission of the
-            sample.
-    
-    Outputs: Asub,errAsub,header,injectionEB
-        Asub: the corrected matrix
-        errAsub: the error of the corrected matrix
-        header: header data
-        injectionEB: 'y' if an injection between the empty beam and
-            sample measurement occured. 'n' otherwise
-    """
-    global _B1config
-    datadc,headerdc=B1io.read2dB1data(_B1config['2dfileprefix'],fsndc,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
-    data,header=B1io.read2dB1data(_B1config['2dfileprefix'],fsn1,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
-    
-    Asub=[]
-    errAsub=[]
-    headerout=[]
-    injectionEB=[]
-    
-    for k in range(len(data)): # for each measurement
-        # read int empty beam measurement file
-        [databg,headerbg]=B1io.read2dB1data(_B1config['2dfileprefix'],header[k]['FSNempty'],_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
-        if len(databg)==0:
-            print 'Cannot find all empty beam measurements.\nWhere is the empty FSN %d belonging to FSN %d? Stopping.'% (header[k]['FSNempty'],header[k]['FSN'])
-            return Asub,errAsub,headerout,injectionEB
-        # subtract dark current and normalize by sensitivity and transmission (1 in case of empty beam)
-        Abg,Abgerr=subdc(databg,headerbg,datadc,headerdc,sens,senserr)
-        # subtract dark current from scattering patterns and normalize by sensitivity and transmission
-        A2,A2err=subdc([data[k]],[header[k]],datadc,headerdc,sens,senserr,transm)
-        # subtract background, but first check if an injection occurred
-        if header[k]['Current1']>headerbg[0]['Current2']:
-            print "Possibly an injection between sample and its background:"
-            B1io.getsamplenames(_B1config['2dfileprefix'],header[k]['FSN'],_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
-            B1io.getsamplenames(_B1config['2dfileprefix'],header[k]['FSNempty'],_B1config['2dfilepostfix'],showtitles='no',dirs=_B1config['measdatadir'])
-            print "Current in DORIS at the end of empty beam measurement %.2f." % headerbg[0]['Current2']
-            print "Current in DORIS at the beginning of sample measurement %.2f." % header[k]['Current1']
-            injectionEB.append('y')
-        else:
-            injectionEB.append('n')
-        header[k]['injectionEB']=injectionEB[-1]
-        Asub.append(A2-Abg) # they were already normalised by the transmission
-        errAsub.append(np.sqrt(A2err**2+Abgerr**2))
-        header[k]['FSNdc']=fsndc
-        headerout.append(header[k])
-    return Asub, errAsub, headerout, injectionEB
-def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
-    """Subtract dark current and empty beam from the measurements and
-    carry out corrections for detector sensitivity, dead time and beam
-    flux (monitor counter). This is a newer version, which does all the
-    error propagation more correctly.
-    
-    Inputs:
-        fsn1: list of file sequence numbers (or just one number)
+        data: list of scattering image matrices
+        header: list of header dictionaries
         fsndc: FSN for the dark current measurements. Can be a single
             integer number or a list of numbers. In the latter case the
             DC data are summed up. However, if sens is a sensitivity
@@ -1057,7 +1055,8 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
             sensitivity dict, this value will be disregarded.
         transm: if given, disregard the measured transmission of the
             sample.
-    
+        oldversion: do an old-style error propagation (an approximation
+            only, not a true and mathematically exact error propagation)
     Outputs: Asub,errAsub,header,injectionEB
         Asub: the corrected matrix
         errAsub: the error of the corrected matrix
@@ -1066,146 +1065,207 @@ def subtractbg(fsn1,fsndc,sens,senserr,transm=None):
             sample measurement occured. 'n' otherwise
     """
     global _B1config
-    datadc,headerdc=B1io.read2dB1data(_B1config['2dfileprefix'],fsndc,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
-    data,header=B1io.read2dB1data(_B1config['2dfileprefix'],fsn1,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+    hackDCsub=1
     
-    #sum up darkcurrent measurements, if more.
-    # summarize transmission, anode, monitor and measurement time data
-    # for dark current files
-    if type(sens)==type({}):
+    if type(sens)==type({}): # if sens is a new-type sensitivity dict
         ad=sens['a0']
         md=sens['m0']
         td=sens['t0']
         D=sens['D0']
         S=sens['sens']
         senserr=sens['errorsens']
-    else:
+    else: # the original way
+        # load DC measurement files
+        datadc,headerdc=B1io.read2dB1data(_B1config['2dfileprefix'],fsndc,_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
+        #sum up darkcurrent measurements, if more.
+        # summarize transmission, anode, monitor and measurement time data
+        # for dark current files
         ad=sum([h['Anode'] for h in headerdc])
         md=sum([h['Monitor'] for h in headerdc])
         td=sum([h['MeasTime'] for h in headerdc])    
         D=sum(datadc)
         S=sens
-
+    dad=np.sqrt(ad)
+    dmd=np.sqrt(md)
+    dD=np.sqrt(D)
+    # initialize the result lists to emptys
     Asub=[]
     errAsub=[]
     headerout=[]
     injectionEB=[]
     
     for k in range(len(data)): # for each measurement
-        # read int empty beam measurement file
-        if header[k]['Title']==_B1config['ebtitle']:
+        if header[k]['Title']==_B1config['ebtitle']: # if this is an empty beam measurement, skip.
             continue
-        [databg,headerbg]=B1io.read2dB1data(_B1config['2dfileprefix'],header[k]['FSNempty'],_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
-        if len(databg)==0:
+        ebindex=None
+        for i in range(len(header)): # find empty beam in sequence
+            if header[i]['FSN']==header[k]['FSNempty']:
+                ebindex=i
+        if ebindex is None:
             print 'Cannot find all empty beam measurements.\nWhere is the empty FSN %d belonging to FSN %d? Ignoring.'% (header[k]['FSNempty'],header[k]['FSN'])
-            continue    
-        A=data[k]
-        B=databg[0]
-        ta=header[k]['MeasTime']
-        tb=headerbg[0]['MeasTime']
-        aa=header[k]['Anode']
-        ab=headerbg[0]['Anode']
-        ma=header[k]['Monitor']
-        mb=headerbg[0]['Monitor']
-        Ta=header[k]['Transm']
-        dTa=0 # if it is not zero, please set it here.
-        if (Ta<=0):
-            print ""
-            print ""
-            print "---------------------------------------------------------------------"
-            print "VERY BIG, VERY FAT WARNING!!!"
-            print "The transmission of this sample (",header[k]['Title'],") is nonpositive!"
-            print "ASSUMING IT TO BE %f." % (_B1config['GCtransmission'])
-            print "Note that this may foul the calibration into absolute intensity units!"
-            print ""
-            print ""
-            utils.pause()
-            Ta=_B1config['GCtransmission']
-            header[k]['Transm']=Ta
-        # <anything>x will be the DC corrected version of <anything>
-        Ax=A-D*ta/td
-        max=ma-md*ta/td	
-        aax=aa-ad*ta/td
-        Bx=B-D*tb/td
-        mbx=mb-md*tb/td
-        abx=ab-ad*tb/td
+            continue
 
-        #angle-dependent corrections:
-        C0=gasabsorptioncorrectiontheta(energycalibrated,tth)*geomcorrectiontheta(tth,dist)
-        
-        #auxiliary variables:
-        P=Ax/(Ta*max*S)*aa/np.nansum(Ax)*C0*Ca
-        
-        # K is the resulting matrix (corrected for dark current, 
-        # lost anode counts (dead time), sensitivity, monitor,
-        # transmission, background, and various angle-dependent errors)
-        K=A1/(Ta*S*ma1)*(aa1/A1.sum())-B1/(S*mb1)*(ab1/B1.sum())
-        # for the error propagation, calculate various derivatives. The
-        # names of the variables might seem a bit cryptic, but they
-        # aren't: dCdTa means simply (dC/dTa), a matrix of the same size
-        # that of C
-        dCdTa=-A1/(Ta*Ta*S*ma1)*aa1/A1.sum()
-        dCdma=-A1/(Ta*S*ma1*ma1)*aa1/A1.sum()
-        dCdmb=B1/(S*mb1*mb1)*ab1/B1.sum()
-        dCdmd=A1/(Ta*S*ma1*ma1)*ta/td*aa1/A1.sum()-B1/(S*mb1*mb1)*tb/td*ab1/B1.sum()
-        dCdaa=A1/(Ta*S*ma1)/A1.sum()
-        dCdab=-B1/(S*mb1)/B1.sum()
-        dCdad=-A1/(Ta*S*ma1)*(ta/td)/A1.sum()+B1/(S*mb1)*(tb/td)/B1.sum()
-        dCdS=-A1/(Ta*S*S*ma1)*aa1/A1.sum()+B1/(S*S*mb1)*ab1/B1.sum()
-        # the dependence of the error of C on DA, DB, DD is not trivial.
-        # They can be calculated as:
-        # DC_ij=sqrt(dC_ijdTa**2 + ... + sum_mn (dC_ijdA_mn)**2*DA_mn**2 + ... )
-        # dCdA_mn = delta(i,m)*delta(j,n)/(Ta*S_ij*ma1)*aa1/A1.sum() - A1/(Ta*S_ij*ma1)*aa1/A1.sum()**2 =
-        #         = aa1 / (Ta*S_ij*ma1*A1.sum())* (delta(i,m)*delta(j,n)-A1/A1.sum())
-        # so sum_mn (dCdA_mn**2*dA_mn**2) = sum_mn(dCdA_mn**2*A_mn) = ... (see next line in code)
-        dCdA2DA2=(aa1/(Ta*S*ma1*A1.sum()))**2*(A.sum()*(A1/A1.sum())**2-2*A1/A1.sum()*A+A) # the name means now (dC/dA)^2*DA*2
-        # the error propagation of B is similar:
-        dCdB2DB2=(ab1/(S*mb1*B1.sum()))**2*(B.sum()*(B1/B1.sum())**2-2*B1/B1.sum()*B+B)
-        # the error propagation of D is just a little trickier:
-        alpha=aa1*ta/(Ta*ma1*A1.sum())
-        beta=ab1*tb/(mb1*B1.sum())
-        
-        dCdD2DD2=1/(td*S)**2*( (alpha*A1/A1.sum()-beta*B1/B1.sum())**2*D.sum() 
-                                -2*(alpha*A1/A1.sum()-beta*B1/B1.sum())*(alpha-beta)*D +
-                                (alpha-beta)**2 *D)
-        print "error analysis for sample %s" %header[k]['Title']
-        print "Transmission: %g +/- %g" %((dCdTa**2*dTa**2).mean(),(dCdTa**2*dTa**2).std())
-        print "Monitor(Sample): %g +/- %g" %((dCdma**2*ma).mean(),(dCdma**2*ma).std())
-        print "Monitor(Empty beam): %g +/- %g" %((dCdmb**2*mb).mean(),(dCdmb**2*mb).std())
-        print "Monitor(Dark current): %g +/- %g" %((dCdmd**2*md).mean(),(dCdmd**2*md).std())
-        print "Anode(Sample): %g +/- %g" %((dCdaa**2*aa).mean(),(dCdaa**2*aa).std())
-        print "Anode(Empty beam): %g +/- %g" %((dCdab**2*ab).mean(),(dCdab**2*ab).std())
-        print "Anode(Dark current): %g +/- %g" %((dCdad**2*ad).mean(),(dCdad**2*ad).std())
-        print "Sensitivity: %g +/- %g" %((dCdS**2*senserr**2).mean(),(dCdS**2*senserr**2).std())
-        print "Sample: %g +/- %g" %((dCdA2DA2).mean(),dCdA2DA2.std())
-        print "Empty beam: %g +/- %g" %((dCdB2DB2).mean(),(dCdB2DB2).std())
-        print "Dark current: %g +/- %g" %((dCdD2DD2).mean(),(dCdD2DD2).std())
-        dC=np.sqrt(dCdTa**2*dTa**2 + dCdma**2*ma + dCdmb**2*mb + dCdmd**2*md + dCdS**2*senserr**2 +
-                      dCdaa**2*aa + dCdab**2*ab + dCdad**2*ad + dCdA2DA2 + dCdB2DB2 + dCdD2DD2)
-        print "Total error: %g +/- %g" % ((dC**2).mean(),(dC**2).std())
-        #normalize by beam size
-        Bx=header[k]['XPixel'] # the empty beam should be measured with the same settings...
-        By=header[k]['YPixel']
-        C=C/(Bx*By)
-        dC=dC/(Bx*By)
-        
-        if header[k]['Current1']>headerbg[0]['Current2']:
+        if oldversion:
+            # subtract dark current and normalize by sensitivity and transmission (1 in case of empty beam)
+            Abg,Abgerr=subdc(databg,headerbg,datadc,headerdc,sens,senserr)
+            # subtract dark current from scattering patterns and normalize by sensitivity and transmission
+            A2,A2err=subdc([data[k]],[header[k]],datadc,headerdc,sens,senserr,transm)
+
+            #two-theta
+            tth=np.arctan(utils2d.calculateDmatrix(Ax,(header[k]['XPixel'],header[k]['YPixel']),header[k]['BeamPosX'],header[k]['BeamPosY'])/header[k]['Dist'])
+            #angle-dependent corrections:
+            C0=gasabsorptioncorrectiontheta(header[k]['EnergyCalibrated'],tth)*geomcorrectiontheta(tth,header[k]['Dist'])
+            Ca=absorptionangledependenttth(tth,Ta)
+            # subtract background, but first check if an injection occurred
+            K=A2*C0*Ca-Abg*C0
+            dK=np.sqrt(A2err**2*C0**2*Ca**2+Abgerr**2*C0**2)
+        else: # new version
+            A=data[k]
+            dA=np.sqrt(A)
+            B=data[ebindex]
+            dB=np.sqrt(B)
+            ta=header[k]['MeasTime']
+            tb=header[ebindex]['MeasTime']
+            aa=header[k]['Anode']
+            daa=np.sqrt(aa)
+            ab=header[ebindex]['Anode']
+            dab=np.sqrt(ab)
+            ma=header[k]['Monitor']
+            dma=np.sqrt(ma)
+            mb=header[ebindex]['Monitor']
+            dmb=np.sqrt(mb)
+            Ta=header[k]['Transm']
+            dTa=0 # if the error of the transmission is not zero, please set it here.
+            if (Ta<=0): # older measurements on the glassy carbon did not save the transmission.
+                print ""
+                print ""
+                print "---------------------------------------------------------------------"
+                print "VERY BIG, VERY FAT WARNING!!!"
+                print "The transmission of this sample (",header[k]['Title'],") is nonpositive!"
+                print "ASSUMING IT TO BE %f." % (_B1config['GCtransmission'])
+                print "Note that this may foul the calibration into absolute intensity units!"
+                print ""
+                print ""
+                utils.pause()
+                Ta=_B1config['GCtransmission']
+                header[k]['Transm']=Ta
+            # <anything>x will be the DC corrected version of <anything>
+            Ax=A-D*ta/td
+            max=ma-md*ta/td	
+            aax=aa-ad*ta/td
+            Bx=B-D*tb/td
+            mbx=mb-md*tb/td
+            abx=ab-ad*tb/td
+            if hackDCsub:
+                print "Tampering with DC subtraction!"
+                Ax[Ax<=0]=np.nanmin(Ax[Ax>0])
+                Bx[Bx<=0]=np.nanmin(Bx[Bx>0])
+
+            print "DC corrected counts:"
+            print "ma:",max
+            print "mb:",mbx
+            print "aa:",aax
+            print "ab:",abx
+            print utils.matrixsummary(Ax,"A")
+            print utils.matrixsummary(Bx,"B")
+            #two-theta for the pixels
+            tth=np.arctan(utils2d.calculateDmatrix(Ax,(header[k]['XPixel'],header[k]['YPixel']),header[k]['BeamPosX'],header[k]['BeamPosY'])/header[k]['Dist'])
+    
+            #angle-dependent corrections:
+            C0=gasabsorptioncorrectiontheta(header[k]['EnergyCalibrated'],tth)*geomcorrectiontheta(tth,header[k]['Dist'])
+            Ca,dCa=absorptionangledependenttth(tth,Ta,diffaswell=True)
+            
+            #auxiliary variables:
+            P=Ax/(Ta*max*S)*aax/np.nansum(Ax)*C0*Ca
+            Q=-Bx/(mbx*S)*abx/np.nansum(Bx)*C0
+            print "Auxiliary matrices:"
+            print utils.matrixsummary(P,"P")
+            print utils.matrixsummary(Q,"Q")
+            # K is the resulting matrix (corrected for dark current, 
+            # lost anode counts (dead time), sensitivity, monitor,
+            # transmission, background, and various angle-dependent errors)
+            K=P+Q
+            #now calculate the different error terms: ET_x is the contribution
+            # to the error of K from x.
+            ET_Ta=(-P/Ta+dCa/Ca)**2*dTa**2
+            ET_ma=(P/max)**2*dma**2
+            ET_mb=(Q/mbx)**2*dmb**2
+            ET_md=(ta/td*P/max+tb/td*Q/mbx)**2*dmd**2
+            ET_aa=(P/aax)**2*daa**2
+            ET_ab=(Q/abx)**2*dab**2
+            ET_ad=(ta/td*P/aax+tb/td*Q/abx)**2*dad**2
+            ET_S=(K/S)**2*senserr**2
+
+            ET_A=(P**2/Ax**2-2*P**2/(Ax*np.nansum(Ax)))*dA**2+P**2/np.nansum(Ax)**2*np.nansum(dA**2)
+            ET_B=(Q**2/Bx**2-2*Q**2/(Bx*np.nansum(Bx)))*dB**2+Q**2/np.nansum(Bx)**2*np.nansum(dB**2)
+            alpha=(ta/td*P/Ax+tb/td*Q/Bx)
+            beta=(ta/td*P/np.nansum(Ax)+tb/td*Q/np.nansum(Bx))
+           
+            print utils.matrixsummary(alpha,"alpha_dark")
+            print utils.matrixsummary(beta,"beta_dark")
+            ET_D=alpha**2*dD**2+beta**2*np.nansum(dD**2)-2*alpha*beta*dD**2
+
+            print "error analysis for sample %s" %header[k]['Title']
+            print utils.matrixsummary(ET_Ta,"Transmission             ")
+            print utils.matrixsummary(ET_ma,"Monitor (sample)         ")
+            print utils.matrixsummary(ET_mb,"Monitor (empty beam)     ")
+            print utils.matrixsummary(ET_md,"Monitor (dark current)   ")
+            print utils.matrixsummary(ET_aa,"Anode (sample)           ")
+            print utils.matrixsummary(ET_ab,"Anode (empty beam)       ")
+            print utils.matrixsummary(ET_ad,"Anode (dark current)     ")
+            print utils.matrixsummary(ET_S,"Sensitivity              ")
+            print utils.matrixsummary(ET_A,"Scattering (sample)      ")
+            print utils.matrixsummary(ET_B,"Scattering (empty beam)  ")
+            print utils.matrixsummary(ET_D,"Scattering (dark current)")
+            dK=np.sqrt(ET_Ta+ET_ma+ET_mb+ET_md+ET_aa+ET_ab+ET_ad+ET_S+ET_A+ET_B+ET_D)
+            print utils.matrixsummary(K,"Corrected matrix         ")
+            print utils.matrixsummary(dK,"Total error              ")
+            print utils.matrixsummary(dK**2,"Squared total error      ")
+            print utils.matrixsummary(dK/K,"Relative error           ")
+            if type(sens)==type({}): # if sens is a new-type sensitivity dict
+                #correction terms, accounting for the dependence of S and md,ad,D
+                CT_md=-2*K/S*(ta/t0*P/max+tb/t0*Q/mbx)*1/sens['S1S']* \
+                    (sens['chim']-S*np.nansum(sens['chim']))*dmd**2
+                CT_ad=-2*K/S*(ta/t0*P/aax+tb/t0*Q/abx)*1/sens['S1S']* \
+                    (sens['chia']-S*np.nansum(sens['chia']))*dad**2
+                CT_D=2*K/(S*sens['S1S'])*(ta/t0*P/Ax+tb/t0*Q/Bx)*(S*np.nansum(sens['beta'])-sens['beta']+(1-S+ta/t0*P/np.nansum(Ax)+tb/t0*Q/np.nansum(Bx))*sens['alpha'])*dD**2-\
+                    2*K/(S*sens['S1S'])*(ta/t0*P/np.nansum(Ax)+tb/t0*Q/np.nansum(Bx))*(S*np.nansum(sens['beta'])-sens['beta'])*np.nansum(dD**2) + \
+                    2*K/(S*sens['S1S'])*(ta/t0*P/np.nansum(Ax)+tb/t0*Q/np.nansum(Bx))*S*np.nansum(sens['alpha']*dD**2)
+                print "Correction terms:"
+                print utils.matrixsummary(CT_ad,"Anode (dark current)     ")
+                print utils.matrixsummary(CT_md,"Monitor (dark current)   ")
+                print utils.matrixsummary(CT_D,"Scattering (dark current)")
+                dK=np.sqrt(ET_Ta+ET_ma+ET_mb+ET_md+ET_aa+ET_ab+ET_ad+ET_S+ET_A+ET_B+ET_D+ CT_ad+CT_md+CT_D)
+                print utils.matrixsummary(dK,"Total error")
+                print utils.matrixsummmary(dK**2,"Squared total error")
+
+            #normalize by beam size
+            Bx=header[k]['XPixel'] # the empty beam should be measured with the same settings...
+            By=header[k]['YPixel']
+            K=K/(Bx*By)
+            dK=dK/(Bx*By)
+        # now K and dK are ready, either using the old or the new version.
+
+        # check if injection occurred between the empty beam and the dark current measurement
+        if header[k]['Current1']>header[ebindex]['Current2']:
             print "Possibly an injection between sample and its background:"
             B1io.getsamplenames(_B1config['2dfileprefix'],header[k]['FSN'],_B1config['2dfilepostfix'],dirs=_B1config['measdatadir'])
             B1io.getsamplenames(_B1config['2dfileprefix'],header[k]['FSNempty'],_B1config['2dfilepostfix'],showtitles='no',dirs=_B1config['measdatadir'])
-            print "Current in DORIS at the end of empty beam measurement %.2f." % headerbg[0]['Current2']
+            print "Current in DORIS at the end of empty beam measurement %.2f." % header[ebindex]['Current2']
             print "Current in DORIS at the beginning of sample measurement %.2f." % header[k]['Current1']
             injectionEB.append('y')
         else:
             injectionEB.append('n')
         header[k]['injectionEB']=injectionEB[-1]
-        Asub.append(C)
-        errAsub.append(dC)
+        Asub.append(K)
+        errAsub.append(dK)
         header[k]['FSNdc']=fsndc
         headerout.append(header[k])
     return Asub, errAsub, headerout, injectionEB
 def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
-    """Carry out dead-time corrections on 2D data, from the Gabriel detector.
+    """Carry out dead-time corrections (anode counts/sum) on 2D
+        scattering data, subtract dark current, normalize by monitor
+        counts and sensitivity, and finally by pixel size.
     
     Inputs:
         data: list of 2d scattering images, to be added
@@ -1222,6 +1282,15 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     """
     # summarize transmission, anode, monitor and measurement time data
     # for measurement files
+    if type(data)!=type([]):
+        raise TypeError("Parameter <data> should be a list!")
+    if type(header)!=type([]):
+        raise TypeError("Parameter <header> should be a list!")
+    if type(datadc)!=type([]):
+        raise TypeError("Parameter <datadc> should be a list!")
+    if type(headerdc)!=type([]):
+        raise TypeError("Parameter <headerdc> should be a list!")
+    
     if transm is None:
         transm=np.array([h['Transm'] for h in header])
         transmave=transm.mean() # average transmission
@@ -1239,8 +1308,7 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
         print "Note that this may foul the calibration into absolute intensity units!"
         print ""
         print ""
-        print "(sleeping for 5 seconds)"
-        time.sleep(5)
+        utils.pause()
         transmave=0.5
         for h in header:
             h['Transm']=transmave
@@ -1256,42 +1324,39 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     andc=sum([h['Anode'] for h in headerdc])
     modc=sum([h['Monitor'] for h in headerdc])
     meastimedc=sum([h['MeasTime'] for h in headerdc])
-    
-    # correct monitor counts with its dark current
-    monitor1corrected=mo1-modc*meastime1/meastimedc
-    
+
     # add up scattering patterns
-    A=sum(data) # do not use np.sum()
+    A1=sum(data) # do not use np.sum()
     Adc=sum(datadc)
     
-    #subtract the dark current from the scattering pattern
-    sumA2=(A-Adc*meastime1/meastimedc).sum()
+    # correct monitor counts with its dark current
+    mo2=mo1-modc*meastime1/meastimedc
+    an2=an1-andc*meastime1/meastimedc
+    A2=A-Adc*meastime1/meastimedc
+
+    mo2err=np.sqrt(mo1+modc*(meastime1/meastimedc)**2)
+    an2err=np.sqrt(an1+andc*(meastime1/meastimedc)**2)
+    A2err=np.sqrt(A1+Adc*(meastime1/meastimedc)**2)
+
+    sumA2=A2.sum()
     # error of sumA2, not sum of error of A2.
-    sumA2err=np.sqrt((A+(meastime1/meastimedc)**2*Adc).sum())
-    
-    anA2=an1-andc*meastime1/meastimedc;
-    anA2err=np.sqrt(an1+(meastime1/meastimedc)**2*andc)
+    sumA2err=np.sqrt((A2err**2).sum())
     
     # summarized scattering pattern, subtracted the dark current,
     # normalized by the monitor counter and the sensitivity
-    A2=(A-Adc*meastime1/meastimedc)/sens/monitor1corrected
+    A3=A2/(sens*mo2)*an2/sumA2/transmave
     
-    print "Sum/Total of dark current: %.2f. Counts/s %.1f." % (100*Adc.sum()/andc,andc/meastimedc)
-    print "Sum/Total before dark current correction: %.2f. Counts on anode %.1f cps. Monitor %.1f cps." %(100*A.sum()/an1,an1/meastime1,monitor1corrected/meastime1)
-    print "Sum/Total after dark current correction: %.2f." % (100*sumA2/anA2)
-    errA=np.sqrt(A)
-    errAdc=np.sqrt(Adc)
-    errmonitor1corrected=mo1+modc*meastime1/meastimedc
-    errA2=np.sqrt(1/(sens*monitor1corrected)**2*errA**2+
-                     (meastime1/(meastimedc*sens*monitor1corrected))**2*errAdc**2+
-                     (1/(monitor1corrected**2*sens)*(A-Adc*meastime1/meastimedc))**2*errmonitor1corrected**2+
-                     (1/(monitor1corrected*sens**2)*(A-Adc*meastime1/meastimedc))**2*senserr**2)
+    print "Sum/Total of dark current: %.2f %. Counts/s %.1f." % (100*Adc.sum()/andc,andc/meastimedc)
+    print "Sum/Total before dark current correction: %.2f %. Counts on anode %.1f cps. Monitor %.1f cps." %(100*A.sum()/an1,an1/meastime1,mo2/meastime1)
+    print "Sum/Total after dark current correction: %.2f %." % (100*sumA2/anA2)
+
+    A3err=np.sqrt((A2err/(sens*mo2*transmave)*an2/sumA2)**2+ \
+                  (senserr*A2/(sens**2*mo2*transmave)*an2/sumA2)**2+ \
+                  (mo2err*A2/(sens*transmave*mo2**2)*an2/sumA2)**2+ \
+                  (an2err*A2/(sens*mo2*transmave)/sumA2)**2+ \
+                  (sumA2err*A2/(sens*mo2*transmave)*an2/sumA2**2)**2+ \
+                  (transmerr*A2/(sens*mo2*transmave**2)*an2/sumA2)**2)
                      
-    A3=A2*anA2/(sumA2*transmave)
-    errA3=np.sqrt((anA2/(sumA2*transmave)*errA2)**2+
-                     (A2/(sumA2*transmave)*anA2err)**2+
-                     (A2*anA2/(sumA2**2*transmave)*sumA2err)**2+
-                     (A2*anA2/(sumA2*transmave**2)*transmerr)**2)
     #normalize by beam size
     Bx=header[0]['XPixel']
     By=header[0]['YPixel']
@@ -1367,8 +1432,8 @@ def scalewaxs(fsns,mask2d):
         waxsdata=B1io.readwaxscor(fsn)
         if len(waxsdata)<1:
             continue
-        D=utils2d.calculateDmatrix(mask2d,param[0]['PixelSize'],param[0]['BeamPosX']-1,
-                           param[0]['BeamPosY']-1)
+        D=utils2d.calculateDmatrix(mask2d,param[0]['PixelSize'],param[0]['BeamPosX'],
+                           param[0]['BeamPosY'])
         Dmax=D[mask2d!=0].max()
         qmax=4*np.pi*np.sin(0.5*np.arctan(Dmax/float(param[0]['Dist'])))*param[0]['EnergyCalibrated']/float(HC)
         qmin=min([waxsdata[0]['q'][i] for i in range(len(waxsdata[0]['q'])) 
@@ -1382,8 +1447,8 @@ def scalewaxs(fsns,mask2d):
         print 'Common q-range consists of %d points.'%len(qrange)
         print 'Re-integrating 2D data for FSN %d'% fsn
         [q,I,E,Area]=utils2d.radintC(A[0],Aerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],
-                         param[0]['PixelSize'],param[0]['BeamPosX']-1,
-                         param[0]['BeamPosY']-1,1-mask2d,qrange)
+                         param[0]['PixelSize'],param[0]['BeamPosX'],
+                         param[0]['BeamPosY'],1-mask2d,qrange)
         q=q[Area>0]
         I=I[Area>0]
         E=E[Area>0]
@@ -1405,8 +1470,8 @@ def scalewaxs(fsns,mask2d):
 #        print 'mult1: ',mult1,'+/-',errmult1
         B1io.writeintfile(waxsdata[0]['q'],waxsdata[0]['Intensity'],waxsdata[0]['Error'],param[0],filetype='waxsscaled')
         [q,I,E,Area]=utils2d.radintC(A[0],Aerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],
-                            param[0]['PixelSize'],param[0]['BeamPosX']-1,
-                            param[0]['BeamPosY']-1,1-mask2d,q=np.linspace(0,qmax,np.sqrt(mask2d.shape[0]**2+mask2d.shape[1]**2)))
+                            param[0]['PixelSize'],param[0]['BeamPosX'],
+                            param[0]['BeamPosY'],1-mask2d,q=np.linspace(0,qmax,np.sqrt(mask2d.shape[0]**2+mask2d.shape[1]**2)))
         pylab.figure()
         pylab.subplot(1,1,1)
         pylab.loglog(q,I,label='SAXS')
@@ -1506,8 +1571,8 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                     continue
                 print 'Re-integrating...'
                 qs,ints,errs,areas=utils2d.radintC(data[0],dataerr[0],p['EnergyCalibrated'],
-                                        p['Dist'],p['PixelSize'],p['BeamPosX']-1,
-                                        p['BeamPosY']-1,1-mask,qrange);
+                                        p['Dist'],p['PixelSize'],p['BeamPosX'],
+                                        p['BeamPosY'],1-mask,qrange);
                 B1io.writeintfile(qs,ints,errs,p,areas,filetype=savefiletype)
                 print 'done.'
                 del data

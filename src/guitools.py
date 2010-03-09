@@ -606,13 +606,13 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=1e-6,slidermax=1e-2):
     pylab.draw()
     return pow(10,sl.val)
 
-def testorigin(data,orig,mask=None,dmin=0,dmax=np.inf):
+def testorigin(data,orig,mask=None,dmin=None,dmax=None):
     """Shows several test plots by which the validity of the determined origin
     can  be tested.
     
     Inputs:
         data: the 2d scattering image
-        orig: the origin [row,column]
+        orig: the origin [row,column], starting from 1.
         mask: the mask matrix. Nonzero means nonmasked
     """
     print "Creating origin testing images, please wait..."
@@ -639,12 +639,18 @@ def testorigin(data,orig,mask=None,dmin=0,dmax=np.inf):
     plot2dmatrix(pdata,mask=pmask)
     pylab.axis('scaled')
     pylab.subplot(2,2,4)
-    t,I,E,A=utils2d.azimintpix(data,np.ones(data.shape),orig,1-mask,dmin,dmin,dmax)
+    if dmin is None:
+        dmin=maxr/4.
+    if dmax is None:
+        dmax=maxr/2.
+    
+    t,I,A=utils2d.azimintpixC(data,None,orig,(1-mask).astype(np.uint8),dmin,dmin,dmax)
     pylab.plot(t,I,'b-')
-    pylab.ylabel('Azimuthal intensity\n(nonperiodic for 2pi)')
+    pylab.ylabel('Azimuthal intensity (blue)\n(nonperiodic for 2pi)')
     pylab.twinx()
     pylab.plot(t,A,'g-')
-    pylab.ylabel('Effective area\n(should be definitely flat)')
+    pylab.ylabel('Effective area (green)\n(should be definitely flat)')
+    pylab.xlabel('Azimuth angle (rad)')
     pylab.gcf().show()
     print "... image ready!"
 def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):

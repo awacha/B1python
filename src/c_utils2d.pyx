@@ -13,6 +13,8 @@ cdef extern from "math.h":
     double M_PI
     double NAN
     double INFINITY
+    double ceil(double)
+    double fmod(double,double)
 
 cdef double HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
     
@@ -26,8 +28,8 @@ def polartransform(np.ndarray[np.double_t, ndim=2] data not None,
         data: the 2D matrix
         r: vector of polar radii
         phi: vector of polar angles (degrees)
-        origx: the x (row) coordinate of the origin
-        origy: the y (column) coordinate of the origin
+        origx: the x (row) coordinate of the origin, starting from 1
+        origy: the y (column) coordinate of the origin, starting from 1
     Outputs:
         pdata: a matrix of len(phi) rows and len(r) columns which contains the
             polar representation of the image.
@@ -72,9 +74,9 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             be given if wished, in a list with two elements. A scalar value
             means that the pixel size is equal in both directions
         bcx: the coordinate of the beam center in the x (row) direction,
-            starting from ZERO
+            starting from 1
         bcy: the coordinate of the beam center in the y (column) direction,
-            starting from ZERO
+            starting from 1
         mask: the mask matrix (of the same size as data). Nonzero is masked,
             zero is not masked
         q: the q points at which the integration is requested. It should be
@@ -228,13 +230,13 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     else:
         return q,Intensity,Error,Area
     
-def azimintpix(np.ndarray[np.double_t, ndim=2] data not None,
-               np.ndarray[np.double_t, ndim=2] error,
-               orig,
-               np.ndarray[np.uint8_t, ndim=2] mask not None,
-               Py_ssize_t Ntheta=100,
-               double dmin=0,
-               double dmax=INFINITY):
+def azimintpixC(np.ndarray[np.double_t, ndim=2] data not None,
+                np.ndarray[np.double_t, ndim=2] error,
+                orig,
+                np.ndarray[np.uint8_t, ndim=2] mask not None,
+                Ntheta=100,
+                double dmin=0,
+                double dmax=INFINITY):
     """Perform azimuthal integration of image.
 
     Inputs:
@@ -252,6 +254,7 @@ def azimintpix(np.ndarray[np.double_t, ndim=2] data not None,
         E: error values (returned only if the "error" argument was not None)
         A: effective area points
     """
+    cdef Py_ssize_t Ntheta1
     cdef np.ndarray[np.double_t, ndim=1] theta
     cdef np.ndarray[np.double_t, ndim=1] I
     cdef np.ndarray[np.double_t, ndim=1] E
@@ -262,37 +265,43 @@ def azimintpix(np.ndarray[np.double_t, ndim=2] data not None,
     cdef double bcx, bcy
     cdef double d,x,y,phi
     cdef int errornone
-    
+    cdef Py_ssize_t escaped
+
+    Ntheta1=<Py_ssize_t>floor(Ntheta)
     M=data.shape[0]
     N=data.shape[1]
     if (mask.shape[0]!=M) or (mask.shape[1]!=N):
         raise ValueError, "The size and shape of data and mask should be the same."
-    bcx=orig[0]
-    bcy=orig[1]
+    bcx=orig[0]-1
+    bcy=orig[1]-1
     
-    theta=np.linspace(0,2*np.pi,Ntheta) # the abscissa of the results
-    I=np.zeros(Ntheta,dtype=np.double) # vector of intensities
-    A=np.zeros(Ntheta,dtype=np.double) # vector of effective areas
-    E=np.zeros(Ntheta,dtype=np.double)
+    theta=np.linspace(0,2*np.pi,Ntheta1) # the abscissa of the results
+    I=np.zeros(Ntheta1,dtype=np.double) # vector of intensities
+    A=np.zeros(Ntheta1,dtype=np.double) # vector of effective areas
+    E=np.zeros(Ntheta1,dtype=np.double)
 
     errornone=(error is None)
-
+    escaped=0
     for ix from 0<=ix<M:
         for iy from 0<=iy<N:
             if mask[ix,iy]:
                 continue
-            x=ix-bcx+1
-            y=iy-bcy+1
+            x=ix-bcx
+            y=iy-bcy
             d=sqrt(x**2+y**2)
             if (d<dmin) or (d>dmax):
                 continue
             phi=atan2(y,x)
-            index=<Py_ssize_t>floor(phi/(2*M_PI)*Ntheta)
+            index=<Py_ssize_t>floor(phi/(2*M_PI)*Ntheta1)
+            if index>=Ntheta1:
+                escaped=escaped+1
+                continue
             I[index]+=data[ix,iy]
             if not errornone:
                 E[index]+=error[ix,iy]**2
             A[index]+=1
-    for index from 0<=index<Ntheta:
+    print "Escaped: ",escaped
+    for index from 0<=index<Ntheta1:
         if A[index]>0:
             I[index]/=A[index]
             if not errornone:
@@ -302,3 +311,77 @@ def azimintpix(np.ndarray[np.double_t, ndim=2] data not None,
     else:
         return theta,I,E,A
  
+def imageintC(np.ndarray[np.double_t,ndim=2] data not None,
+              orig,
+              np.ndarray[np.double_t,ndim=2] mask not None,
+              fi=None, dfi=None):
+    """Perform radial averaging on the image.
+    
+    Inputs:
+        data: matrix to average
+        orig: vector of beam center coordinates, starting from 1.
+        mask: mask matrix; 1 means masked, 0 means non-masked
+        fi: starting angle for sector averaging, in degrees
+        dfi: angle extent for sector averaging, in degrees
+    Outputs:
+        vector of integrated values
+        vector of effective areas
+        
+    Note: based on the work of Mika Torkkeli
+    """
+    cdef double bcx,bcy,fi1,dfi1
+    cdef Py_ssize_t i,j,d
+    cdef Py_ssize_t Nrow,Ncol,Nbins
+    cdef double x,y,phi
+    cdef int sectormode
+    cdef double * C1
+    cdef double * NC1
+    # X: row (0-th dimension), Y: column (1st dimension)
+    bcx=orig[0]-1
+    bcy=orig[1]-1
+    Nrow=data.shape[0]
+    Ncol=data.shape[1]
+    Nbins=<Py_ssize_t>ceil(sqrt(Nrow**2+Ncol**2))+1
+    C1=<double*>malloc(Nbins*sizeof(double))
+    NC1=<double*>malloc(Nbins*sizeof(double))
+    for i from 0<=i<Nbins:
+        C1[i]=0
+        NC1[i]=0
+    if (fi is not None) and (dfi is not None):
+        sectormode=1
+        fi1=fi*M_PI/180.0
+        dfi1=dfi*M_PI/180.0
+    else:
+        sectormode=0
+        fi1=0
+        dfi1=2*M_PI
+    for i from 0<=i<Nrow:
+        for j from 0<=j<Ncol:
+            if mask[i,j]:
+                continue
+            x=i-bcx
+            y=j-bcy
+            if sectormode:
+                phi=fmod(atan2(y,x)-fi1+10*M_PI,2*M_PI)
+                if phi>dfi1:
+                    continue
+            d=<Py_ssize_t>floor(sqrt(x*x+y*y))
+            C1[d]+=data[i,j]
+            NC1[d]+=1
+    #find the last nonzero bin
+    for d from 0<=d<Nbins:
+        if NC1[Nbins-1-d]>0:
+            break
+    #create return np.ndarrays
+    C=np.zeros(d,dtype=np.double)
+    NC=np.zeros(d,dtype=np.double)
+    #copy results
+    for i from 0<=i<Nbins:
+        if (NC1[i]>0):
+            C[i]=C1[i]/NC1[i]
+            NC[i]=NC1[i]
+    #free allocated variables
+    free(C1)
+    free(NC1)
+    #return
+    return C,NC
