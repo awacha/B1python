@@ -143,7 +143,7 @@ def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,
     def targetfunc(orig,data,mask):
         def sinfun(p,x,y):
             return (y-np.sin(x+p[1])*p[0]-p[2])/np.sqrt(len(x))
-        t,I,a=azimintpix(data,None,orig,mask,Ntheta,dmin,dmax)
+        t,I,a=azimintpixC(data,None,orig,mask.astype('uint8'),Ntheta,dmin,dmax)
         if len(a)>(a>0).sum():
             raise ValueError,'findbeam_azimuthal: non-complete azimuthal average, please consider changing dmin, dmax and/or orig_initial!'
         p=((I.max()-I.min())/2.0,t[I==I.max()][0],I.mean())

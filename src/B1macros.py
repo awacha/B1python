@@ -9,6 +9,20 @@
 # Copyright:   (c) 2010
 # Licence:     GPLv2
 #-----------------------------------------------------------------------------
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.
 
 import numpy as np
 import pylab
@@ -62,6 +76,235 @@ def getconfig():
     """
     global _B1config
     return _B1config
+
+def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qrange=None):
+    """Re-integrate 2d corrected SAXS patterns to q-bins.
+    
+    Inputs:
+        fsn: range of file sequence numbers. Only give one ASAXS sequence at a time!
+            The first fsn should be the first frame of the sequence.
+        filenameformat:
+    """
+    GCareathreshold=10;
+    BSradius=0;
+    
+    if len(energyapp)!=len(energytheor):
+        raise ValueError('You should supply as much apparent energies, as theoretical ones.')
+    if len(energyapp)<2:
+        print 'You should supply at least 2 different energy pairs to have a correct energy calibration! Now doing only a shift.'
+    dat=[]
+    fsnfound=[]
+    print 'Loading files...'
+    for i in range(len(fsn)):
+        bdfname='%s.bhf' %(filenameformat % (fsn[i]))
+        try:
+            dat1=B1io.bdf_read(bdfname);
+        except IOError:
+            print 'Cannot read file: %s, ignored.' %bdfname
+            continue
+        dat.append(dat1)
+        fsnfound.append(fsn[i])
+        print 'File %s loaded.'%bdfname
+    print 'Done loading files.'
+    bgfsn=[]
+    for i in range(len(dat)):
+        try:
+            bgfsn.append(dat[i]['C']['Background'])
+        except KeyError:
+            pass
+    # now determine the length of an element of the sequence. This is done by
+    # looking for repetition of the title of the 1st FSN.
+    seqlen=len(dat)
+    for i in range(1,len(dat)): # ignore the first
+        if dat[i]['C']['Sample']==dat[0]['C']['Sample']:
+            seqlen=i-1; 
+            break
+    print 'Sequence length is %u' % seqlen;
+    nseq=float(len(dat))/seqlen
+    if int(nseq)!=nseq:
+        print 'Disregarding the last sequence, since it is incomplete.'
+        nseq=floor(nseq);
+    nseq=int(nseq) # force this, so the rest of the code won't complain about float indices
+    #doing energy and distance correction
+    dist=np.zeros(seqlen*nseq)
+    energyreal=np.zeros(seqlen*nseq)
+    for sequence in range(nseq): # evaluate each sequence
+        print 'Correcting distances/energies for sequence %u/%u' %(sequence,nseq);
+        for sample in range(seqlen): # evaluate each sample in the current sequence
+            index=sequence*seqlen+sample;
+            euncalib=float(dat[index]['M']['Energy'])
+            duncalib=float(dat[index]['M']['Detector'])
+            print 'Processing sample %u/%u (%s, %s)' %(sample,seqlen,dat[index]['C']['Frame'],dat[index]['C']['Sample'])
+            dist[index]=(duncalib*step2cm+doffset)*10
+            print 'Sample-detector distance: %f + %f = %f' % (duncalib,doffset,dist[index])
+            if len(energyapp)==1:
+                energyreal[index]=euncalib+energytheor[0]-energyapp[0];
+            else:
+                energyreal[index]=energycalibration(energyapp,energytheor,euncalib)
+            print 'Energy calibration: %f -> %f' %(euncalib,energyreal[index]);
+    
+    dist=utils.unique(dist);
+    if len(dist)>1:
+        raise RuntimeError,'Please give data measured with the same sample-to-detector distance!';
+    dist=dist[0]
+    print 'Distance is:',dist
+    #processing argument resol.
+
+    if type(resol)==type([]) or type(resol)==type(()):
+        if len(resol)>2:
+            print 'Wow! A %u dimensional detector :-) !' % len(resol);
+        resx=resol[0];
+        resy=resol[1];
+    else:
+        resx=resol;
+        resy=resol;
+    
+    # determining common q-range if needed.
+    
+    if qrange is None:
+        qrange=[max(dat[0]['xdim'],dat[0]['ydim'])]; # a list with a single element
+        Nq=1
+    else:
+        if type(qrange)!=type([]) and type(qrange)!=type(()): # if not list or tuple
+            qrange=[qrange]
+        Nq=len(qrange); # qrange should be a list. Otherwise, an
+                        # exception is raised by this
+    if Nq==1: # common q-range should be generated
+        maxenergy=max(energyreal);
+        minenergy=min(energyreal);
+        print 'Energy range: ',minenergy,'to',maxenergy,'eV'
+        # in the BDF struct: X means the column direction, Y the row direction.
+        bcx=float(dat[0]['C']['ycen'])+1
+        bcy=float(dat[0]['C']['xcen'])+1
+        D=utils2d.calculateDmatrix(mask,[resx,resy],bcx,bcy)[mask==1]
+        print 'smallest distance from origin (pixels):',D.min()
+        print 'largest distance from origin (pixels):',D.max()
+        qmin=4*np.pi/HC*maxenergy*np.sin(0.5*np.arctan(D.min()/dist));
+        qmax=4*np.pi/HC*minenergy*np.sin(0.5*np.arctan(D.max()/dist));
+        if Nq==1:
+            Nq=max([dat[0]['xdim'],dat[0]['ydim']])/2.0;
+        qrange=np.linspace(qmin,qmax,Nq);
+        print 'Created common q-range: qmin: %f; qmax: %f; qstep: %f (%d points)' % \
+                     (qmin,qmax,qrange[1]-qrange[0],Nq);
+    qs=[]; ints=[]; errs=[]; areas=[];
+    for sequence in range(nseq): # evaluate each sequence
+        print 'Evaluating sequence %u/%u' % (sequence,nseq);
+        gcindex=sequence*seqlen+referenceindex;
+        print 'Doing absolute calibration from sample %s' % dat[gcindex]['C']['Sample'];
+        if referencethickness==1000:
+            GCdata=scipy.io.loadmat("%s%s%s" % (_B1config['calibdir'],os.sep,'GCK1mm.mat'))['GCK1mm'];
+            GCdata[:,0]=GCdata[:,0]/10; # convert q from 1/nm to 1/A
+            thisreferencethickness=1020e-4;
+        elif referencethickness==500:
+            GCdata=scipy.io.loadmat("%s%s%s" % (_B1config['calibdir'],os.sep,'GCK500mkm.mat'))['GCK500mkm'];
+            GCdata[:,0]=GCdata[:,0]/10;
+            thisreferencethickness=485e-4;
+        elif referencethickness==90:
+            GCdata=scipy.io.loadmat("%s%s%s" % (_B1config['calibdir'],os.sep,'GCK90mkm.mat'))['GCK90mkm'];
+            GCdata[:,0]=GCdata[:,0]/10;
+            thisreferencethickness=90e-4;
+        else:
+            raise RuntimeError, 'Unknown reference thickness!';
+        GCdata[:,1:3]=GCdata[:,1:3]*(0.28179e-12)**2; # scale intensities and errors into cm-1-s.
+        if ref_qrange is not None: # trim data
+            GCindices=((GCdata[:,0]<=max(ref_qrange)) & (GCdata[:,0]>=min(ref_qrange)));
+            GCdata=GCdata[GCindices,:];
+        # now integrate the measured GC data to the q-range of GCdata
+        print 'Glassy carbon reference: q_min=',np.min(GCdata[:,0]),'q_max=',np.max(GCdata[:,0]),'# of points=',len(GCdata[:,0])
+        bdfname='%s.bdf' % (filenameformat % (fsnfound[gcindex]));
+        print 'Loading GC data from file',bdfname;
+        try:
+            dat1=B1io.bdf_read(bdfname);
+        except IOError:
+            print "Cannot read reference file: %s. Skipping this sequence." % bdfname
+            continue
+        print 'Integrating GC data'
+        tmp=time.time()
+        [qGC,intGC,errGC,areaGC]=utils2d.radintC(dat1['data'].astype('double')/thisreferencethickness, \
+                                        dat1['error'].astype('double')/thisreferencethickness, \
+                                        energyreal[gcindex], \
+                                        dist, \
+                                        [resx,resy], \
+                                        float(dat1['C']['ycen'])+1, \
+                                        float(dat1['C']['xcen'])+1, \
+                                        (1-mask).astype('uint8'),
+                                        GCdata.astype('double')[:,0]);
+        print 'Integration completed in %f seconds.' % (time.time()-tmp);
+        print 'length of returned values:',len(qGC)
+        goodindex=(areaGC>=GCareathreshold)
+        GCdata=GCdata[goodindex,:];
+        qGC=qGC[goodindex,:];                                   
+        intGC=intGC[goodindex,:];                                   
+        errGC=errGC[goodindex,:];                                   
+        areaGC=areaGC[goodindex,:];
+        #Now the reference (GCdata) and the measured (qGC, intGC, errGC) data
+        #are on the same q-scale, with unwanted pixels eliminated (see
+        #ref_qrange). Thus we can calculate the multiplication factor by
+        #integrating according to the trapezoid formula. Also, the measured
+        #data have been divided by the thickness.
+        mult,errmult=utils.multfactor(GCdata[:,0],GCdata[:,1],GCdata[:,2],intGC,errGC)
+        pylab.plot(GCdata[:,0],GCdata[:,1],'o');
+        pylab.plot(qGC,intGC*mult,'.');
+        pylab.xlabel('q (1/%c)' % 197);
+        pylab.legend(['Reference data for GC','Measured data for GC']);
+        pylab.ylabel('Absolute intensity (1/cm)');
+        print 'Absolute calibration factor: %g +/- %g (= %g %%)' % (mult,errmult,errmult/mult*100);
+        pylab.draw()
+        utils.pause();
+        print 'Integrating samples';
+        for sample in range(seqlen): # evaluate each sample in the current sequence
+            index=sequence*seqlen+sample;
+            if type(thicknesses)==type({}):
+                try:
+                    Sthick=thicknesses[dat[index]['C']['Sample']]
+                except KeyError:
+                    print 'Cannot find thickness for sample %s in thicknesses! Disregarding this sample.' % dat[index]['C']['Sample'];
+            else:
+                Sthick=thicknesses;
+            print 'Using thickness %f (cm) for sample %s' % (Sthick,dat[index]['C']['Sample']);
+            bdfname='%s.bdf' % (filenameformat % (fsnfound[index]));
+            print 'Loading file %s' % bdfname;
+            try:
+                dat1=B1io.bdf_read(bdfname);
+            except IOError:
+                print 'Cannot read file: %s. Skipping.' % (bdfname);
+                continue;
+            pylab.subplot(1,1,1);
+            guitools.plot2dmatrix(dat1['data'])
+            print 'Integrating sample %u/%u (%s, %s)' %(sample,seqlen,dat1['C']['Frame'],dat1['C']['Sample']);
+            tmp=time.time()
+            qs1,ints1,errs1,areas1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
+                                           dat1['error'].astype('double')/Sthick,\
+                                           energyreal[index],\
+                                           dist,\
+                                           [resx,resy],\
+                                           float(dat1['C']['ycen'])+1,\
+                                           float(dat1['C']['xcen'])+1,\
+                                           (1-mask).astype('uint8'),qrange.astype('double'));
+            print 'Integration completed in %f seconds.' %(time.time()-tmp);
+            utils.pause();
+            errs1=np.sqrt(ints1**2*errmult**2+mult**2*errs1**2);
+            ints1=ints1*mult;
+            pylab.clf();
+            pylab.subplot(1,2,1);
+            pylab.cla();
+            pylab.errorbar(qs1,ints1,errs1);
+            #set(gca,'xscale','log','yscale','log');
+            pylab.xlabel('q (1/%c)' % 197);
+            pylab.ylabel('Absolute intensity (1/cm)');
+            pylab.title('%s (%s)' % (dat[index]['C']['Frame'],dat[index]['C']['Sample']));
+            pylab.xscale('log')
+            pylab.yscale('log')
+            pylab.subplot(1,2,2);
+            pylab.plot(qs1,areas1);
+            pylab.xlabel('q (1/%c)' % 197);
+            pylab.ylabel('Effective area');
+#            [qs1,ints1,errs1,areas1]=utils.sanitizeintegrated(qs1,ints1,errs1,areas1);
+            outname='%s_abs.dat'%dat[index]['C']['Frame'][:-4];
+            B1io.write1dsasdict({'q':qs1,'Intensity':ints1,'Error':errs1},outname)
+            utils.pause()
+        pylab.clf();
+    
 def addfsns(fileprefix,fsns,fileend,fieldinheader=None,valueoffield=None,dirs=[]):
     """
     """
@@ -1144,7 +1387,7 @@ def subtractbg(data,header,fsndc,sens,senserr,transm=None,oldversion=False):
                 print "The transmission of this sample (",header[k]['Title'],") is nonpositive!"
                 print "ASSUMING IT TO BE %f." % (_B1config['GCtransmission'])
                 print "Note that this may foul the calibration into absolute intensity units!"
-                print ""
+                print "----------------------------------------------------------------------"
                 print ""
                 utils.pause()
                 Ta=_B1config['GCtransmission']
@@ -1161,13 +1404,13 @@ def subtractbg(data,header,fsndc,sens,senserr,transm=None,oldversion=False):
                 Ax[Ax<=0]=np.nanmin(Ax[Ax>0])
                 Bx[Bx<=0]=np.nanmin(Bx[Bx>0])
 
-            print "DC corrected counts:"
-            print "ma:",max
-            print "mb:",mbx
-            print "aa:",aax
-            print "ab:",abx
-            print utils.matrixsummary(Ax,"A")
-            print utils.matrixsummary(Bx,"B")
+#            print "DC corrected counts:"
+#            print "ma:",max
+#            print "mb:",mbx
+#            print "aa:",aax
+#            print "ab:",abx
+#            print utils.matrixsummary(Ax,"A")
+#            print utils.matrixsummary(Bx,"B")
             #two-theta for the pixels
             tth=np.arctan(utils2d.calculateDmatrix(Ax,(header[k]['XPixel'],header[k]['YPixel']),header[k]['BeamPosX'],header[k]['BeamPosY'])/header[k]['Dist'])
     
@@ -1178,9 +1421,9 @@ def subtractbg(data,header,fsndc,sens,senserr,transm=None,oldversion=False):
             #auxiliary variables:
             P=Ax/(Ta*max*S)*aax/np.nansum(Ax)*C0*Ca
             Q=-Bx/(mbx*S)*abx/np.nansum(Bx)*C0
-            print "Auxiliary matrices:"
-            print utils.matrixsummary(P,"P")
-            print utils.matrixsummary(Q,"Q")
+#            print "Auxiliary matrices:"
+#            print utils.matrixsummary(P,"P")
+#            print utils.matrixsummary(Q,"Q")
             # K is the resulting matrix (corrected for dark current, 
             # lost anode counts (dead time), sensitivity, monitor,
             # transmission, background, and various angle-dependent errors)
@@ -1201,8 +1444,8 @@ def subtractbg(data,header,fsndc,sens,senserr,transm=None,oldversion=False):
             alpha=(ta/td*P/Ax+tb/td*Q/Bx)
             beta=(ta/td*P/np.nansum(Ax)+tb/td*Q/np.nansum(Bx))
            
-            print utils.matrixsummary(alpha,"alpha_dark")
-            print utils.matrixsummary(beta,"beta_dark")
+#            print utils.matrixsummary(alpha,"alpha_dark")
+#            print utils.matrixsummary(beta,"beta_dark")
             ET_D=alpha**2*dD**2+beta**2*np.nansum(dD**2)-2*alpha*beta*dD**2
 
             print "error analysis for sample %s" %header[k]['Title']

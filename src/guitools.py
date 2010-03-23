@@ -182,6 +182,7 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
 #    print t3-t2
 #    print t4-t3
     if (header is not None) and (showqscale):
+        # x: row direction (vertical on plot)
         xmin=0-(header['BeamPosX']-1)*header['PixelSize']
         xmax=(tmp.shape[0]-(header['BeamPosX']-1))*header['PixelSize']
         ymin=0-(header['BeamPosY']-1)*header['PixelSize']

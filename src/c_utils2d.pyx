@@ -208,13 +208,18 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                     Error[l]+=dataerr[ix,iy]**2*w
                     Area[l]+=1
                     weight[l]+=w
+                    if w<=0:
+                        print "Weight is nonpositive! w=",w,"; rho=",rho
                     break
     free(qmax)
     free(weight)
     for l from 0<=l<K:
         if Area[l]>0:
             if weight[l]<=0:
-                print "Area is not zero but weight is nonpositive at index",l
+                print "Area is not zero but weight is nonpositive at index",l,"; w=",weight[l],"; A=",Area[l]
+                Intensity[l]=0
+                Error[l]=0
+                Area[l]=0
             qout[l]/=weight[l]
             Intensity[l]/=weight[l]
             Error[l]/=weight[l]

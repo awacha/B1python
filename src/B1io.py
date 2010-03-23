@@ -35,9 +35,95 @@ import scipy.io
 import utils
 import B1macros
 
-class int1d(dict):
-    pass
+def bdf_read(filename):
+    """Read bdf file (Bessy Data Format)
 
+    Input:
+        filename: the name of the file
+
+    Output:
+        bdf: the BDF structure
+
+    Adapted the bdf_read.m macro from Sylvio Haas.
+    """
+    bdf={}
+    bdf['his']=[] #empty list for history
+    bdf['C']={} # empty list for bdf file descriptions
+    bdf['M']={} # empty list for motor positions
+    bdf['CS']={} # empty list for scan parameters
+    bdf['CT']={} # empty list for transmission data
+    bdf['CG']={} # empty list for gain values
+    mne_list=[]; mne_value=[]
+    gain_list=[]; gain_value=[]
+    s_list=[]; s_value=[]
+    t_list=[]; t_value=[]
+    
+    fid=open(filename,'rb') #if fails, an exception is raised
+    line=fid.readline()
+    while len(line)>0:
+        mat=line.split()
+        if len(mat)==0:
+            line=fid.readline()
+            continue
+        prefix=mat[0]
+        sz=len(mat)
+        if prefix=='#C':
+            if sz==4:
+                if mat[1]=='xdim':
+                    bdf['xdim']=float(mat[3])
+                elif mat[1]=='ydim':
+                    bdf['ydim']=float(mat[3])
+                elif mat[1]=='type':
+                    bdf['type']=mat[3]
+                elif mat[1]=='bdf':
+                    bdf['bdf']=mat[3]
+                elif mat[2]=='=':
+                    bdf['C'][mat[1]]=mat[3]
+            else:
+                if mat[1]=='Sample':
+                    bdf['C']['Sample']=[mat[3:]]
+        if prefix[:4]=="#CML":
+            mne_list.extend(mat[1:])
+        if prefix[:4]=="#CMV":
+            mne_value.extend(mat[1:])
+        if prefix[:4]=="#CGL":
+            gain_list.extend(mat[1:])
+        if prefix[:4]=="#CGV":
+            gain_value.extend(mat[1:])
+        if prefix[:4]=="#CSL":
+            s_list.extend(mat[1:])
+        if prefix[:4]=="#CSV":
+            s_value.extend(mat[1:])
+        if prefix[:4]=="#CTL":
+            t_list.extend(mat[1:])
+        if prefix[:4]=="#CTV":
+            t_value.extend(mat[1:])
+        if prefix[:2]=="#H":
+            szp=len(prefix)+2
+            tline='%s' % line[szp:]
+            bdf['his'].append(tline)
+
+        if line[:5]=='#DATA':
+            darray=np.fromfile(fid,dtype=bdf['type'],count=bdf['xdim']*bdf['ydim'])
+            bdf['data']=np.rot90(darray.reshape(bdf['xdim'],bdf['ydim']))
+        if line[:6]=='#ERROR':
+            darray=np.fromfile(fid,dtype=bdf['type'],count=bdf['xdim']*bdf['ydim'])
+            bdf['error']=np.rot90(darray.reshape(bdf['xdim'],bdf['ydim']))
+        line=fid.readline()
+    if len(mne_list)==len(mne_value):
+        for j in range(len(mne_list)):
+            bdf['M'][mne_list[j]]=mne_value[j]
+    if len(gain_list)==len(gain_value):
+        for j in range(len(gain_list)):
+            bdf['CG'][gain_list[j]]=gain_value[j]
+    if len(s_list)==len(s_value):
+        for j in range(len(s_list)):
+            bdf['CS'][s_list[j]]=s_value[j]
+    if len(t_list)==len(t_value):
+        for j in range(len(t_list)):
+            bdf['CT'][t_list[j]]=t_value[j]
+    fid.close()
+    return bdf
 def readasa(basename):
     """Load SAXS/WAXS measurement files from ASA *.INF, *.P00 and *.E00 files.
     
@@ -284,7 +370,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
                 datastr=fid.read();
                 fid.close();
                 data=pylab.fromstring(datastr[4096:],'uint32').reshape((619,487)).astype('double')
-                return data;
+                return data;                
             except IOError:
                 pass
         print 'Cannot find file %s. Make sure the path is correct.' % filename

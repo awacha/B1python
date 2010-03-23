@@ -32,7 +32,7 @@ import utils
 import types
 from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D
 
-def smoothcurve(x,y,param,mode='spline',extrapolate='reflect'):
+def smoothcurve(x,y,param,mode='logspline',extrapolate='reflect'):
     """General function for smoothing
     
     Inputs:
@@ -43,6 +43,9 @@ def smoothcurve(x,y,param,mode='spline',extrapolate='reflect'):
             is the window length in points.
         mode: 'spline' for spline smoothing, or 'flat', 'hamming', 'hanning',
             'bartlett' or 'blackman' for different windows. Case-insensitive.
+            Optionally, you can put a 'log' before each one (e.g. 'logspline',
+            'logflat', ...). In that case, log(y) vs. x will be smoothed, and
+            exp(smooth(log(y))) will be returned.
         extrapolate: for convolution smoothing the curve is extrapolated at the
             ends to suppress termination effects. This parameter defines the
             method of the extrapolation. Use 'reflect' if you have a periodic
@@ -51,13 +54,23 @@ def smoothcurve(x,y,param,mode='spline',extrapolate='reflect'):
     Output:
         the smoothed curve (length is the same as that of y)
     """
+    if mode.upper()[:3]=='LOG':
+        logmode=True
+        mode=mode[3:]
+        y1=np.log(y)
+        y=y1[np.isfinite(y1)]
+        x=x[np.isfinite(y1)]
+        if len(y1)!=len(y):
+            print "smoothcurve(): Warning! Requested logarithmic smoothing but there are invalid values (nonpositive)."
+    else:
+        logmode=False
     if mode.upper()!='SPLINE':
         param=int(param)
         if param<2:
             return y
     if mode.upper()=='SPLINE':
         tck=scipy.interpolate.splrep(x,y,s=param)
-        return scipy.interpolate.splev(x,tck)
+        smy=scipy.interpolate.splev(x,tck)
     else:
         if extrapolate.upper()=='REFLECT':
             s=np.r_[2*y[0]-y[param:1:-1],y,2*y[-1]-y[-1:-param:-1]]
@@ -67,21 +80,23 @@ def smoothcurve(x,y,param,mode='spline',extrapolate='reflect'):
             s=np.r_[y1,y,y2]
         if mode.upper()=='FLAT':
             w=np.ones(param,'d')
-            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         elif mode.upper()=='HAMMING':
             w=np.hamming(param)
-            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         elif mode.upper()=='HANNING':
             w=np.hanning(param)
-            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         elif mode.upper()=='BARTLETT':
             w=np.bartlett(param)
-            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         elif mode.upper()=='BLACKMAN':
             w=np.blackman(param)
-            return np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
         else:
             raise ValueError, "invalid window type!"
+        smy=np.convolve(w/w.sum(),s,mode='same')[param-1:-param+1]
+    if logmode:
+        result=np.zeros(y1.size)
+        result[np.isfinite(y1)]=np.exp(smy)
+        return result
+    else:
+        return smy
 def fsphere(q,R):
     """Scattering factor of a sphere
     

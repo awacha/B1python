@@ -32,7 +32,9 @@ def directdesmear(data,smoothing,params,title=''):
                 val: initial value
                 mode: 'lin' or 'log'
                 smoothmode: 'flat', 'hanning', 'hamming', 'bartlett',
-                    'blackman' or 'spline', for smoothcurve()
+                    'blackman' or 'spline', for smoothcurve(). Optionally
+                    a 'log' prefix can be applied, see the help text for
+                    smoothcurve()
             In this case a GUI will be set up. A slider and an Ok button at
             the bottom of the figure will aid the user to select the optimal
             smoothing parameter.
