@@ -15,7 +15,7 @@ import pylab
 import numpy as np
 import scipy.optimize
 import types
-from c_utils2d import polartransform, radintC,imageintC,azimintpixC
+from c_utils2d import polartransform, radintC,imageintC,azimintpixC, azimintqC
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
 def findbeam_gravity(data,mask):
@@ -97,7 +97,7 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
         mask=np.ones(data.shape)
     def targetfunc(orig,data,mask):
         #integrate four sectors
-        print "integrating... (for finding beam)"
+        #print "integrating... (for finding beam)"
         c1,nc1=imageintC(data,orig,mask,35,20)
         c2,nc2=imageintC(data,orig,mask,35+90,20)
         c3,nc3=imageintC(data,orig,mask,35+180,20)
@@ -111,9 +111,9 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
                            pylab.find(nc3!=0).min(),
                            pylab.find(nc4!=0).min()]).max()
         ret= np.array(((c1[first:last]-c3[first:last])**2+(c2[first:last]-c4[first:last])**2)/(last-first))
-        print "orig:",orig[0],orig[1]
-        print "last-first:",last-first
-        print "sum(ret):",ret.sum()
+        #print "orig:",orig[0],orig[1]
+        #print "last-first:",last-first
+        #print "sum(ret):",ret.sum()
         return ret
     orig=scipy.optimize.leastsq(targetfunc,np.array(orig_initial),args=(data,1-mask),maxfev=maxiter,epsfcn=0.0001)
     return orig[0]
@@ -148,7 +148,7 @@ def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,
             raise ValueError,'findbeam_azimuthal: non-complete azimuthal average, please consider changing dmin, dmax and/or orig_initial!'
         p=((I.max()-I.min())/2.0,t[I==I.max()][0],I.mean())
         p=scipy.optimize.leastsq(sinfun,p,(t,I))[0]
-        print "findbeam_azimuthal: orig=",orig,"amplitude=",abs(p[0])
+        #print "findbeam_azimuthal: orig=",orig,"amplitude=",abs(p[0])
         return abs(p[0])
     orig1=scipy.optimize.fmin(targetfunc,np.array(orig_initial),args=(data,1-mask),maxiter=maxiter)
     return orig1

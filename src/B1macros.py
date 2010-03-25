@@ -77,16 +77,49 @@ def getconfig():
     global _B1config
     return _B1config
 
-def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qrange=None):
+def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qphirange=None,inttype='radial',noplot=False):
     """Re-integrate 2d corrected SAXS patterns to q-bins.
     
     Inputs:
-        fsn: range of file sequence numbers. Only give one ASAXS sequence at a time!
-            The first fsn should be the first frame of the sequence.
-        filenameformat:
+        fsn: range of file sequence numbers. Only give one ASAXS
+            sequence at a time! The first fsn should be the first frame
+            of the sequence.
+        filenameformat: C-style format string for the filename without
+            extension, e.g. 's%07u_000'
+        mask: mask matrix. 0 is masked, 1 is unmasked
+        thicknesses: a single thickness value for all measurements OR a
+            dictionary, the keys being the sample names. In cm-s.
+        referencethickness: thickness of the reference sample, in microns
+        referenceindex: the index of the reference measurement in the
+            sequence. 0 is the first measurement (usually empty beam).
+        doffset: additive correction to the detector position read from
+            the BDF file. In cm-s.
+        step2cm: multiplicative correction to the detector position read
+            from the BDF file. The true sample-to-detector distance is
+            calculated: SD [cm] = detx*step2cm+doffset
+        resol: resolution of the detector (pixel size), in mm/pixel
+        energyapp: list of apparent energies
+        energytheor: list of theoretical energies, corresponding to the
+            apparent energies
+        ref_qrange: q-range to be taken into account for the reference.
+            Only the first and the last value of this will be used. Set
+            it to None if the complete available reference dataset is to
+            be used.
+        qphirange: if a vector, the q- or theta-range onto which the
+            integration is to be carried out. If an integer, the number
+            of bins. In this case, the smallest and largest border is
+            auto-determined. If None, the whole q- or phi-range will be
+            auto-determined.
+        inttype: integration mode: 'r[adial]', 's[ector]' or
+            'a[zimuthal]'. Case-insensitive.
+        int_aux: auxiliary data for integration. If sector integration is
+            preferred, then this should be a list of two. The first value
+            is the starting azimuth angle, the second is the arc angle,
+            both in radians. If azimuthal integration is requested, these
+            are the smallest and largest q-values to be taken into account.
+        noplot: set this to True to suppress plotting.
     """
     GCareathreshold=10;
-    BSradius=0;
     
     if len(energyapp)!=len(energytheor):
         raise ValueError('You should supply as much apparent energies, as theoretical ones.')
@@ -94,7 +127,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         print 'You should supply at least 2 different energy pairs to have a correct energy calibration! Now doing only a shift.'
     dat=[]
     fsnfound=[]
-    print 'Loading files...'
+    print 'Loading header files...'
     for i in range(len(fsn)):
         bdfname='%s.bhf' %(filenameformat % (fsn[i]))
         try:
@@ -105,16 +138,16 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         dat.append(dat1)
         fsnfound.append(fsn[i])
         print 'File %s loaded.'%bdfname
-    print 'Done loading files.'
+    print 'Done loading header files.'
     bgfsn=[]
     for i in range(len(dat)):
         try:
             bgfsn.append(dat[i]['C']['Background'])
         except KeyError:
-            pass
+            print 'No background set in header file for sample %s. This is what you want?' % dat[i]['C']['Sample']
     # now determine the length of an element of the sequence. This is done by
     # looking for repetition of the title of the 1st FSN.
-    seqlen=len(dat)
+    seqlen=len(dat) # initial value, if only one sequence exists.
     for i in range(1,len(dat)): # ignore the first
         if dat[i]['C']['Sample']==dat[0]['C']['Sample']:
             seqlen=i-1; 
@@ -150,7 +183,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
     print 'Distance is:',dist
     #processing argument resol.
 
-    if type(resol)==type([]) or type(resol)==type(()):
+    if type(resol)==type([]) or type(resol)==type(()) or type(resol)==np.ndarray:
         if len(resol)>2:
             print 'Wow! A %u dimensional detector :-) !' % len(resol);
         resx=resol[0];
@@ -160,15 +193,20 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         resy=resol;
     
     # determining common q-range if needed.
-    
-    if qrange is None:
-        qrange=[max(dat[0]['xdim'],dat[0]['ydim'])]; # a list with a single element
-        Nq=1
+        
+    if qphirange is None:
+        qphirange=[max([dat[0]['xdim'],dat[0]['ydim']])/2.0;] # a list with a single element
+        Nq=1 # number of q-s
     else:
-        if type(qrange)!=type([]) and type(qrange)!=type(()): # if not list or tuple
-            qrange=[qrange]
-        Nq=len(qrange); # qrange should be a list. Otherwise, an
+        if type(qphirange)!=type([]) and type(qphirange)!=type(()) and type(qphirange)!=np.ndarray: # if not list or tuple
+            qphirange=[qphirange]
+        Nq=len(qphirange); # qrange should be a list. Otherwise, an
                         # exception is raised by this
+    # at this point, qphirange is an indexable value (list, tuple, np.ndarray).
+    # if its length is one, it contains the desired number of q-bins.
+    if inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
+
+
     if Nq==1: # common q-range should be generated
         maxenergy=max(energyreal);
         minenergy=min(energyreal);
@@ -181,11 +219,11 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         print 'largest distance from origin (pixels):',D.max()
         qmin=4*np.pi/HC*maxenergy*np.sin(0.5*np.arctan(D.min()/dist));
         qmax=4*np.pi/HC*minenergy*np.sin(0.5*np.arctan(D.max()/dist));
-        if Nq==1:
-            Nq=max([dat[0]['xdim'],dat[0]['ydim']])/2.0;
-        qrange=np.linspace(qmin,qmax,Nq);
+        if len(qphirange)==1:
+            Nq=qphirange[0]
+        qphirange=np.linspace(qmin,qmax,Nq);
         print 'Created common q-range: qmin: %f; qmax: %f; qstep: %f (%d points)' % \
-                     (qmin,qmax,qrange[1]-qrange[0],Nq);
+                     (qmin,qmax,qphirange[1]-qphirange[0],Nq);
     qs=[]; ints=[]; errs=[]; areas=[];
     for sequence in range(nseq): # evaluate each sequence
         print 'Evaluating sequence %u/%u' % (sequence,nseq);
@@ -243,14 +281,17 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         #integrating according to the trapezoid formula. Also, the measured
         #data have been divided by the thickness.
         mult,errmult=utils.multfactor(GCdata[:,0],GCdata[:,1],GCdata[:,2],intGC,errGC)
-        pylab.plot(GCdata[:,0],GCdata[:,1],'o');
-        pylab.plot(qGC,intGC*mult,'.');
-        pylab.xlabel('q (1/%c)' % 197);
-        pylab.legend(['Reference data for GC','Measured data for GC']);
-        pylab.ylabel('Absolute intensity (1/cm)');
+        if not noplot:
+            pylab.plot(GCdata[:,0],GCdata[:,1],'o');
+            pylab.plot(qGC,intGC*mult,'.');
+            pylab.xlabel('q (1/%c)' % 197);
+            pylab.legend(['Reference data for GC','Measured data for GC']);
+            pylab.ylabel('Absolute intensity (1/cm)');
+            #pylab.xscale('log')
+            pylab.yscale('log')
+            pylab.draw()
+            utils.pause();
         print 'Absolute calibration factor: %g +/- %g (= %g %%)' % (mult,errmult,errmult/mult*100);
-        pylab.draw()
-        utils.pause();
         print 'Integrating samples';
         for sample in range(seqlen): # evaluate each sample in the current sequence
             index=sequence*seqlen+sample;
@@ -269,41 +310,65 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             except IOError:
                 print 'Cannot read file: %s. Skipping.' % (bdfname);
                 continue;
-            pylab.subplot(1,1,1);
-            guitools.plot2dmatrix(dat1['data'])
+            if not noplot:
+                pylab.subplot(1,1,1);
+                guitools.plot2dmatrix(dat1['data'])
             print 'Integrating sample %u/%u (%s, %s)' %(sample,seqlen,dat1['C']['Frame'],dat1['C']['Sample']);
             tmp=time.time()
-            qs1,ints1,errs1,areas1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
-                                           dat1['error'].astype('double')/Sthick,\
-                                           energyreal[index],\
-                                           dist,\
-                                           [resx,resy],\
-                                           float(dat1['C']['ycen'])+1,\
-                                           float(dat1['C']['xcen'])+1,\
-                                           (1-mask).astype('uint8'),qrange.astype('double'));
+            if inttype.upper()=='RADIAL'[:len(inttype)]:
+                qs1,ints1,errs1,areas1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
+                                            dat1['error'].astype('double')/Sthick,\
+                                            energyreal[index],\
+                                            dist,\
+                                            [resx,resy],\
+                                            float(dat1['C']['ycen'])+1,\
+                                            float(dat1['C']['xcen'])+1,\
+                                            (1-mask).astype('uint8'),qphirange.astype('double'));
+            elif inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
+                qs1,ints1,errs1,areas1=utils2d.azimintqC(dat1['data'].astype('double')/Sthick,\
+                                            dat1['error'].astype('double')/Sthick,\
+                                            energyreal[index],\
+                                            dist,\
+                                            [resx,resy],\
+                                            [float(dat1['C']['ycen'])+1,\
+                                            float(dat1['C']['xcen'])+1],\
+                                            (1-mask).astype('uint8'),
+                                            len(qphirange),qmin=int_aux[0],qmax=int_aux[1]);
+            elif inttype.upper()=='SECTOR'[:len(inttype)]:
+                qs1,ints1,errs1,areas1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
+                                            dat1['error'].astype('double')/Sthick,\
+                                            energyreal[index],\
+                                            dist,\
+                                            [resx,resy],\
+                                            float(dat1['C']['ycen'])+1,\
+                                            float(dat1['C']['xcen'])+1,\
+                                            (1-mask).astype('uint8'),qphirange.astype('double'),phi0=int_aux[0],dphi=int_aux[1]);
+            else:
+                raise ValueError,'Invalid integration mode: %s',inttype
             print 'Integration completed in %f seconds.' %(time.time()-tmp);
-            utils.pause();
             errs1=np.sqrt(ints1**2*errmult**2+mult**2*errs1**2);
             ints1=ints1*mult;
-            pylab.clf();
-            pylab.subplot(1,2,1);
-            pylab.cla();
-            pylab.errorbar(qs1,ints1,errs1);
-            #set(gca,'xscale','log','yscale','log');
-            pylab.xlabel('q (1/%c)' % 197);
-            pylab.ylabel('Absolute intensity (1/cm)');
-            pylab.title('%s (%s)' % (dat[index]['C']['Frame'],dat[index]['C']['Sample']));
-            pylab.xscale('log')
-            pylab.yscale('log')
-            pylab.subplot(1,2,2);
-            pylab.plot(qs1,areas1);
-            pylab.xlabel('q (1/%c)' % 197);
-            pylab.ylabel('Effective area');
-#            [qs1,ints1,errs1,areas1]=utils.sanitizeintegrated(qs1,ints1,errs1,areas1);
             outname='%s_abs.dat'%dat[index]['C']['Frame'][:-4];
             B1io.write1dsasdict({'q':qs1,'Intensity':ints1,'Error':errs1},outname)
-            utils.pause()
-        pylab.clf();
+            if not noplot:
+                utils.pause();
+                pylab.clf();
+                pylab.subplot(1,2,1);
+                pylab.cla();
+                pylab.errorbar(qs1,ints1,errs1);
+                #set(gca,'xscale','log','yscale','log');
+                pylab.xlabel('q (1/%c)' % 197);
+                pylab.ylabel('Absolute intensity (1/cm)');
+                pylab.title('%s (%s)' % (dat[index]['C']['Frame'],dat[index]['C']['Sample']));
+                #pylab.xscale('log')
+                #pylab.yscale('log')
+                pylab.subplot(1,2,2);
+                pylab.plot(qs1,areas1);
+                pylab.xlabel('q (1/%c)' % 197);
+                pylab.ylabel('Effective area');
+                utils.pause()
+        if not noplot:
+            pylab.clf();
     
 def addfsns(fileprefix,fsns,fileend,fieldinheader=None,valueoffield=None,dirs=[]):
     """
@@ -926,6 +991,8 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
         pylab.xlabel(u'q (1/%c)' % 197)
         pylab.ylabel('Scattering cross-section (1/cm)')
         pylab.title('Reference FSN %d multiplied by %.2e, error percentage %.2f' %(header[referencenumber]['FSN'],mult,(errmult/mult*100)))
+        #pylab.xscale('log')
+        pylab.yscale('log')
         #pause('on')
         utils.pause()
     

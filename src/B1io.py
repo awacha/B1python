@@ -104,11 +104,11 @@ def bdf_read(filename):
             bdf['his'].append(tline)
 
         if line[:5]=='#DATA':
-            darray=np.fromfile(fid,dtype=bdf['type'],count=bdf['xdim']*bdf['ydim'])
-            bdf['data']=np.rot90(darray.reshape(bdf['xdim'],bdf['ydim']))
+            darray=np.fromfile(fid,dtype=bdf['type'],count=int(bdf['xdim']*bdf['ydim']))
+            bdf['data']=np.rot90((darray.reshape(bdf['xdim'],bdf['ydim'])).astype('double').T,1) # this weird transformation is needed to get the matrix in the same form as bdf_read.m gets it.
         if line[:6]=='#ERROR':
-            darray=np.fromfile(fid,dtype=bdf['type'],count=bdf['xdim']*bdf['ydim'])
-            bdf['error']=np.rot90(darray.reshape(bdf['xdim'],bdf['ydim']))
+            darray=np.fromfile(fid,dtype=bdf['type'],count=int(bdf['xdim']*bdf['ydim']))
+            bdf['error']=np.rot90((darray.reshape(bdf['xdim'],bdf['ydim'])).astype('double').T,1)
         line=fid.readline()
     if len(mne_list)==len(mne_value):
         for j in range(len(mne_list)):
