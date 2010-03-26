@@ -125,6 +125,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     cdef Py_ssize_t K
     cdef Py_ssize_t lowescape, hiescape, masked, zeroerror
     cdef int sectorint
+
+    print data[300,300], data[700,300], data[300,700], data[700,700]
     
     if type(res)!=type([]):
         res=[res,res];
@@ -149,6 +151,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         dphia=dphi
         sectorint=1
     else:
+        phi0a=0
+        dphia=3*M_PI
         sectorint=0
     
     if not shutup:
@@ -226,6 +230,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                     continue
                 # go through every q-bin
                 w=(2*M_PI*energy/HC/distance)**2*(2+rho**2+2*sqrt(1+rho**2))/( (1+rho**2+sqrt(1+rho**2))**2*sqrt(1+rho**2) )
+                #w=1
                 for l from 0<=l<K:
                     if (q1<=qmax[l]):
                         qout[l]+=q1

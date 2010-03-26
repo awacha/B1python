@@ -135,7 +135,7 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
         while len(fig.axes)==3:
             fig.waitforbuttonpress()
             pylab.draw()
-def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1,blacknegative=False):
+def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1,blacknegative=False,crosshair=True):
     """Plots the matrix A in logarithmic coloured plot
     
     Inputs:
@@ -192,15 +192,20 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         qymin=4*np.pi*np.sin(0.5*np.arctan(ymin/header['Dist']))*header['EnergyCalibrated']/float(HC)
         qymax=4*np.pi*np.sin(0.5*np.arctan(ymax/header['Dist']))*header['EnergyCalibrated']/float(HC)
         extent=[qymin,qymax,qxmin,qxmax]
+        bcrow=0
+        bccol=0
     else:
         extent=None
+        if header is not None:
+            bcrow=header['BeamPosX']-1
+            bccol=header['BeamPosY']-1
+    if extent is None:
+        extent1=[1,tmp.shape[0],1,tmp.shape[1]]
+    else:
+        extent1=extent;
     if contour is None:
         pylab.imshow(tmp,extent=extent,interpolation='nearest',vmin=tmp.min()+pmin*(tmp.max()-tmp.min()),vmax=tmp.min()+pmax*(tmp.max()-tmp.min()));
     else:
-        if extent is None:
-            extent1=[1,tmp.shape[0],1,tmp.shape[1]]
-        else:
-            extent1=extent;
         X,Y=np.meshgrid(np.linspace(extent1[2],extent1[3],tmp.shape[1]),
                            np.linspace(extent1[0],extent1[1],tmp.shape[0]))
         pylab.contour(X,Y,tmp,contour)
@@ -220,7 +225,11 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         pylab.gca().axis(a)
     if header is not None:
         pylab.title("#%s: %s" % (header['FSN'], header['Title']))
-
+    if crosshair and header is not None:
+        a=pylab.gca().axis()
+        pylab.plot([extent1[2],extent1[3]],[bcrow,bcrow],'-',color='white')
+        pylab.plot([bccol,bccol],[extent1[0],extent1[1]],'-',color='white')
+        pylab.gca().axis(a)
 def makemask(mask,A,savefile=None):
     """Make mask matrix.
     

@@ -34,7 +34,68 @@ import string
 import scipy.io
 import utils
 import B1macros
+import re
 
+def bdf2B1(bdf,doffset,steps2cm,energyreal,fsnref,thicknessref,pixelsize,mult,errmult,thickness):
+    """Convert BDF file to B1-type logfile and int2dnorm files.
+
+    Inputs:
+        bdf: bdf dictionary
+        doffset: detector offset in cm-s
+        steps2cm: multiplicative correction to detector position (cm/motor step)
+        energyreal: true (calibrated) energy
+        fsnref: FSN for the reference file (Glassy carbon)
+        thicknessref: thickness of the reference, in microns
+        pixelsize: detector resolution (mm/pixel)
+        mult: absolute normalization factor
+        errmult: error of mult
+        thickness: sample thickness
+    """
+    params={}
+    try:
+        params['FSNempty']=int(re.findall('[0-9]+',bdf['C']['Background'])[0])
+    except KeyError:
+        params['FSNempty']=0
+    params['Temperature']=float(bdf['CS']['Temperature'])
+    params['NormFactorRelativeError']=errmult/mult
+    params['InjectionGC']=False
+    params['InjectionEB']=False
+    params['Monitor']=int(bdf['CS']['Monitor'])
+    params['BeamsizeY']=0
+    params['BeamsizeX']=0
+    params['Thicknessref1']=float(thicknessref)/10000.
+    params['PosSample']=float(bdf['M']['Sample_x'])
+    params['BeamPosX']=float(bdf['C']['ycen'])
+    params['BeamPosY']=float(bdf['C']['xcen'])
+    params['dclevel']=0
+    params['FSNref1']=int(fsnref)
+    params['MeasTime']=float(bdf['C']['Sendtime'])
+    params['PixelSize']=pixelsize
+    params['PrimaryIntensity']=0
+    params['ScatteringFlux']=0
+    params['Rot1']=0
+    params['RotXsample']=0
+    params['Rot2']=0
+    params['RotYsample']=0
+    params['NormFactor']=mult
+    params['FSN']=int(re.findall('[0-9]+',bdf['C']['Frame'])[0])
+    params['Title']=bdf['C']['Sample']
+    params['Dist']=(float(bdf['M']['Detector'])*steps2cm+doffset)*10.0
+    params['Energy']=float(bdf['M']['Energy'])
+    params['EnergyCalibrated']=energyreal
+    params['Thickness']=thickness
+    params['Transm']=float(bdf['CT']['trans'])
+    params['Anode']=float(bdf['CS']['Anode'])
+    #extended
+    params['TransmError']=float(bdf['CT']['transerr'])
+    writelogfile(params,[params['BeamPosX'],params['BeamPosY']],\
+                 params['Thickness'],params['dclevel'],\
+                 params['EnergyCalibrated'],params['Dist'],\
+                 params['NormFactor'],errmult,params['FSNref1'],\
+                 params['Thicknessref1'],params['InjectionGC'],\
+                 params['InjectionEB'],params['PixelSize'])
+    write2dintfile(bdf['data']*mult/thickness,np.sqrt((bdf['error']*mult)**2+(bdf['data']*errmult)**2)/thickness,params)
+    return bdf['data']*mult/thickness,np.sqrt((bdf['error']*mult)**2+(bdf['data']*errmult)**2)/thickness,params
 def bdf_read(filename):
     """Read bdf file (Bessy Data Format)
 
@@ -99,16 +160,16 @@ def bdf_read(filename):
         if prefix[:4]=="#CTV":
             t_value.extend(mat[1:])
         if prefix[:2]=="#H":
-            szp=len(prefix)+2
+            szp=len(prefix)+1
             tline='%s' % line[szp:]
             bdf['his'].append(tline)
 
         if line[:5]=='#DATA':
             darray=np.fromfile(fid,dtype=bdf['type'],count=int(bdf['xdim']*bdf['ydim']))
-            bdf['data']=np.rot90((darray.reshape(bdf['xdim'],bdf['ydim'])).astype('double').T,1) # this weird transformation is needed to get the matrix in the same form as bdf_read.m gets it.
+            bdf['data']=np.rot90((darray.reshape(bdf['xdim'],bdf['ydim'])).astype('double').T,1).copy() # this weird transformation is needed to get the matrix in the same form as bdf_read.m gets it.
         if line[:6]=='#ERROR':
             darray=np.fromfile(fid,dtype=bdf['type'],count=int(bdf['xdim']*bdf['ydim']))
-            bdf['error']=np.rot90((darray.reshape(bdf['xdim'],bdf['ydim'])).astype('double').T,1)
+            bdf['error']=np.rot90((darray.reshape(bdf['xdim'],bdf['ydim'])).astype('double').T,1).copy()
         line=fid.readline()
     if len(mne_list)==len(mne_value):
         for j in range(len(mne_list)):

@@ -35,6 +35,7 @@ import os
 import time
 import fitting
 import scipy.io
+import re
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
@@ -77,7 +78,7 @@ def getconfig():
     global _B1config
     return _B1config
 
-def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qphirange=None,inttype='radial',noplot=False):
+def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qphirange=None,center_override=None,inttype='radial',save_with_extension=None,noplot=False):
     """Re-integrate 2d corrected SAXS patterns to q-bins.
     
     Inputs:
@@ -110,6 +111,9 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             of bins. In this case, the smallest and largest border is
             auto-determined. If None, the whole q- or phi-range will be
             auto-determined.
+        center_override: if you want to set the beam center by hand. Leave
+            it None if you want to use the default value (read from the
+            bdf file).
         inttype: integration mode: 'r[adial]', 's[ector]' or
             'a[zimuthal]'. Case-insensitive.
         int_aux: auxiliary data for integration. If sector integration is
@@ -117,6 +121,8 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             is the starting azimuth angle, the second is the arc angle,
             both in radians. If azimuthal integration is requested, these
             are the smallest and largest q-values to be taken into account.
+        save_with_extension: a string to append to the filename, just
+            before the extension. If None, it will be the integration method.
         noplot: set this to True to suppress plotting.
     """
     GCareathreshold=10;
@@ -137,6 +143,9 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             continue
         dat.append(dat1)
         fsnfound.append(fsn[i])
+        if center_override is not None:
+            dat[-1]['C']['xcen']=str(center_override[1])
+            dat[-1]['C']['ycen']=str(center_override[0])
         print 'File %s loaded.'%bdfname
     print 'Done loading header files.'
     bgfsn=[]
@@ -192,38 +201,46 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         resx=resol;
         resy=resol;
     
-    # determining common q-range if needed.
-        
-    if qphirange is None:
-        qphirange=[max([dat[0]['xdim'],dat[0]['ydim']])/2.0;] # a list with a single element
-        Nq=1 # number of q-s
-    else:
-        if type(qphirange)!=type([]) and type(qphirange)!=type(()) and type(qphirange)!=np.ndarray: # if not list or tuple
-            qphirange=[qphirange]
-        Nq=len(qphirange); # qrange should be a list. Otherwise, an
-                        # exception is raised by this
-    # at this point, qphirange is an indexable value (list, tuple, np.ndarray).
-    # if its length is one, it contains the desired number of q-bins.
+    # determining common q-range if needed. First, try if qphirange is
+    # a vector
+    try:
+        Nq=len(qphirange)
+        # check if qphirange is a string (len() is also defined for strings)
+        if type(qphirange)==type(''):
+            raise TypeError # to get to the except clause
+    except TypeError: # len() is not defined for qphirange, or qphirange is a string
+        if qphirange is None: # fully automatic qphirange is to be determined
+            if inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
+                #choose value for azimuthal integration.
+                raise NotImplementedError,"Determining the number of bins for azimuthal integration is not yet supported!"
+            else: # radial or sector integration.
+                Nq=max([dat[0]['xdim'],dat[0]['ydim']])/2.0
+        else: # qphirange should be an integer, or a string-representation of an integer
+            try:
+                Nq=int(qphirange)
+                qphirange=None # set it to None, to request auto-determination
+            except ValueError:
+                raise ValueError, "Invalid value for qphirange: %s" % repr(qphirange)
+    # either way, we have Nq if we reached here.
+       
     if inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
-
-
-    if Nq==1: # common q-range should be generated
-        maxenergy=max(energyreal);
-        minenergy=min(energyreal);
-        print 'Energy range: ',minenergy,'to',maxenergy,'eV'
-        # in the BDF struct: X means the column direction, Y the row direction.
-        bcx=float(dat[0]['C']['ycen'])+1
-        bcy=float(dat[0]['C']['xcen'])+1
-        D=utils2d.calculateDmatrix(mask,[resx,resy],bcx,bcy)[mask==1]
-        print 'smallest distance from origin (pixels):',D.min()
-        print 'largest distance from origin (pixels):',D.max()
-        qmin=4*np.pi/HC*maxenergy*np.sin(0.5*np.arctan(D.min()/dist));
-        qmax=4*np.pi/HC*minenergy*np.sin(0.5*np.arctan(D.max()/dist));
-        if len(qphirange)==1:
-            Nq=qphirange[0]
-        qphirange=np.linspace(qmin,qmax,Nq);
-        print 'Created common q-range: qmin: %f; qmax: %f; qstep: %f (%d points)' % \
-                     (qmin,qmax,qphirange[1]-qphirange[0],Nq);
+        pass
+    else:
+        if qphirange is None: # common q-range should be generated for radial and sector integration
+            maxenergy=max(energyreal);
+            minenergy=min(energyreal);
+            print 'Energy range: ',minenergy,'to',maxenergy,'eV'
+            # in the BDF struct: X means the column direction, Y the row direction.
+            bcx=float(dat[0]['C']['ycen'])+1
+            bcy=float(dat[0]['C']['xcen'])+1
+            D=utils2d.calculateDmatrix(mask,[resx,resy],bcx,bcy)[mask==1]
+            print 'smallest distance from origin (pixels):',D.min()
+            print 'largest distance from origin (pixels):',D.max()
+            qmin=4*np.pi/HC*maxenergy*np.sin(0.5*np.arctan(D.min()/dist));
+            qmax=4*np.pi/HC*minenergy*np.sin(0.5*np.arctan(D.max()/dist));
+            qphirange=np.linspace(qmin,qmax,Nq);
+            print 'Created common q-range: qmin: %f; qmax: %f; qstep: %f (%d points)' % \
+                         (qmin,qmax,qphirange[1]-qphirange[0],Nq);
     qs=[]; ints=[]; errs=[]; areas=[];
     for sequence in range(nseq): # evaluate each sequence
         print 'Evaluating sequence %u/%u' % (sequence,nseq);
@@ -231,19 +248,20 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         print 'Doing absolute calibration from sample %s' % dat[gcindex]['C']['Sample'];
         if referencethickness==1000:
             GCdata=scipy.io.loadmat("%s%s%s" % (_B1config['calibdir'],os.sep,'GCK1mm.mat'))['GCK1mm'];
-            GCdata[:,0]=GCdata[:,0]/10; # convert q from 1/nm to 1/A
+            GCdata[:,0]=GCdata[:,0]*0.1; # convert q from 1/nm to 1/A
             thisreferencethickness=1020e-4;
         elif referencethickness==500:
             GCdata=scipy.io.loadmat("%s%s%s" % (_B1config['calibdir'],os.sep,'GCK500mkm.mat'))['GCK500mkm'];
-            GCdata[:,0]=GCdata[:,0]/10;
+            GCdata[:,0]=GCdata[:,0]*0.1;
             thisreferencethickness=485e-4;
         elif referencethickness==90:
             GCdata=scipy.io.loadmat("%s%s%s" % (_B1config['calibdir'],os.sep,'GCK90mkm.mat'))['GCK90mkm'];
-            GCdata[:,0]=GCdata[:,0]/10;
+            GCdata[:,0]=GCdata[:,0]*0.1;
             thisreferencethickness=90e-4;
         else:
             raise RuntimeError, 'Unknown reference thickness!';
-        GCdata[:,1:3]=GCdata[:,1:3]*(0.28179e-12)**2; # scale intensities and errors into cm-1-s.
+        GCdata[:,1]=GCdata[:,1]*(0.28179e-12)**2; # scale intensities and errors into cm-1-s.
+        GCdata[:,2]=GCdata[:,2]*(0.28179e-12)**2; # scale intensities and errors into cm-1-s.
         if ref_qrange is not None: # trim data
             GCindices=((GCdata[:,0]<=max(ref_qrange)) & (GCdata[:,0]>=min(ref_qrange)));
             GCdata=GCdata[GCindices,:];
@@ -253,18 +271,22 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         print 'Loading GC data from file',bdfname;
         try:
             dat1=B1io.bdf_read(bdfname);
+            if center_override is not None:
+                dat1['C']['xcen']=str(center_override[1])
+                dat1['C']['ycen']=str(center_override[0])
         except IOError:
             print "Cannot read reference file: %s. Skipping this sequence." % bdfname
             continue
         print 'Integrating GC data'
         tmp=time.time()
+        print dat1['data'][300,300]/thisreferencethickness, dat1['data'][700,300]/thisreferencethickness, dat1['data'][300,700]/thisreferencethickness, dat1['data'][700,700]/thisreferencethickness
         [qGC,intGC,errGC,areaGC]=utils2d.radintC(dat1['data'].astype('double')/thisreferencethickness, \
                                         dat1['error'].astype('double')/thisreferencethickness, \
                                         energyreal[gcindex], \
                                         dist, \
                                         [resx,resy], \
-                                        float(dat1['C']['ycen'])+1, \
-                                        float(dat1['C']['xcen'])+1, \
+                                        float(dat1['C']['ycen']), \
+                                        float(dat1['C']['xcen']), \
                                         (1-mask).astype('uint8'),
                                         GCdata.astype('double')[:,0]);
         print 'Integration completed in %f seconds.' % (time.time()-tmp);
@@ -282,6 +304,8 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         #data have been divided by the thickness.
         mult,errmult=utils.multfactor(GCdata[:,0],GCdata[:,1],GCdata[:,2],intGC,errGC)
         if not noplot:
+            pylab.clf()
+            pylab.subplot(1,1,1)
             pylab.plot(GCdata[:,0],GCdata[:,1],'o');
             pylab.plot(qGC,intGC*mult,'.');
             pylab.xlabel('q (1/%c)' % 197);
@@ -307,12 +331,21 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             print 'Loading file %s' % bdfname;
             try:
                 dat1=B1io.bdf_read(bdfname);
+                if center_override is not None:
+                    dat1['C']['xcen']=str(center_override[1])
+                    dat1['C']['ycen']=str(center_override[0])
             except IOError:
                 print 'Cannot read file: %s. Skipping.' % (bdfname);
                 continue;
+            print 'Converting to B1 format:'
+            data,dataerr,header=B1io.bdf2B1(dat1,doffset,step2cm,energyreal[index],\
+                        re.findall('[0-9]+',dat[gcindex]['C']['Frame'])[0],\
+                        thisreferencethickness,0.5*(resx+resy),mult,errmult,Sthick)
             if not noplot:
+                pylab.clf()
                 pylab.subplot(1,1,1);
-                guitools.plot2dmatrix(dat1['data'])
+                print header['BeamPosX'],header['BeamPosY']
+                guitools.plot2dmatrix((dat1['data']),mask=mask,header=header)
             print 'Integrating sample %u/%u (%s, %s)' %(sample,seqlen,dat1['C']['Frame'],dat1['C']['Sample']);
             tmp=time.time()
             if inttype.upper()=='RADIAL'[:len(inttype)]:
@@ -321,47 +354,58 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
                                             energyreal[index],\
                                             dist,\
                                             [resx,resy],\
-                                            float(dat1['C']['ycen'])+1,\
-                                            float(dat1['C']['xcen'])+1,\
+                                            float(dat1['C']['ycen']),\
+                                            float(dat1['C']['xcen']),\
                                             (1-mask).astype('uint8'),qphirange.astype('double'));
+                if save_with_extension is None:
+                    save_with_extension='radial'
             elif inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
                 qs1,ints1,errs1,areas1=utils2d.azimintqC(dat1['data'].astype('double')/Sthick,\
                                             dat1['error'].astype('double')/Sthick,\
                                             energyreal[index],\
                                             dist,\
                                             [resx,resy],\
-                                            [float(dat1['C']['ycen'])+1,\
-                                            float(dat1['C']['xcen'])+1],\
+                                            [float(dat1['C']['ycen']),\
+                                            float(dat1['C']['xcen'])],\
                                             (1-mask).astype('uint8'),
-                                            len(qphirange),qmin=int_aux[0],qmax=int_aux[1]);
+                                            Nq,qmin=int_aux[0],qmax=int_aux[1]);
+                if save_with_extension is None:
+                    save_with_extension='azimuthal'
             elif inttype.upper()=='SECTOR'[:len(inttype)]:
                 qs1,ints1,errs1,areas1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
                                             dat1['error'].astype('double')/Sthick,\
                                             energyreal[index],\
                                             dist,\
                                             [resx,resy],\
-                                            float(dat1['C']['ycen'])+1,\
-                                            float(dat1['C']['xcen'])+1,\
+                                            float(dat1['C']['ycen']),\
+                                            float(dat1['C']['xcen']),\
                                             (1-mask).astype('uint8'),qphirange.astype('double'),phi0=int_aux[0],dphi=int_aux[1]);
+                if save_with_extension is None:
+                    save_with_extension='sector'
             else:
                 raise ValueError,'Invalid integration mode: %s',inttype
             print 'Integration completed in %f seconds.' %(time.time()-tmp);
             errs1=np.sqrt(ints1**2*errmult**2+mult**2*errs1**2);
             ints1=ints1*mult;
-            outname='%s_abs.dat'%dat[index]['C']['Frame'][:-4];
+            outname='%s_%s.dat'%(dat[index]['C']['Frame'][:-4],save_with_extension);
             B1io.write1dsasdict({'q':qs1,'Intensity':ints1,'Error':errs1},outname)
             if not noplot:
                 utils.pause();
                 pylab.clf();
                 pylab.subplot(1,2,1);
                 pylab.cla();
-                pylab.errorbar(qs1,ints1,errs1);
+                validindex=(np.isfinite(ints1) & np.isfinite(errs1))
+                if (1-validindex).sum()>0:
+                    print "WARNING!!! Some nonfinite points are present among the integrated values!"
+                    print "NaNs: ",(np.isnan(ints1) | np.isnan(errs1)).sum()
+                    print "Infinities: ",(np.isinf(ints1) | np.isinf(errs1)).sum()
+                pylab.errorbar(qs1[validindex],ints1[validindex],errs1[validindex]);
                 #set(gca,'xscale','log','yscale','log');
                 pylab.xlabel('q (1/%c)' % 197);
                 pylab.ylabel('Absolute intensity (1/cm)');
                 pylab.title('%s (%s)' % (dat[index]['C']['Frame'],dat[index]['C']['Sample']));
-                #pylab.xscale('log')
-                #pylab.yscale('log')
+                pylab.xscale('log')
+                pylab.yscale('log')
                 pylab.subplot(1,2,2);
                 pylab.plot(qs1,areas1);
                 pylab.xlabel('q (1/%c)' % 197);
@@ -1686,7 +1730,15 @@ def energycalibration(energymeas,energycalib,energy1):
         to do backward-calibration (theoretical -> apparent), swap energymeas
         and energycalib on the parameter list.
     """
-    a,b,aerr,berr=fitting.linfit(energymeas,energycalib)
+    if len(energymeas)!=len(energycalib):
+        raise ValueError, "The same number of apparent and true energy values should be given for energy calibration!"
+    if len(energymeas)==1: # in this case, only do a shift.
+        a=1
+        aerr=0
+        b=energycalib[0]-energymeas[0]
+        berr=0
+    else:
+        a,b,aerr,berr=fitting.linfit(energymeas,energycalib)
     if type(energy1)==np.ndarray:
         return a*energy1+b
     elif type(energy1)==types.ListType:

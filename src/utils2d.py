@@ -29,13 +29,14 @@ def findbeam_gravity(data,mask):
         a vector of length 2 with the x (row) and y (column) coordinates
          of the origin, starting from 1
     """
+    print "Finding beam (gravity), please be patient..."
     # for each row and column find the center of gravity
     data1=data.copy() # take a copy, because elements will be tampered
                       # with
     data1[mask==0]=0 # set masked elements to zero
 
-    pylab.imshow(data1) # show the matrix
-    pylab.gcf().show() #
+    #pylab.imshow(data1) # show the matrix
+    #pylab.gcf().show() #
     # vector of x (row) coordinates
     x=np.arange(data1.shape[0])
     # vector of y (column) coordinates
@@ -71,10 +72,10 @@ def findbeam_gravity(data,mask):
     # in xcent.
     ycent=nix/spamx
     xcent=niy/spamy
-    pylab.figure()
-    pylab.plot(x1,xcent,'.',label='xcent')
-    pylab.plot(y1,ycent,'.',label='ycent')
-    pylab.gcf().show()
+    #pylab.figure()
+    #pylab.plot(x1,xcent,'.',label='xcent')
+    #pylab.plot(y1,ycent,'.',label='ycent')
+    #pylab.gcf().show()
     # return the mean values as the centers.
     return [xcent.mean()+1,ycent.mean()+1]
 def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
@@ -91,7 +92,7 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
         a vector of length 2 with the x (row) and y (column) coordinates
          of the origin.
     """
-    print "Finding beam, please be patient..."
+    print "Finding beam (slices), please be patient..."
     orig=np.array(orig_initial)
     if mask is None:
         mask=np.ones(data.shape)
@@ -136,7 +137,7 @@ def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,
         a vector of length 2 with the x and y coordinates of the origin,
             starting from 1
     """
-    print "Finding beam, please be patient..."
+    print "Finding beam (azimuthal), please be patient..."
     orig=np.array(orig_initial)
     if mask is None:
         mask=np.ones(data.shape)
@@ -165,6 +166,7 @@ def findbeam_semitransparent(data,pri):
     Outputs: bcx,bcy
         the x and y coordinates of the primary beam
     """
+    print "Finding beam (semitransparent), please be patient..."
     xmin=min([pri[0],pri[1]])
     ymin=min([pri[2],pri[3]])
     xmax=max([pri[0],pri[1]])
