@@ -60,7 +60,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             double bcx, double bcy,
             np.ndarray[np.uint8_t, ndim=2] mask not None,
             np.ndarray[np.double_t, ndim=1] q=None,
-            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None):
+            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None, returnmask=False):
     """
     def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             np.ndarray[np.double_t,ndim=2] dataerr not None,
@@ -68,7 +68,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             double bcx, double bcy,
             np.ndarray[np.uint8_t, ndim=2] mask not None,
             np.ndarray[np.double_t, ndim=1] q=None,
-            bint shutup=True, bint returnavgq=False, phi0, dphi):
+            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None, returnmask=False):
 
         Do radial integration on 2D scattering images. Now this takes the
         functional determinant dq/dr into account.
@@ -98,6 +98,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             in radians. Set it to None if simple radial averaging is needed.
         dphi: arc angle if sector integration is requested. Expressed in
             radians. Set it to None if simple radial averaging is needed.
+        returnmask: True if the effective mask matrix is to be returned
+            (0 for pixels taken into account, 1 for all the others).
         
     Outputs: four ndarrays.
         the q vector
@@ -125,10 +127,9 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     cdef Py_ssize_t K
     cdef Py_ssize_t lowescape, hiescape, masked, zeroerror
     cdef int sectorint
-
-    print data[300,300], data[700,300], data[300,700], data[700,700]
-    
-    if type(res)!=type([]):
+    cdef np.ndarray[np.uint8_t,ndim=2] maskout
+   
+    if type(res)!=type([]) and type(res)!=type(()) and type(res)!=np.ndarray:
         res=[res,res];
     if len(res)==1:
         res=[res[0], res[0]]
@@ -154,6 +155,9 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         phi0a=0
         dphia=3*M_PI
         sectorint=0
+
+    if returnmask:
+        maskout=np.ones([data.shape[0],data.shape[1]],dtype=np.uint8)
     
     if not shutup:
         print "Creating D matrix...",
@@ -238,6 +242,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                         Error[l]+=dataerr[ix,iy]**2*w
                         Area[l]+=1
                         weight[l]+=w
+                        maskout[ix,iy]=0
                         if w<=0:
                             print "Weight is nonpositive! w=",w,"; rho=",rho
                         break
@@ -247,9 +252,9 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 if mask[ix,iy]:
                     masked+=1
                     continue
-                if dataerr[ix,iy]==0:
-                    zeroerror+=1
-                    continue
+                #if dataerr[ix,iy]==0:
+                #    zeroerror+=1
+                #    continue
                 x=((ix-bcx)*xres)
                 y=((iy-bcy)*yres)
                 rho=sqrt(x*x+y*y)/distance
@@ -264,7 +269,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 w=(2*M_PI*energy/HC/distance)**2*(2+rho**2+2*sqrt(1+rho**2))/( (1+rho**2+sqrt(1+rho**2))**2*sqrt(1+rho**2) )
                 for l from 0<=l<K:
                     if (q1<=qmax[l]):
-                        qout[l]+=q1
+                        qout[l]+=q1*w
                         Intensity[l]+=data[ix,iy]*w
                         Error[l]+=dataerr[ix,iy]**2*w
                         Area[l]+=1
@@ -293,9 +298,15 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         print "Masked: ",masked
         print "ZeroError: ",zeroerror
     if returnavgq:
-        return qout,Intensity,Error,Area
+        if returnmask:
+            return qout,Intensity,Error,Area,maskout
+        else:
+            return qout,Intensity,Error,Area
     else:
-        return q,Intensity,Error,Area
+        if returnmask:
+            return q,Intensity,Error,Area,maskout
+        else:
+            return q,Intensity,Error,Area
     
 def azimintpixC(np.ndarray[np.double_t, ndim=2] data not None,
                 np.ndarray[np.double_t, ndim=2] error,
@@ -457,11 +468,12 @@ def azimintqC(np.ndarray[np.double_t, ndim=2] data not None,
               np.ndarray[np.double_t, ndim=2] error, # error can be None
               double energy,
               double dist,
+              res,
               orig,
               np.ndarray[np.uint8_t, ndim=2] mask not None,
               Ntheta=100,
               double qmin=0,
-              double qmax=INFINITY):
+              double qmax=INFINITY,bint returnmask=False):
     """Perform azimuthal integration of image, with respect to q values
 
     Inputs:
@@ -473,9 +485,10 @@ def azimintqC(np.ndarray[np.double_t, ndim=2] data not None,
         orig: vector of beam center coordinates, starting from 1.
         mask: mask matrix; 1 means masked, 0 means non-masked
         Ntheta: number of desired points on the abscissa
-        dmin: the lower bound of the circle stripe (expressed in pixel units)
-        dmax: the upper bound of the circle stripe (expressed in pixel units)
-
+        qmin: the lower bound of the circle stripe (expressed in q units)
+        qmax: the upper bound of the circle stripe (expressed in q units)
+        returnmask: if True, a mask is returned, only the pixels taken into
+            account being unmasked (0). 
     Outputs: theta,I,[E],A
         theta: theta-range, in radians
         I: intensity points
@@ -495,6 +508,19 @@ def azimintqC(np.ndarray[np.double_t, ndim=2] data not None,
     cdef double q
     cdef int errornone
     cdef Py_ssize_t escaped
+    cdef double resx,resy
+    cdef np.ndarray[np.uint8_t, ndim=2] maskout
+    
+    if type(res)!=type([]) and type(res)!=type(()) and type(res)!=np.ndarray:
+        res=[res,res];
+    if len(res)==1:
+        res=[res[0], res[0]]
+    if len(res)>2:
+        raise ValueError('res should be a scalar or a nonempty vector of length<=2')
+    
+    resx=res[0]
+    resy=res[1]
+    
 
     Ntheta1=<Py_ssize_t>floor(Ntheta)
     M=data.shape[0]
@@ -508,6 +534,8 @@ def azimintqC(np.ndarray[np.double_t, ndim=2] data not None,
     I=np.zeros(Ntheta1,dtype=np.double) # vector of intensities
     A=np.zeros(Ntheta1,dtype=np.double) # vector of effective areas
     E=np.zeros(Ntheta1,dtype=np.double)
+    if returnmask:
+        maskout=np.ones([data.shape[0],data.shape[1]],dtype=np.uint8)
 
     errornone=(error is None)
     escaped=0
@@ -515,8 +543,8 @@ def azimintqC(np.ndarray[np.double_t, ndim=2] data not None,
         for iy from 0<=iy<N:
             if mask[ix,iy]:
                 continue
-            x=ix-bcx
-            y=iy-bcy
+            x=(ix-bcx)*resx
+            y=(iy-bcy)*resy
             d=sqrt(x**2+y**2)
             q=4*M_PI*sin(0.5*atan2(d,dist))*energy/HC
             if (q<qmin) or (q>qmax):
@@ -530,6 +558,8 @@ def azimintqC(np.ndarray[np.double_t, ndim=2] data not None,
             if not errornone:
                 E[index]+=error[ix,iy]**2
             A[index]+=1
+            if returnmask:
+                maskout[ix,iy]=0
     #print "Escaped: ",escaped
     for index from 0<=index<Ntheta1:
         if A[index]>0:
@@ -537,6 +567,12 @@ def azimintqC(np.ndarray[np.double_t, ndim=2] data not None,
             if not errornone:
                 E[index]=sqrt(E[index]/A[index])
     if errornone:
-        return theta,I,A
+        if returnmask:
+            return theta,I,A,maskout
+        else:
+            return theta,I,A
     else:
-        return theta,I,E,A
+        if returnmask:
+            return theta,I,E,A,maskout
+        else:
+            return theta,I,E,A

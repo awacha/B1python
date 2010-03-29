@@ -78,7 +78,7 @@ def getconfig():
     global _B1config
     return _B1config
 
-def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qphirange=None,center_override=None,inttype='radial',save_with_extension=None,noplot=False):
+def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qphirange=None,center_override=None,inttype='radial',int_aux=None,save_with_extension=None,noplot=False):
     """Re-integrate 2d corrected SAXS patterns to q-bins.
     
     Inputs:
@@ -279,7 +279,6 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             continue
         print 'Integrating GC data'
         tmp=time.time()
-        print dat1['data'][300,300]/thisreferencethickness, dat1['data'][700,300]/thisreferencethickness, dat1['data'][300,700]/thisreferencethickness, dat1['data'][700,700]/thisreferencethickness
         [qGC,intGC,errGC,areaGC]=utils2d.radintC(dat1['data'].astype('double')/thisreferencethickness, \
                                         dat1['error'].astype('double')/thisreferencethickness, \
                                         energyreal[gcindex], \
@@ -341,26 +340,21 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             data,dataerr,header=B1io.bdf2B1(dat1,doffset,step2cm,energyreal[index],\
                         re.findall('[0-9]+',dat[gcindex]['C']['Frame'])[0],\
                         thisreferencethickness,0.5*(resx+resy),mult,errmult,Sthick)
-            if not noplot:
-                pylab.clf()
-                pylab.subplot(1,1,1);
-                print header['BeamPosX'],header['BeamPosY']
-                guitools.plot2dmatrix((dat1['data']),mask=mask,header=header)
             print 'Integrating sample %u/%u (%s, %s)' %(sample,seqlen,dat1['C']['Frame'],dat1['C']['Sample']);
             tmp=time.time()
             if inttype.upper()=='RADIAL'[:len(inttype)]:
-                qs1,ints1,errs1,areas1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
+                qs1,ints1,errs1,areas1,mask1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
                                             dat1['error'].astype('double')/Sthick,\
                                             energyreal[index],\
                                             dist,\
                                             [resx,resy],\
                                             float(dat1['C']['ycen']),\
                                             float(dat1['C']['xcen']),\
-                                            (1-mask).astype('uint8'),qphirange.astype('double'));
+                                            (1-mask).astype('uint8'),qphirange.astype('double'),returnavgq=True,returnmask=True);
                 if save_with_extension is None:
                     save_with_extension='radial'
             elif inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
-                qs1,ints1,errs1,areas1=utils2d.azimintqC(dat1['data'].astype('double')/Sthick,\
+                qs1,ints1,errs1,areas1,mask1=utils2d.azimintqC(dat1['data'].astype('double')/Sthick,\
                                             dat1['error'].astype('double')/Sthick,\
                                             energyreal[index],\
                                             dist,\
@@ -368,18 +362,18 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
                                             [float(dat1['C']['ycen']),\
                                             float(dat1['C']['xcen'])],\
                                             (1-mask).astype('uint8'),
-                                            Nq,qmin=int_aux[0],qmax=int_aux[1]);
+                                            Nq,qmin=int_aux[0],qmax=int_aux[1],returnmask=True);
                 if save_with_extension is None:
                     save_with_extension='azimuthal'
             elif inttype.upper()=='SECTOR'[:len(inttype)]:
-                qs1,ints1,errs1,areas1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
+                qs1,ints1,errs1,areas1,mask1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
                                             dat1['error'].astype('double')/Sthick,\
                                             energyreal[index],\
                                             dist,\
                                             [resx,resy],\
                                             float(dat1['C']['ycen']),\
                                             float(dat1['C']['xcen']),\
-                                            (1-mask).astype('uint8'),qphirange.astype('double'),phi0=int_aux[0],dphi=int_aux[1]);
+                                            (1-mask).astype('uint8'),qphirange.astype('double'),phi0=int_aux[0],dphi=int_aux[1],returnavgq=True,returnmask=True);
                 if save_with_extension is None:
                     save_with_extension='sector'
             else:
@@ -390,29 +384,48 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             outname='%s_%s.dat'%(dat[index]['C']['Frame'][:-4],save_with_extension);
             B1io.write1dsasdict({'q':qs1,'Intensity':ints1,'Error':errs1},outname)
             if not noplot:
-                utils.pause();
-                pylab.clf();
-                pylab.subplot(1,2,1);
+                pylab.clf()
+                pylab.subplot(2,2,1);
+                guitools.plot2dmatrix((dat1['data']),mask=1-mask1,header=header,showqscale=True)
+                pylab.subplot(2,2,2);
                 pylab.cla();
                 validindex=(np.isfinite(ints1) & np.isfinite(errs1))
                 if (1-validindex).sum()>0:
                     print "WARNING!!! Some nonfinite points are present among the integrated values!"
                     print "NaNs: ",(np.isnan(ints1) | np.isnan(errs1)).sum()
                     print "Infinities: ",(np.isinf(ints1) | np.isinf(errs1)).sum()
-                pylab.errorbar(qs1[validindex],ints1[validindex],errs1[validindex]);
-                #set(gca,'xscale','log','yscale','log');
-                pylab.xlabel('q (1/%c)' % 197);
+                if inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
+                    pylab.plot(qs1[validindex],ints1[validindex])
+                    pylab.xlabel(u'theta (rad)');
+                    pylab.xscale('linear')
+                    pylab.yscale('log')
+                else:
+                    pylab.plot(qphirange[validindex],ints1[validindex])
+                    #pylab.errorbar(qphirange[validindex],ints1[validindex],errs1[validindex]);
+                    pylab.xlabel(u'q (1/%c)' % 197);
+                    pylab.xscale('log')
+                    pylab.yscale('log')
                 pylab.ylabel('Absolute intensity (1/cm)');
                 pylab.title('%s (%s)' % (dat[index]['C']['Frame'],dat[index]['C']['Sample']));
-                pylab.xscale('log')
-                pylab.yscale('log')
-                pylab.subplot(1,2,2);
-                pylab.plot(qs1,areas1);
-                pylab.xlabel('q (1/%c)' % 197);
+                pylab.axis('auto')
+
+                pylab.subplot(2,2,3);
+                if inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
+                    pylab.plot(qs1,areas1)
+                    pylab.xlabel('theta (rad)')
+                else:
+                    pylab.plot(qphirange,areas1);
+                    pylab.xlabel(u'q (1/%c)' % 197);
                 pylab.ylabel('Effective area');
+                if (inttype.upper()=='SECTOR'[:len(inttype)]) or (inttype.upper()=='RADIAL'[:len(inttype)]):
+                    pylab.subplot(2,2,4);
+                    pylab.plot(qphirange,qs1/qphirange,'.',markersize=3)
+                    pylab.xlabel('Original q values')
+                    pylab.ylabel('Averaged / original q-values')
+                pylab.draw()
+                pylab.gcf().show()
                 utils.pause()
-        if not noplot:
-            pylab.clf();
+                pylab.clf();
     
 def addfsns(fileprefix,fsns,fileend,fieldinheader=None,valueoffield=None,dirs=[]):
     """
