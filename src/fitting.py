@@ -30,7 +30,7 @@ import scipy.interpolate
 import matplotlib.widgets
 import utils
 import types
-from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D
+from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D, Coffchipbinning
 
 def smoothcurve(x,y,param,mode='logspline',extrapolate='reflect'):
     """General function for smoothing

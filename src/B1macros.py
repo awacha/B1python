@@ -57,7 +57,14 @@ _B1config={'measdatadir':'.',
             'refposprecision':0.5,
             'ebtitle':'Empty_beam',
             'GCtransmission':None,
-            'energyprecision':1
+            'energyprecision':1,
+            'orgfileformat':'ORG%05u.DAT',
+            'headerfileformat':'org_%05u.header',
+            'intnormfileformat':'intnorm%u.dat',
+            'intnormlogfileformat':'intnorm%u.log',
+            'int2dnormfileformat':'int2dnorm%u.mat',
+            'int2dnorm_intfileformat':'int2dnorm%u.dat',
+            'int2dnorm_errfileformat':'err2dnorm%u.dat'
            }
 
 
@@ -125,35 +132,27 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             before the extension. If None, it will be the integration method.
         noplot: set this to True to suppress plotting.
     """
-    GCareathreshold=10;
+    GCareathreshold=getconfig()['GCareathreshold'];
     
     if len(energyapp)!=len(energytheor):
         raise ValueError('You should supply as much apparent energies, as theoretical ones.')
     if len(energyapp)<2:
         print 'You should supply at least 2 different energy pairs to have a correct energy calibration! Now doing only a shift.'
     dat=[]
-    fsnfound=[]
     print 'Loading header files...'
     for i in range(len(fsn)):
         bdfname='%s.bhf' %(filenameformat % (fsn[i]))
         try:
             dat1=B1io.bdf_read(bdfname);
         except IOError:
-            print 'Cannot read file: %s, ignored.' %bdfname
+            print 'Cannot read file: %s, ignored.' % bdfname
             continue
         dat.append(dat1)
-        fsnfound.append(fsn[i])
         if center_override is not None:
             dat[-1]['C']['xcen']=str(center_override[1])
             dat[-1]['C']['ycen']=str(center_override[0])
         print 'File %s loaded.'%bdfname
     print 'Done loading header files.'
-    bgfsn=[]
-    for i in range(len(dat)):
-        try:
-            bgfsn.append(dat[i]['C']['Background'])
-        except KeyError:
-            print 'No background set in header file for sample %s. This is what you want?' % dat[i]['C']['Sample']
     # now determine the length of an element of the sequence. This is done by
     # looking for repetition of the title of the 1st FSN.
     seqlen=len(dat) # initial value, if only one sequence exists.
@@ -162,11 +161,10 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             seqlen=i-1; 
             break
     print 'Sequence length is %u' % seqlen;
-    nseq=float(len(dat))/seqlen
-    if int(nseq)!=nseq:
+    nseq=float(len(dat))/seqlen # number of sequences
+    if int(nseq)!=nseq: # not integer: some (usually the last) sequence is incomplete.
         print 'Disregarding the last sequence, since it is incomplete.'
-        nseq=floor(nseq);
-    nseq=int(nseq) # force this, so the rest of the code won't complain about float indices
+    nseq=int(floor(nseq)) # force this, so the rest of the code won't complain about float indices
     #doing energy and distance correction
     dist=np.zeros(seqlen*nseq)
     energyreal=np.zeros(seqlen*nseq)
@@ -182,7 +180,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             if len(energyapp)==1:
                 energyreal[index]=euncalib+energytheor[0]-energyapp[0];
             else:
-                energyreal[index]=energycalibration(energyapp,energytheor,euncalib)
+                energyreal[index]=utils.energycalibration(energyapp,energytheor,euncalib)
             print 'Energy calibration: %f -> %f' %(euncalib,energyreal[index]);
     
     dist=utils.unique(dist);
@@ -272,8 +270,15 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         try:
             dat1=B1io.bdf_read(bdfname);
             if center_override is not None:
-                dat1['C']['xcen']=str(center_override[1])
-                dat1['C']['ycen']=str(center_override[0])
+                if len(center_override)==2:
+                    dat1['C']['xcen']=str(center_override[1])
+                    dat1['C']['ycen']=str(center_override[0])
+                else:
+                    print "Finding origin."
+                    orig=utils2d.findbeam_azimuthal(dat1['data'],(dat1['C']['ycen'],dat1['C']['xcen']),mask,center_override[0],center_override[1],center_override[2])
+                    dat1['C']['xcen']=str(orig[1])
+                    dat1['C']['ycen']=str(orig[0])
+                    print "Found origin",orig[0],",",orig[1]
         except IOError:
             print "Cannot read reference file: %s. Skipping this sequence." % bdfname
             continue
@@ -290,7 +295,11 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
                                         GCdata.astype('double')[:,0]);
         print 'Integration completed in %f seconds.' % (time.time()-tmp);
         print 'length of returned values:',len(qGC)
-        goodindex=(areaGC>=GCareathreshold)
+        goodindex=(areaGC>=GCareathreshold) & (np.isfinite(intGC)) & (np.isfinite(errGC))
+        print 'valid q-bins (effective area > %f and both Intensity and its error are finite): %u' % (GCareathreshold,goodindex.sum())
+        print '# of q-bins where the effective area is less than',GCareathreshold,':',(areaGC<GCareathreshold).sum()
+        print '# of q-bins where either the intensity or its error is NaN:',(np.isnan(intGC) | np.isnan(errGC)).sum()
+        print '# of q-bins where either the intensity or its error is infinite:',(np.isinf(intGC) | np.isinf(errGC)).sum()
         GCdata=GCdata[goodindex,:];
         qGC=qGC[goodindex,:];                                   
         intGC=intGC[goodindex,:];                                   
@@ -307,12 +316,13 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             pylab.subplot(1,1,1)
             pylab.plot(GCdata[:,0],GCdata[:,1],'o');
             pylab.plot(qGC,intGC*mult,'.');
-            pylab.xlabel('q (1/%c)' % 197);
+            pylab.xlabel('q (1/Angstrom)');
             pylab.legend(['Reference data for GC','Measured data for GC']);
             pylab.ylabel('Absolute intensity (1/cm)');
             #pylab.xscale('log')
             pylab.yscale('log')
             pylab.draw()
+            pylab.savefig('GCcalib_%s.pdf' % save_with_extension, format='pdf')
             utils.pause();
         print 'Absolute calibration factor: %g +/- %g (= %g %%)' % (mult,errmult,errmult/mult*100);
         print 'Integrating samples';
@@ -331,16 +341,23 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             try:
                 dat1=B1io.bdf_read(bdfname);
                 if center_override is not None:
-                    dat1['C']['xcen']=str(center_override[1])
-                    dat1['C']['ycen']=str(center_override[0])
+                    if len(center_override)==2:
+                        dat1['C']['xcen']=str(center_override[1])
+                        dat1['C']['ycen']=str(center_override[0])
+                    else:
+                        print "Finding origin."
+                        orig=utils2d.findbeam_azimuthal(dat1['data'],(dat1['C']['ycen'],dat1['C']['xcen']),mask,center_override[0],center_override[1],center_override[2])
+                        dat1['C']['xcen']=str(orig[1])
+                        dat1['C']['ycen']=str(orig[0])
+                        print "Found origin",orig[0],",",orig[1]
             except IOError:
                 print 'Cannot read file: %s. Skipping.' % (bdfname);
                 continue;
-            print 'Converting to B1 format:'
+            print 'Converting to B1 format...'
             data,dataerr,header=B1io.bdf2B1(dat1,doffset,step2cm,energyreal[index],\
                         re.findall('[0-9]+',dat[gcindex]['C']['Frame'])[0],\
                         thisreferencethickness,0.5*(resx+resy),mult,errmult,Sthick)
-            print 'Integrating sample %u/%u (%s, %s)' %(sample,seqlen,dat1['C']['Frame'],dat1['C']['Sample']);
+            print 'Integrating sample %u/%u (%s, %s)...' %(sample,seqlen,dat1['bdf'],dat1['C']['Sample']);
             tmp=time.time()
             if inttype.upper()=='RADIAL'[:len(inttype)]:
                 qs1,ints1,errs1,areas1,mask1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
@@ -350,7 +367,9 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
                                             [resx,resy],\
                                             float(dat1['C']['ycen']),\
                                             float(dat1['C']['xcen']),\
-                                            (1-mask).astype('uint8'),qphirange.astype('double'),returnavgq=True,returnmask=True);
+                                            (1-mask).astype('uint8'),\
+                                            qphirange.astype('double'),\
+                                            returnavgq=True,returnmask=True);
                 if save_with_extension is None:
                     save_with_extension='radial'
             elif inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
@@ -373,7 +392,10 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
                                             [resx,resy],\
                                             float(dat1['C']['ycen']),\
                                             float(dat1['C']['xcen']),\
-                                            (1-mask).astype('uint8'),qphirange.astype('double'),phi0=int_aux[0],dphi=int_aux[1],returnavgq=True,returnmask=True);
+                                            (1-mask).astype('uint8'),\
+                                            qphirange.astype('double'),\
+                                            phi0=int_aux[0],dphi=int_aux[1],\
+                                            returnavgq=True,returnmask=True);
                 if save_with_extension is None:
                     save_with_extension='sector'
             else:
@@ -402,7 +424,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
                 else:
                     pylab.plot(qphirange[validindex],ints1[validindex])
                     #pylab.errorbar(qphirange[validindex],ints1[validindex],errs1[validindex]);
-                    pylab.xlabel(u'q (1/%c)' % 197);
+                    pylab.xlabel('q (1/Angstrom)');
                     pylab.xscale('log')
                     pylab.yscale('log')
                 pylab.ylabel('Absolute intensity (1/cm)');
@@ -415,7 +437,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
                     pylab.xlabel('theta (rad)')
                 else:
                     pylab.plot(qphirange,areas1);
-                    pylab.xlabel(u'q (1/%c)' % 197);
+                    pylab.xlabel('q (1/Angstrom)');
                 pylab.ylabel('Effective area');
                 if (inttype.upper()=='SECTOR'[:len(inttype)]) or (inttype.upper()=='RADIAL'[:len(inttype)]):
                     pylab.subplot(2,2,4);
@@ -424,6 +446,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
                     pylab.ylabel('Averaged / original q-values')
                 pylab.draw()
                 pylab.gcf().show()
+                pylab.savefig('int_%u_%s_%s.pdf' % (int(re.findall('[0-9]+',dat1['C']['Frame'])[0]),dat1['C']['Sample'],save_with_extension), format='pdf')
                 utils.pause()
                 pylab.clf();
     
@@ -1045,7 +1068,7 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
         pylab.plot(qGC,intGC*mult,'.',label='Your reference (reintegrated)')
         pylab.plot(GCdata[:,0],GCdata[:,1],'.',label='Calibrated reference')
         pylab.plot(qs[referencenumber],ints[referencenumber]*mult/refthick,'-',label='Your reference (saved)')
-        pylab.xlabel(u'q (1/%c)' % 197)
+        pylab.xlabel('q (1/Angstrom)')
         pylab.ylabel('Scattering cross-section (1/cm)')
         pylab.title('Reference FSN %d multiplied by %.2e, error percentage %.2f' %(header[referencenumber]['FSN'],mult,(errmult/mult*100)))
         #pylab.xscale('log')
@@ -1267,7 +1290,7 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             print "Corrected sample-detector distance for fsn %d (ref. after)." % header[k]['FSN']
         else:
             header[k]['Dist']=header[k]['Dist']-distminus-detshift
-        header[k]['EnergyCalibrated']=energycalibration(energymeas,energycalib,header[k]['Energy'])
+        header[k]['EnergyCalibrated']=utils.energycalibration(energymeas,energycalib,header[k]['Energy'])
         print "Calibrated energy for FSN %d (%s): %f -> %f" %(header[k]['FSN'],header[k]['Title'],header[k]['Energy'],header[k]['EnergyCalibrated'])
         header[k]['XPixel']=pixelsize
         header[k]['YPixel']=pixelsize
@@ -1314,7 +1337,7 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
         valid=np.isfinite(ints[-1])&np.isfinite(errs[-1])
         pylab.errorbar(qs[-1][valid],ints[-1][valid],errs[-1][valid])
         pylab.axis('tight')
-        pylab.xlabel(u'q (1/%c)' % 197)
+        pylab.xlabel('q (1/Angstrom)')
         pylab.ylabel('Intensity (arb. units)')
         pylab.xscale('log')
         pylab.yscale('log')
@@ -1322,7 +1345,7 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
         pylab.subplot(122)
         pylab.cla()
         pylab.plot(qs[-1],Areas[-1],'.')
-        pylab.xlabel(u'q (1/%c)' %197)
+        pylab.xlabel('q (1/Angstrom)')
         pylab.ylabel('Effective area (pixels)')
         pylab.title(header[k]['Title'])
         pylab.gcf().show()
@@ -1518,7 +1541,7 @@ def subtractbg(data,header,fsndc,sens,senserr,transm=None,oldversion=False):
                 header[k]['Transm']=Ta
             # <anything>x will be the DC corrected version of <anything>
             Ax=A-D*ta/td
-            max=ma-md*ta/td	
+            max=ma-md*ta/td 
             aax=aa-ad*ta/td
             Bx=B-D*tb/td
             mbx=mb-md*tb/td
@@ -1728,36 +1751,6 @@ def subdc(data,header,datadc,headerdc,sens,senserr,transm=None):
     Bx=header[0]['XPixel']
     By=header[0]['YPixel']
     return A3/(Bx*By),errA3/(Bx*By)
-def energycalibration(energymeas,energycalib,energy1):
-    """Do energy calibration.
-    
-    Inputs:
-        energymeas: vector of measured (apparent) energies
-        energycalib: vector of theoretical energies corresponding to the measured ones
-        energy1: vector or matrix or a scalar of apparent energies to calibrate.
-        
-    Output:
-        the calibrated energy/energies, in the same form as energy1 was supplied
-        
-    Note:
-        to do backward-calibration (theoretical -> apparent), swap energymeas
-        and energycalib on the parameter list.
-    """
-    if len(energymeas)!=len(energycalib):
-        raise ValueError, "The same number of apparent and true energy values should be given for energy calibration!"
-    if len(energymeas)==1: # in this case, only do a shift.
-        a=1
-        aerr=0
-        b=energycalib[0]-energymeas[0]
-        berr=0
-    else:
-        a,b,aerr,berr=fitting.linfit(energymeas,energycalib)
-    if type(energy1)==np.ndarray:
-        return a*energy1+b
-    elif type(energy1)==types.ListType:
-        return [a*e+b for e in energy1]
-    else:
-        return a*energy1+b
 def rebin(data,qrange):
     """Rebin 1D data. Note: if 2D data is present, reintegrateB1 is more accurate.
     
@@ -1853,7 +1846,7 @@ def scalewaxs(fsns,mask2d):
         pylab.loglog(waxsdata[0]['q'],waxsdata[0]['Intensity'],label='WAXS')
         pylab.legend()
         pylab.title('FSN %d: %s' % (param[0]['FSN'], param[0]['Title']))
-        pylab.xlabel(u'q (1/%c)' % 197)
+        pylab.xlabel('q (1/Angstrom)')
         pylab.ylabel('Scattering cross-section (1/cm)')
         pylab.savefig('scalewaxs%d.png' % param[0]['FSN'],dpi=300,transparent='True',format='png')
         pylab.close(pylab.gcf())

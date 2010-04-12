@@ -19,7 +19,10 @@ cdef inline double fsphere(double q, double R):
     Output:
         the values of the scattering factor in an array of the same shape as q
     """
-    return 1/q**3*(sin(q*R)-q*R*cos(q*R))
+    if q==0:
+        return R**3/3
+    else:
+        return 1/q**3*(sin(q*R)-q*R*cos(q*R))
 
 def Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
                    double dist, double wavelength, Py_ssize_t Nx,
@@ -54,9 +57,14 @@ def Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
             sy=((j-Ny/2.0)*pixelsizey+dy)
             sz=dist
             tmp=sqrt(sx**2+sy**2+sz**2)
-            qx=sx/tmp*2*M_PI/wavelength
-            qy=sy/tmp*2*M_PI/wavelength
-            qz=(sz/tmp-1)*2*M_PI/wavelength
+            if tmp==0:
+                qx=0
+                qy=0
+                qz=0
+            else:
+                qx=sx/tmp*2*M_PI/wavelength
+                qy=sy/tmp*2*M_PI/wavelength
+                qz=(sz/tmp-1)*2*M_PI/wavelength
             q=sqrt(qx**2+qy**2+qz**2)
             I=0
             for k from 0<=k<numspheres:
@@ -152,3 +160,22 @@ def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
         Intensity[i]=I[i]
     free(I)
     return Intensity            
+
+def Coffchipbinning(np.ndarray[np.double_t, ndim=2] M, Py_ssize_t xlen, Py_ssize_t ylen):
+    """
+    """
+    cdef Py_ssize_t i,i1,j,j1
+    cdef Py_ssize_t Nx,Ny
+    cdef np.ndarray[np.double_t,ndim=2] N
+    
+    Nx=M.shape[0]/xlen
+    Ny=M.shape[1]/ylen
+    
+    N=np.zeros((Nx,Ny),np.double)
+    for i from 0<=i<Nx:
+        print "i==",i
+        for i1 from 0<=i1<xlen:
+            for j from 0<=j<Ny:
+                for j1 from 0<=j1<ylen:
+                    N[i,j]+=M[i*xlen+i1,j*ylen+j1]
+    return N/(xlen*ylen)

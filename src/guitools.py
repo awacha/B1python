@@ -55,7 +55,7 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
             (parameter <samplenames> is a list) then this can also be a list,
             but of the same size as samplenames. Default value is '.'.
         mult [optional]: multiplicate the intensity by this number when plotting. The same
-            applies as to symboll. Default value is 1.
+            applies as to marker. Default value is 1.
         gui [optional]: display graphical user interface to show/hide plotted
             lines independently. Default value is False (no gui)
     """
@@ -72,7 +72,7 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
         marker=marker*len(samplename)
     if len(mult)==1:
         mult=mult*len(samplename)
-    if (len(marker)!=len(samplename)) or (len(mult) !=len(samplename)):
+    if (len(marker)<len(samplename)) or (len(mult) <len(samplename)):
         raise ValueError
     if gui==True:
         fig=pylab.figure()
@@ -515,7 +515,7 @@ def basicfittinggui(data,title='',blocking=False):
         def onclick(A=None,B=None,fig=fig):
             fig.fittingdone=True
             blocking=False
-            print "blocking should now end"
+     #       print "blocking should now end"
         b.on_clicked(onclick)
     pylab.axes((0.4,bottomborder,0.5,0.8))
     def onselectplottype(plottype,q=data['q'],I=data['Intensity'],title=title):
@@ -573,11 +573,11 @@ def basicfittinggui(data,title='',blocking=False):
     fig=pylab.gcf()
     while blocking:
         fig.waitforbuttonpress()
-        print "buttonpress"
+#        print "buttonpress"
         if fig.fittingdone:
             blocking=False
-            print "exiting"
-    print "returning"
+            #print "exiting"
+    #print "returning"
     return listoffits
         
 #data quality tools
@@ -628,26 +628,30 @@ def testorigin(data,orig,mask=None,dmin=None,dmax=None):
     print "Creating origin testing images, please wait..."
     if mask is None:
         mask=np.ones(data.shape)
+    print "    plotting matrix with cross-hair..."
     pylab.subplot(2,2,1)
     plot2dmatrix(data,mask=mask)
-    pylab.plot([0,data.shape[1]],[orig[0],orig[0]],color='white')
-    pylab.plot([orig[1],orig[1]],[0,data.shape[0]],color='white')
+    pylab.plot([0,data.shape[1]],[orig[0]-1,orig[0]-1],color='white')
+    pylab.plot([orig[1]-1,orig[1]-1],[0,data.shape[0]],color='white')
     pylab.gca().axis('tight')
+    print "    calculating and plotting slices..."
     pylab.subplot(2,2,2)
-    c1,nc1=utils2d.imageint(data,orig,1-mask,35,20)
-    c2,nc2=utils2d.imageint(data,orig,1-mask,35+90,20)
-    c3,nc3=utils2d.imageint(data,orig,1-mask,35+180,20)
-    c4,nc4=utils2d.imageint(data,orig,1-mask,35+270,20)
-    pylab.plot(c1,marker='.',color='blue',markersize=3)
-    pylab.plot(c3,marker='o',color='blue',markersize=6)
-    pylab.plot(c2,marker='.',color='red',markersize=3)
-    pylab.plot(c4,marker='o',color='red',markersize=6)
+    c1,nc1=utils2d.imageintC(data,orig,1-mask,35,20)
+    c2,nc2=utils2d.imageintC(data,orig,1-mask,35+90,20)
+    c3,nc3=utils2d.imageintC(data,orig,1-mask,35+180,20)
+    c4,nc4=utils2d.imageintC(data,orig,1-mask,35+270,20)
+    pylab.semilogy(c1,marker='.',color='blue',markersize=3)
+    pylab.semilogy(c3,marker='o',color='blue',markersize=6)
+    pylab.semilogy(c2,marker='.',color='red',markersize=3)
+    pylab.semilogy(c4,marker='o',color='red',markersize=6)
+    print "    calculating and plotting polar matrices..."
     pylab.subplot(2,2,3)
     maxr=max([len(c1),len(c2),len(c3),len(c4)])
-    pdata=utils2d.polartransform(data,np.arange(0,maxr,dtype=np.double),np.linspace(0,4*np.pi,600),orig[0],orig[1])
-    pmask=utils2d.polartransform(mask,np.arange(0,maxr,dtype=np.double),np.linspace(0,4*np.pi,600),orig[0],orig[1])
+    pdata=utils2d.polartransform(data.astype('double'),np.arange(0,maxr,dtype=np.double),np.linspace(0,4*np.pi,600),orig[0],orig[1])
+    pmask=utils2d.polartransform(mask.astype('double'),np.arange(0,maxr,dtype=np.double),np.linspace(0,4*np.pi,600),orig[0],orig[1])
     plot2dmatrix(pdata,mask=pmask)
     pylab.axis('scaled')
+    print "    calculating and plotting azimuthal curves..."
     pylab.subplot(2,2,4)
     if dmin is None:
         dmin=maxr/4.
@@ -662,7 +666,7 @@ def testorigin(data,orig,mask=None,dmin=None,dmax=None):
     pylab.ylabel('Effective area (green)\n(should be definitely flat)')
     pylab.xlabel('Azimuth angle (rad)')
     pylab.gcf().show()
-    print "... image ready!"
+    print "... images ready!"
 def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
     """Plot transmission, beam center and Doris current vs. FSNs of the given
     sample.
@@ -985,3 +989,155 @@ def fitperiodicity(data,ns):
         a,aerr=fitting.propfit(ns,qs,None)
     return 2*np.pi/a, aerr*2*np.pi/a**2
     
+def azimsectorgui(data,dataerr,param,mask):
+    """GUI tool for sector- and azimuthal integration
+    
+    Inputs:
+        data: 2D scattering matrix, as loaded by B1io.read2dintfile
+        dataerr: error matrix corresponding to the data matrix
+        param: header structure
+        mask: mask matrix (1 is unmasked, 0 is masked)
+    """
+    fig=pylab.gcf()
+    fig.clf()
+    fig.userdata={} # a la Matlab(R)
+    def _plotting(tmp=None,rescaleazim=True,rescalerad=True):
+        pylab.axes(fig.userdata['ax_2dplot'])
+        pylab.cla()
+        plot2dmatrix(fig.userdata['data'],mask=fig.userdata['lastmask'],header=fig.userdata['param'])
+        pylab.axes(fig.userdata['ax_sector'])
+        if not fig.userdata['keeprad']:
+            pylab.cla()
+        if not rescalerad:
+            a=pylab.axis()
+        valididx=np.isfinite(fig.userdata['sectorintensity'])
+        pylab.semilogy(fig.userdata['qrange'][valididx],fig.userdata['sectorintensity'][valididx])
+        pylab.xlabel(u'q (1/%c)' % 197)
+        pylab.ylabel('Intensity')
+        if not rescalerad:
+            pylab.axis(a)
+        pylab.axes(fig.userdata['ax_azim'])
+        if not fig.userdata['keepazim']:
+            pylab.cla()
+        if not rescaleazim:
+            a=pylab.axis()
+        pylab.plot(fig.userdata['thetarange'],fig.userdata['azimintensity'])
+        pylab.xlabel('theta (rad)')
+        pylab.ylabel('Intensity')
+        if not rescaleazim:
+            pylab.axis(a)
+    def _calculation_rad(tmp=None):
+        print "radial integration. phi0:",fig.userdata['phi0'],"dphi:",fig.userdata['dphi']
+        qmin,qmax,Nq=utils2d.qrangefrommask(fig.userdata['mask'],\
+                                            fig.userdata['param']['EnergyCalibrated'],\
+                                            fig.userdata['param']['Dist'],\
+                                            fig.userdata['param']['PixelSize'],\
+                                            fig.userdata['param']['BeamPosX'],\
+                                            fig.userdata['param']['BeamPosY'])
+        qrange=np.linspace(qmin,qmax,Nq)
+        print "qrange before radintC:",qmin,"-",qmax
+        q1,int1,err1,area1,mask1=utils2d.radintC(fig.userdata['data'],\
+                                                 fig.userdata['dataerr'],\
+                                                 fig.userdata['param']['EnergyCalibrated'],\
+                                                 fig.userdata['param']['Dist'],\
+                                                 fig.userdata['param']['PixelSize'],\
+                                                 fig.userdata['param']['BeamPosX'],\
+                                                 fig.userdata['param']['BeamPosY'],\
+                                                 (1-fig.userdata['mask']).astype('uint8'),\
+                                                 q=qrange,\
+                                                 returnavgq=True,\
+                                                 phi0=fig.userdata['phi0'],\
+                                                 dphi=fig.userdata['dphi'],\
+                                                 returnmask=True)
+        print "qrange after radintC:",np.nanmin(q1),"-",np.nanmax(q1)
+        fig.userdata['qrange']=q1
+        fig.userdata['sectorintensity']=int1
+        fig.userdata['lastmask']=1-mask1
+    def _calculation_azim(tmp=None):
+        print "azimuthal integration. qmin=",fig.userdata['qmin'],"qmax=",fig.userdata['qmax']
+        theta1,azim1,aerr1,aarea1,amask1=utils2d.azimintqC(fig.userdata['data'],\
+                                                 fig.userdata['dataerr'],\
+                                                 fig.userdata['param']['EnergyCalibrated'],\
+                                                 fig.userdata['param']['Dist'],\
+                                                 fig.userdata['param']['PixelSize'],\
+                                                 (fig.userdata['param']['BeamPosX'],\
+                                                 fig.userdata['param']['BeamPosY']),\
+                                                 (1-fig.userdata['mask']).astype('uint8'),\
+                                                 Ntheta=fig.userdata['Ntheta'],\
+                                                 qmin=fig.userdata['qmin'],\
+                                                 qmax=fig.userdata['qmax'],\
+                                                 returnmask=True)
+        fig.userdata['thetarange']=np.hstack([theta1,theta1+2*np.pi])
+        fig.userdata['azimintensity']=np.hstack([azim1,azim1])
+        fig.userdata['lastmask']=1-amask1
+    def dokeeprad(tmp=None):
+        fig.userdata['keeprad']=not fig.userdata['keeprad']
+    def dokeepazim(tmp=None):
+        fig.userdata['keepazim']=not fig.userdata['keepazim']
+    def dorad2azim(tmp=None):
+        pylab.axes(fig.userdata['ax_sector'])
+        a=pylab.axis()
+        indices=(fig.userdata['qrange']<=a[1]) & (fig.userdata['qrange']>=a[0]) & (fig.userdata['sectorintensity']<=a[3]) & (fig.userdata['sectorintensity']>=a[2])
+        fig.userdata['qmin']=np.nanmin(fig.userdata['qrange'][indices])
+        fig.userdata['qmax']=np.nanmax(fig.userdata['qrange'][indices])
+        print "setting qmin to",fig.userdata['qmin'],"and qmax to",fig.userdata['qmax']
+        _calculation_azim()
+        _plotting(rescalerad=False)
+    def doazim2rad(tmp=None):
+        pylab.axes(fig.userdata['ax_sector'])
+        a=pylab.axis()
+        indices=(fig.userdata['thetarange']<=a[1]) & (fig.userdata['thetarange']>=a[0]) & (fig.userdata['azimintensity']<=a[3]) & (fig.userdata['azimintensity']>=a[2])
+        print fig.userdata['thetarange']
+        print indices
+        fig.userdata['phi0']=np.nanmin(fig.userdata['thetarange'][indices])
+        fig.userdata['dphi']=np.nanmax(fig.userdata['thetarange'][indices])-fig.userdata['phi0']
+        _calculation_rad()
+        _plotting(rescaleazim=False)
+    def doreset(tmp=None):
+        fig.userdata['qmin']=0
+        fig.userdata['qmax']=np.inf
+        fig.userdata['phi0']=0
+        fig.userdata['dphi']=3*np.pi
+        _calculation_rad()
+        _calculation_azim()
+        fig.userdata['lastmask']=fig.userdata['mask']
+        _plotting()
+    def dodone(tmp=None):
+        fig.userdata['done']=True
+
+    fig.userdata['keeprad']=False
+    fig.userdata['keepazim']=False
+    fig.userdata['done']=False
+    fig.userdata['data']=data
+    fig.userdata['dataerr']=dataerr
+    fig.userdata['mask']=mask
+    fig.userdata['lastmask']=mask
+    fig.userdata['param']=param
+    fig.userdata['phi0']=0
+    fig.userdata['phi0']=3*np.pi
+    fig.userdata['qmin']=0
+    fig.userdata['qmax']=np.inf
+    fig.userdata['Ntheta']=50
+    fig.userdata['Nq']=50    
+    buttonarea=(.6,.1,.35,.35)
+    buttons=['Radial -> Azimuthal','Azimuthal -> Radial','!Keep Radial','!Keep Azimuthal','Reset','Done']
+    buttonfuncs=[dorad2azim,doazim2rad,dokeeprad,dokeepazim,doreset,dodone]
+    fig.userdata['ax_2dplot']=pylab.axes((.1,.6,.35,.35))
+    fig.userdata['ax_sector']=pylab.axes((.1,.1,.35,.35))
+    fig.userdata['ax_azim']=pylab.axes((.6,.6,.35,.35))
+    fig.userdata['ax_btns']=[]
+    fig.userdata['btns']=[]
+    buttonheight=buttonarea[3]/(len(buttons)*1.5-0.5)
+    for i in range(len(buttons)):
+        fig.userdata['ax_btns'].append(pylab.axes((buttonarea[0],\
+                                   buttonarea[1]+buttonarea[3]-(i+1)*buttonheight-i*buttonheight*0.5,\
+                                   buttonarea[2],buttonheight)))
+        if buttons[i][0]=='!': #checkbox
+            fig.userdata['btns'].append(matplotlib.widgets.CheckButtons(fig.userdata['ax_btns'][-1],[buttons[i][1:]],[0]))
+            fig.userdata['btns'][-1].on_clicked(buttonfuncs[i])
+        else: # button
+            fig.userdata['btns'].append(matplotlib.widgets.Button(fig.userdata['ax_btns'][-1],buttons[i]))
+            fig.userdata['btns'][-1].on_clicked(buttonfuncs[i])
+    doreset()
+    while not fig.userdata['done']:
+        fig.waitforbuttonpress()

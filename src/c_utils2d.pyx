@@ -2,7 +2,6 @@ import numpy as np
 cimport numpy as np
 from stdlib cimport *
 
-
 cdef extern from "math.h":
     double cos(double)
     double sin(double)
@@ -10,13 +9,18 @@ cdef extern from "math.h":
     double atan(double)
     double floor(double)
     double atan2(double,double)
+    double exp(double)
     double M_PI
     double NAN
     double INFINITY
     double ceil(double)
     double fmod(double,double)
+    int isfinite(double)
 
 cdef double HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
+
+cdef gaussian(double x0, double sigma, double x):
+    return 1/sqrt(2*M_PI*sigma*sigma)*exp(-(x-x0)**2/(2*sigma**2))
     
 def polartransform(np.ndarray[np.double_t, ndim=2] data not None,
                    np.ndarray[np.double_t, ndim=1] r,
@@ -60,7 +64,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             double bcx, double bcy,
             np.ndarray[np.uint8_t, ndim=2] mask not None,
             np.ndarray[np.double_t, ndim=1] q=None,
-            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None, returnmask=False):
+            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None, returnmask=False, double fuzzy_FWHM=0):
     """
     def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             np.ndarray[np.double_t,ndim=2] dataerr not None,
@@ -68,7 +72,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             double bcx, double bcy,
             np.ndarray[np.uint8_t, ndim=2] mask not None,
             np.ndarray[np.double_t, ndim=1] q=None,
-            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None, returnmask=False):
+            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None, returnmask=False, double fuzzy_FWHM=0):
 
         Do radial integration on 2D scattering images. Now this takes the
         functional determinant dq/dr into account.
@@ -100,7 +104,9 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             radians. Set it to None if simple radial averaging is needed.
         returnmask: True if the effective mask matrix is to be returned
             (0 for pixels taken into account, 1 for all the others).
-        
+        fuzzy_FWHM: FWHM for the Gauss weighing function for fuzzy integration
+            (where pixels are weighed according to their distance in q
+            from the desired q value of the bin.
     Outputs: four ndarrays.
         the q vector
         the intensity vector
@@ -128,6 +134,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     cdef Py_ssize_t lowescape, hiescape, masked, zeroerror
     cdef int sectorint
     cdef np.ndarray[np.uint8_t,ndim=2] maskout
+    cdef double g,w1
    
     if type(res)!=type([]) and type(res)!=type(()) and type(res)!=np.ndarray:
         res=[res,res];
@@ -161,7 +168,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     
     if not shutup:
         print "Creating D matrix...",
-#    # if the q-scale was not supplied, create one.
+    # if the q-scale was not supplied, create one.
     if q is None:
         if not shutup:
             print "Creating q-scale...",
@@ -198,87 +205,77 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     if not shutup:
         print "Integrating..."
     # set the bounds of the q-bins in qmin and qmax
-    qmax=<double *>malloc(K*sizeof(double))
+    if fuzzy_FWHM<=0:
+        qmax=<double *>malloc(K*sizeof(double))
+    else:
+        qmax=NULL
     weight=<double *>malloc(K*sizeof(double))
     for l from 0<=l<K:
         weight[l]=0
-        if l==K-1:
-            qmax[l]=q[K-1]
-        else:
-            qmax[l]=0.5*(q[l]+q[l+1])
+        if fuzzy_FWHM<=0:
+            if l==K-1:
+                qmax[l]=q[K-1]
+            else:
+                qmax[l]=0.5*(q[l]+q[l+1])
     lowescape=0
     hiescape=0
     masked=0
     zeroerror=0
-    if sectorint:
-        for ix from 0<=ix<M: #rows
-            for iy from 0<=iy<N: #columns
-                if mask[ix,iy]:
-                    masked+=1
-                    continue
-                if dataerr[ix,iy]==0:
-                    zeroerror+=1
-                    continue
-                x=((ix-bcx)*xres)
-                y=((iy-bcy)*yres)
+    for ix from 0<=ix<M: #rows
+        for iy from 0<=iy<N: #columns
+            if mask[ix,iy]:
+                masked+=1
+                continue
+            if dataerr[ix,iy]==0:
+                zeroerror+=1
+            if not (isfinite(data[ix,iy]) and isfinite(dataerr[ix,iy])):
+                continue
+            x=((ix-bcx)*xres)
+            y=((iy-bcy)*yres)
+            if sectorint:
                 phi=atan2(y,x)
                 if fmod(phi-phi0a+M_PI*10,2*M_PI)>dphia:
                     continue
-                rho=sqrt(x*x+y*y)/distance
-                q1=4*M_PI*sin(0.5*atan(rho))*energy/HC
-                if q1<q[0]:
-                    lowescape+=1
-                    continue
-                if q1>qmax[K-1]:
-                    hiescape+=1
-                    continue
-                # go through every q-bin
-                w=(2*M_PI*energy/HC/distance)**2*(2+rho**2+2*sqrt(1+rho**2))/( (1+rho**2+sqrt(1+rho**2))**2*sqrt(1+rho**2) )
-                #w=1
-                for l from 0<=l<K:
-                    if (q1<=qmax[l]):
-                        qout[l]+=q1
-                        Intensity[l]+=data[ix,iy]*w
-                        Error[l]+=dataerr[ix,iy]**2*w
-                        Area[l]+=1
-                        weight[l]+=w
-                        maskout[ix,iy]=0
-                        if w<=0:
-                            print "Weight is nonpositive! w=",w,"; rho=",rho
-                        break
-    else:
-        for ix from 0<=ix<M: #rows
-            for iy from 0<=iy<N: #columns
-                if mask[ix,iy]:
-                    masked+=1
-                    continue
-                #if dataerr[ix,iy]==0:
-                #    zeroerror+=1
-                #    continue
-                x=((ix-bcx)*xres)
-                y=((iy-bcy)*yres)
-                rho=sqrt(x*x+y*y)/distance
-                q1=4*M_PI*sin(0.5*atan(rho))*energy/HC
-                if q1<q[0]:
-                    lowescape+=1
-                    continue
-                if q1>qmax[K-1]:
-                    hiescape+=1
-                    continue
-                # go through every q-bin
-                w=(2*M_PI*energy/HC/distance)**2*(2+rho**2+2*sqrt(1+rho**2))/( (1+rho**2+sqrt(1+rho**2))**2*sqrt(1+rho**2) )
-                for l from 0<=l<K:
-                    if (q1<=qmax[l]):
-                        qout[l]+=q1*w
-                        Intensity[l]+=data[ix,iy]*w
-                        Error[l]+=dataerr[ix,iy]**2*w
-                        Area[l]+=1
-                        weight[l]+=w
-                        if w<=0:
-                            print "Weight is nonpositive! w=",w,"; rho=",rho
-                        break
-    free(qmax)
-    free(weight)
+            rho=sqrt(x*x+y*y)/distance
+            q1=4*M_PI*sin(0.5*atan(rho))*energy/HC
+            if q1<q[0]:
+                lowescape+=1
+                continue
+            if q1>q[K-1]:
+                hiescape+=1
+                continue
+            #weight, corresponding to the Jacobian determinant
+            w=(2*M_PI*energy/HC/distance)**2*(2+rho**2+2*sqrt(1+rho**2))/( (1+rho**2+sqrt(1+rho**2))**2*sqrt(1+rho**2) )
+            # go through every q-bin
+            for l from 0<=l<K:
+                if fuzzy_FWHM<=0: # traditional integration
+                    if (q1>qmax[l]): # if the q-value corresponding to the center of the current pixel
+                                     # is greater than the upper limit of the l-eth bin, then skip to
+                                     # the next bin.
+                        continue
+                    # If q1 becomes smaller than equal to the top of the current bin, do not skip, but
+                    # calculate this pixel into this bin with weight w
+                    w1=w 
+                else: # if "fuzzy" integration is preferred, the weight from the Jacobian is multiplied
+                      # by the weight from the Gaussian
+                    w1=w*gaussian(q[l],0.5*fuzzy_FWHM,q1)
+                # now we have a weight. We can reach this point in only two ways:
+                #   1) traditional integration and bin #l is the bin in which the pixel falls
+                #  or
+                #   2) fuzzy integration. Each pixel is calculated into each bin, but with
+                #      different weight.
+                qout[l]+=q1*w1
+                Intensity[l]+=data[ix,iy]*w1
+                Error[l]+=dataerr[ix,iy]**2*w1
+                Area[l]+=1
+                weight[l]+=w1
+                if returnmask:
+                    maskout[ix,iy]=0
+                if fuzzy_FWHM<=0: # we must do this for the traditional integration,
+                                  # because omitting this would cause the pixel to be
+                                  # calculated into the next bin as well.
+                    break
+    #normalize the results
     for l from 0<=l<K:
         if Area[l]>0:
             if weight[l]<=0:
@@ -291,6 +288,9 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 Intensity[l]/=weight[l]
                 Error[l]/=weight[l]
                 Error[l]=sqrt(Error[l])
+    if fuzzy_FWHM<=0:
+        free(qmax)
+    free(weight)
     if not shutup:
         print "Finished integration."
         print "Lowescape: ",lowescape
@@ -451,8 +451,8 @@ def imageintC(np.ndarray[np.double_t,ndim=2] data not None,
         if NC1[Nbins-1-d]>0:
             break
     #create return np.ndarrays
-    C=np.zeros(d,dtype=np.double)
-    NC=np.zeros(d,dtype=np.double)
+    C=np.zeros(Nbins-d,dtype=np.double)
+    NC=np.zeros(Nbins-d,dtype=np.double)
     #copy results
     for i from 0<=i<Nbins:
         if (NC1[i]>0):

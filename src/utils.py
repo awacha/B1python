@@ -295,3 +295,45 @@ def inv_error(A,DA):
     """
     B=np.inv(A);
     return np.sqrt(np.dot(np.dot(B**2,DA**2),B**2))
+    
+def energycalibration(energymeas,energycalib,energy1):
+    """Do energy calibration.
+    
+    Inputs:
+        energymeas: vector of measured (apparent) energies
+        energycalib: vector of theoretical energies corresponding to the measured ones
+        energy1: vector or matrix or a scalar of apparent energies to calibrate.
+        
+    Output:
+        the calibrated energy/energies, in the same form as energy1 was supplied
+        
+    Note:
+        to do backward-calibration (theoretical -> apparent), swap energymeas
+        and energycalib on the parameter list.
+    """
+    if type(energymeas)!=type(energycalib):
+        raise ValueError,"Parameters energymeas and energycalib should be of the same type!"
+    try:
+        if len(energymeas)!=len(energycalib):
+            raise ValueError, "The same number of apparent and true energy values should be given for energy calibration!"
+    except TypeError:
+        # len() is not defined: energymeas or energycalib is not a list
+        energymeas=[energymeas]
+        energycalib=[energycalib]
+    except:
+        raise
+    if len(energymeas)==1: # in this case, only do a shift.
+        a=1
+        aerr=0
+        b=energycalib[0]-energymeas[0]
+        berr=0
+    else: # if more energy values are given, do a linear fit.
+        a,b,aerr,berr=fitting.linfit(energymeas,energycalib)
+    if type(energy1)==np.ndarray:
+        return a*energy1+b
+    elif type(energy1)==type([]):
+        return [a*e+b for e in energy1]
+    elif type(energy1)==type(()):
+        return tuple([a*e+b for e in energy1])
+    else:
+        return a*energy1+b

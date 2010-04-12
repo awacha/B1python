@@ -98,7 +98,8 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
         mask=np.ones(data.shape)
     def targetfunc(orig,data,mask):
         #integrate four sectors
-        #print "integrating... (for finding beam)"
+        print "integrating... (for finding beam)"
+        print "orig (before integration):",orig[0],orig[1]
         c1,nc1=imageintC(data,orig,mask,35,20)
         c2,nc2=imageintC(data,orig,mask,35+90,20)
         c3,nc3=imageintC(data,orig,mask,35+180,20)
@@ -112,9 +113,9 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
                            pylab.find(nc3!=0).min(),
                            pylab.find(nc4!=0).min()]).max()
         ret= np.array(((c1[first:last]-c3[first:last])**2+(c2[first:last]-c4[first:last])**2)/(last-first))
-        #print "orig:",orig[0],orig[1]
-        #print "last-first:",last-first
-        #print "sum(ret):",ret.sum()
+        print "orig (after integration):",orig[0],orig[1]
+        print "last-first:",last-first
+        print "sum(ret):",ret.sum()
         return ret
     orig=scipy.optimize.leastsq(targetfunc,np.array(orig_initial),args=(data,1-mask),maxfev=maxiter,epsfcn=0.0001)
     return orig[0]
@@ -421,3 +422,28 @@ def calculateDmatrix(mask,res,bcx,bcy):
     D=np.sqrt((res[0]*(X-bcx-1))**2+
                  (res[1]*(Y-bcy-1))**2)
     return D
+def qrangefrommask(mask,energy,distance,res,bcx,bcy):
+    """Calculate q-range from mask matrix
+    
+    Inputs:
+        mask: mask matrix (1 unmasked, 0 masked)
+        energy: calibrated energy
+        distance: sample-to-detector distance
+        res: pixel size
+        bcx: row coordinate of beam center (starting from 1)
+        bcy: column coordinate of beam center (starting from 1)
+        
+    Outputs: qmin,qmax,Nq
+        qmin: smallest q-value (smallest distance of unmasked points from
+            the origin)
+        qmax: largest q-value (largest distance of unmasked points from
+            the origin)
+        Nq: number of q-bins (approx. one q-bin for one pixel)
+    """
+    D=calculateDmatrix(mask,res,bcx,bcy)
+    dmin=np.nanmin(D[mask!=0])
+    dmax=np.nanmax(D[mask!=0])
+    Nq=np.ceil(dmax-dmin)
+    qmin=4*np.pi*np.sin(0.5*np.arctan(dmin/distance))*energy/HC
+    qmax=4*np.pi*np.sin(0.5*np.arctan(dmax/distance))*energy/HC
+    return qmin,qmax,Nq
