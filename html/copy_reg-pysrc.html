@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="ascii"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>copy_reg</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css" />
+  <script type="text/javascript" src="epydoc.js"></script>
+</head>
+
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <span class="breadcrumbs">
+        Module&nbsp;copy_reg
+      </span>
+    </td>
+    <td>
+      <table cellpadding="0" cellspacing="0">
+        <!-- hide/show private -->
+        <tr><td align="right"><span class="options">[<a href="javascript:void(0);" class="privatelink"
+    onclick="toggle_private();">hide&nbsp;private</a>]</span></td></tr>
+        <tr><td align="right"><span class="options"
+            >[<a href="frames.html" target="_top">frames</a
+            >]&nbsp;|&nbsp;<a href="copy_reg-pysrc.html"
+            target="_top">no&nbsp;frames</a>]</span></td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<h1 class="epydoc">Source Code for <a href="copy_reg-module.html">Module copy_reg</a></h1>
+<pre class="py-src">
+<a name="L1"></a><tt class="py-lineno">  1</tt>  <tt class="py-line"><tt class="py-docstring">"""Helper to provide extensibility for pickle/cPickle.</tt> </tt>
+<a name="L2"></a><tt class="py-lineno">  2</tt>  <tt class="py-line"><tt class="py-docstring"></tt> </tt>
+<a name="L3"></a><tt class="py-lineno">  3</tt>  <tt class="py-line"><tt class="py-docstring">This is only useful to add pickle support for extension types defined in</tt> </tt>
+<a name="L4"></a><tt class="py-lineno">  4</tt>  <tt class="py-line"><tt class="py-docstring">C, not for instances of user-defined classes.</tt> </tt>
+<a name="L5"></a><tt class="py-lineno">  5</tt>  <tt class="py-line"><tt class="py-docstring">"""</tt> </tt>
+<a name="L6"></a><tt class="py-lineno">  6</tt>  <tt class="py-line"> </tt>
+<a name="L7"></a><tt class="py-lineno">  7</tt>  <tt class="py-line"><tt class="py-keyword">from</tt> <tt id="link-0" class="py-name" targets="Variable numpy.ctypeslib.types=numpy.ctypeslib-module.html#types,Module types=types-module.html"><a title="numpy.ctypeslib.types
+types" class="py-name" href="#" onclick="return doclink('link-0', 'types', 'link-0');">types</a></tt> <tt class="py-keyword">import</tt> <tt class="py-name">ClassType</tt> <tt class="py-keyword">as</tt> <tt class="py-name">_ClassType</tt> </tt>
+<a name="L8"></a><tt class="py-lineno">  8</tt>  <tt class="py-line"> </tt>
+<a name="L9"></a><tt class="py-lineno">  9</tt>  <tt class="py-line"><tt class="py-name">__all__</tt> <tt class="py-op">=</tt> <tt class="py-op">[</tt><tt class="py-string">"pickle"</tt><tt class="py-op">,</tt> <tt class="py-string">"constructor"</tt><tt class="py-op">,</tt> </tt>
+<a name="L10"></a><tt class="py-lineno"> 10</tt>  <tt class="py-line">           <tt class="py-string">"add_extension"</tt><tt class="py-op">,</tt> <tt class="py-string">"remove_extension"</tt><tt class="py-op">,</tt> <tt class="py-string">"clear_extension_cache"</tt><tt class="py-op">]</tt> </tt>
+<a name="L11"></a><tt class="py-lineno"> 11</tt>  <tt class="py-line"> </tt>
+<a name="L12"></a><tt class="py-lineno"> 12</tt>  <tt class="py-line"><tt id="link-1" class="py-name" targets="Variable copy.dispatch_table=copy-module.html#dispatch_table,Variable copy_reg.dispatch_table=copy_reg-module.html#dispatch_table,Variable pickle.dispatch_table=pickle-module.html#dispatch_table"><a title="copy.dispatch_table
+copy_reg.dispatch_table
+pickle.dispatch_table" class="py-name" href="#" onclick="return doclink('link-1', 'dispatch_table', 'link-1');">dispatch_table</a></tt> <tt class="py-op">=</tt> <tt class="py-op">{</tt><tt class="py-op">}</tt> </tt>
+<a name="L13"></a><tt class="py-lineno"> 13</tt>  <tt class="py-line"> </tt>
+<a name="pickle"></a><div id="pickle-def"><a name="L14"></a><tt class="py-lineno"> 14</tt> <a class="py-toggle" href="#" id="pickle-toggle" onclick="return toggle('pickle');">-</a><tt class="py-line"><tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#pickle">pickle</a><tt class="py-op">(</tt><tt class="py-param">ob_type</tt><tt class="py-op">,</tt> <tt class="py-param">pickle_function</tt><tt class="py-op">,</tt> <tt class="py-param">constructor_ob</tt><tt class="py-op">=</tt><tt class="py-name">None</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="pickle-collapsed" style="display:none;" pad="+++" indent="++++"></div><div id="pickle-expanded"><a name="L15"></a><tt class="py-lineno"> 15</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-name">type</tt><tt class="py-op">(</tt><tt class="py-name">ob_type</tt><tt class="py-op">)</tt> <tt class="py-keyword">is</tt> <tt class="py-name">_ClassType</tt><tt class="py-op">:</tt> </tt>
+<a name="L16"></a><tt class="py-lineno"> 16</tt>  <tt class="py-line">        <tt class="py-keyword">raise</tt> <tt class="py-name">TypeError</tt><tt class="py-op">(</tt><tt class="py-string">"copy_reg is not intended for use with classes"</tt><tt class="py-op">)</tt> </tt>
+<a name="L17"></a><tt class="py-lineno"> 17</tt>  <tt class="py-line"> </tt>
+<a name="L18"></a><tt class="py-lineno"> 18</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-keyword">not</tt> <tt class="py-name">hasattr</tt><tt class="py-op">(</tt><tt class="py-name">pickle_function</tt><tt class="py-op">,</tt> <tt class="py-string">'__call__'</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L19"></a><tt class="py-lineno"> 19</tt>  <tt class="py-line">        <tt class="py-keyword">raise</tt> <tt class="py-name">TypeError</tt><tt class="py-op">(</tt><tt class="py-string">"reduction functions must be callable"</tt><tt class="py-op">)</tt> </tt>
+<a name="L20"></a><tt class="py-lineno"> 20</tt>  <tt class="py-line">    <tt id="link-2" class="py-name"><a title="copy.dispatch_table
+copy_reg.dispatch_table
+pickle.dispatch_table" class="py-name" href="#" onclick="return doclink('link-2', 'dispatch_table', 'link-1');">dispatch_table</a></tt><tt class="py-op">[</tt><tt class="py-name">ob_type</tt><tt class="py-op">]</tt> <tt class="py-op">=</tt> <tt class="py-name">pickle_function</tt> </tt>
+<a name="L21"></a><tt class="py-lineno"> 21</tt>  <tt class="py-line"> </tt>
+<a name="L22"></a><tt class="py-lineno"> 22</tt>  <tt class="py-line">    <tt class="py-comment"># The constructor_ob function is a vestige of safe for unpickling.</tt> </tt>
+<a name="L23"></a><tt class="py-lineno"> 23</tt>  <tt class="py-line">    <tt class="py-comment"># There is no reason for the caller to pass it anymore.</tt> </tt>
+<a name="L24"></a><tt class="py-lineno"> 24</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-name">constructor_ob</tt> <tt class="py-keyword">is</tt> <tt class="py-keyword">not</tt> <tt class="py-name">None</tt><tt class="py-op">:</tt> </tt>
+<a name="L25"></a><tt class="py-lineno"> 25</tt>  <tt class="py-line">        <tt class="py-name">constructor</tt><tt class="py-op">(</tt><tt class="py-name">constructor_ob</tt><tt class="py-op">)</tt> </tt>
+</div><a name="L26"></a><tt class="py-lineno"> 26</tt>  <tt class="py-line"> </tt>
+<a name="constructor"></a><div id="constructor-def"><a name="L27"></a><tt class="py-lineno"> 27</tt> <a class="py-toggle" href="#" id="constructor-toggle" onclick="return toggle('constructor');">-</a><tt class="py-line"><tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#constructor">constructor</a><tt class="py-op">(</tt><tt class="py-param">object</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="constructor-collapsed" style="display:none;" pad="+++" indent="++++"></div><div id="constructor-expanded"><a name="L28"></a><tt class="py-lineno"> 28</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-keyword">not</tt> <tt class="py-name">hasattr</tt><tt class="py-op">(</tt><tt class="py-name">object</tt><tt class="py-op">,</tt> <tt class="py-string">'__call__'</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L29"></a><tt class="py-lineno"> 29</tt>  <tt class="py-line">        <tt class="py-keyword">raise</tt> <tt class="py-name">TypeError</tt><tt class="py-op">(</tt><tt class="py-string">"constructors must be callable"</tt><tt class="py-op">)</tt> </tt>
+</div><a name="L30"></a><tt class="py-lineno"> 30</tt>  <tt class="py-line"> </tt>
+<a name="L31"></a><tt class="py-lineno"> 31</tt>  <tt class="py-line"><tt class="py-comment"># Example: provide pickling support for complex numbers.</tt> </tt>
+<a name="L32"></a><tt class="py-lineno"> 32</tt>  <tt class="py-line"> </tt>
+<a name="L33"></a><tt class="py-lineno"> 33</tt>  <tt class="py-line"><tt class="py-keyword">try</tt><tt class="py-op">:</tt> </tt>
+<a name="L34"></a><tt class="py-lineno"> 34</tt>  <tt class="py-line">    <tt class="py-name">complex</tt> </tt>
+<a name="L35"></a><tt class="py-lineno"> 35</tt>  <tt class="py-line"><tt class="py-keyword">except</tt> <tt class="py-name">NameError</tt><tt class="py-op">:</tt> </tt>
+<a name="L36"></a><tt class="py-lineno"> 36</tt>  <tt class="py-line">    <tt class="py-keyword">pass</tt> </tt>
+<a name="L37"></a><tt class="py-lineno"> 37</tt>  <tt class="py-line"><tt class="py-keyword">else</tt><tt class="py-op">:</tt> </tt>
+<a name="L38"></a><tt class="py-lineno"> 38</tt>  <tt class="py-line"> </tt>
+<a name="pickle_complex"></a><div id="pickle_complex-def"><a name="L39"></a><tt class="py-lineno"> 39</tt> <a class="py-toggle" href="#" id="pickle_complex-toggle" onclick="return toggle('pickle_complex');">-</a><tt class="py-line">    <tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#pickle_complex">pickle_complex</a><tt class="py-op">(</tt><tt class="py-param">c</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="pickle_complex-collapsed" style="display:none;" pad="+++" indent="++++++++"></div><div id="pickle_complex-expanded"><a name="L40"></a><tt class="py-lineno"> 40</tt>  <tt class="py-line">        <tt class="py-keyword">return</tt> <tt class="py-name">complex</tt><tt class="py-op">,</tt> <tt class="py-op">(</tt><tt class="py-name">c</tt><tt class="py-op">.</tt><tt class="py-name">real</tt><tt class="py-op">,</tt> <tt class="py-name">c</tt><tt class="py-op">.</tt><tt class="py-name">imag</tt><tt class="py-op">)</tt> </tt>
+</div><a name="L41"></a><tt class="py-lineno"> 41</tt>  <tt class="py-line"> </tt>
+<a name="L42"></a><tt class="py-lineno"> 42</tt>  <tt class="py-line">    <tt id="link-3" class="py-name" targets="Module pickle=pickle-module.html"><a title="pickle" class="py-name" href="#" onclick="return doclink('link-3', 'pickle', 'link-3');">pickle</a></tt><tt class="py-op">(</tt><tt class="py-name">complex</tt><tt class="py-op">,</tt> <tt class="py-name">pickle_complex</tt><tt class="py-op">,</tt> <tt class="py-name">complex</tt><tt class="py-op">)</tt> </tt>
+<a name="L43"></a><tt class="py-lineno"> 43</tt>  <tt class="py-line"> </tt>
+<a name="L44"></a><tt class="py-lineno"> 44</tt>  <tt class="py-line"><tt class="py-comment"># Support for pickling new-style objects</tt> </tt>
+<a name="L45"></a><tt class="py-lineno"> 45</tt>  <tt class="py-line"> </tt>
+<a name="_reconstructor"></a><div id="_reconstructor-def"><a name="L46"></a><tt class="py-lineno"> 46</tt> <a class="py-toggle" href="#" id="_reconstructor-toggle" onclick="return toggle('_reconstructor');">-</a><tt class="py-line"><tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#_reconstructor">_reconstructor</a><tt class="py-op">(</tt><tt class="py-param">cls</tt><tt class="py-op">,</tt> <tt class="py-param">base</tt><tt class="py-op">,</tt> <tt class="py-param">state</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="_reconstructor-collapsed" style="display:none;" pad="+++" indent="++++"></div><div id="_reconstructor-expanded"><a name="L47"></a><tt class="py-lineno"> 47</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-name">base</tt> <tt class="py-keyword">is</tt> <tt class="py-name">object</tt><tt class="py-op">:</tt> </tt>
+<a name="L48"></a><tt class="py-lineno"> 48</tt>  <tt class="py-line">        <tt class="py-name">obj</tt> <tt class="py-op">=</tt> <tt class="py-name">object</tt><tt class="py-op">.</tt><tt class="py-name">__new__</tt><tt class="py-op">(</tt><tt class="py-name">cls</tt><tt class="py-op">)</tt> </tt>
+<a name="L49"></a><tt class="py-lineno"> 49</tt>  <tt class="py-line">    <tt class="py-keyword">else</tt><tt class="py-op">:</tt> </tt>
+<a name="L50"></a><tt class="py-lineno"> 50</tt>  <tt class="py-line">        <tt class="py-name">obj</tt> <tt class="py-op">=</tt> <tt class="py-name">base</tt><tt class="py-op">.</tt><tt class="py-name">__new__</tt><tt class="py-op">(</tt><tt class="py-name">cls</tt><tt class="py-op">,</tt> <tt class="py-name">state</tt><tt class="py-op">)</tt> </tt>
+<a name="L51"></a><tt class="py-lineno"> 51</tt>  <tt class="py-line">        <tt class="py-keyword">if</tt> <tt class="py-name">base</tt><tt class="py-op">.</tt><tt class="py-name">__init__</tt> <tt class="py-op">!=</tt> <tt class="py-name">object</tt><tt class="py-op">.</tt><tt class="py-name">__init__</tt><tt class="py-op">:</tt> </tt>
+<a name="L52"></a><tt class="py-lineno"> 52</tt>  <tt class="py-line">            <tt class="py-name">base</tt><tt class="py-op">.</tt><tt class="py-name">__init__</tt><tt class="py-op">(</tt><tt class="py-name">obj</tt><tt class="py-op">,</tt> <tt class="py-name">state</tt><tt class="py-op">)</tt> </tt>
+<a name="L53"></a><tt class="py-lineno"> 53</tt>  <tt class="py-line">    <tt class="py-keyword">return</tt> <tt class="py-name">obj</tt> </tt>
+</div><a name="L54"></a><tt class="py-lineno"> 54</tt>  <tt class="py-line"> </tt>
+<a name="L55"></a><tt class="py-lineno"> 55</tt>  <tt class="py-line"><tt id="link-4" class="py-name" targets="Variable copy_reg._HEAPTYPE=copy_reg-module.html#_HEAPTYPE"><a title="copy_reg._HEAPTYPE" class="py-name" href="#" onclick="return doclink('link-4', '_HEAPTYPE', 'link-4');">_HEAPTYPE</a></tt> <tt class="py-op">=</tt> <tt class="py-number">1</tt><tt class="py-op">&lt;&lt;</tt><tt class="py-number">9</tt> </tt>
+<a name="L56"></a><tt class="py-lineno"> 56</tt>  <tt class="py-line"> </tt>
+<a name="L57"></a><tt class="py-lineno"> 57</tt>  <tt class="py-line"><tt class="py-comment"># Python code for object.__reduce_ex__ for protocols 0 and 1</tt> </tt>
+<a name="L58"></a><tt class="py-lineno"> 58</tt>  <tt class="py-line"> </tt>
+<a name="_reduce_ex"></a><div id="_reduce_ex-def"><a name="L59"></a><tt class="py-lineno"> 59</tt> <a class="py-toggle" href="#" id="_reduce_ex-toggle" onclick="return toggle('_reduce_ex');">-</a><tt class="py-line"><tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#_reduce_ex">_reduce_ex</a><tt class="py-op">(</tt><tt class="py-param">self</tt><tt class="py-op">,</tt> <tt class="py-param">proto</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="_reduce_ex-collapsed" style="display:none;" pad="+++" indent="++++"></div><div id="_reduce_ex-expanded"><a name="L60"></a><tt class="py-lineno"> 60</tt>  <tt class="py-line">    <tt class="py-keyword">assert</tt> <tt class="py-name">proto</tt> <tt class="py-op">&lt;</tt> <tt class="py-number">2</tt> </tt>
+<a name="L61"></a><tt class="py-lineno"> 61</tt>  <tt class="py-line">    <tt class="py-keyword">for</tt> <tt class="py-name">base</tt> <tt class="py-keyword">in</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">__class__</tt><tt class="py-op">.</tt><tt class="py-name">__mro__</tt><tt class="py-op">:</tt> </tt>
+<a name="L62"></a><tt class="py-lineno"> 62</tt>  <tt class="py-line">        <tt class="py-keyword">if</tt> <tt class="py-name">hasattr</tt><tt class="py-op">(</tt><tt class="py-name">base</tt><tt class="py-op">,</tt> <tt class="py-string">'__flags__'</tt><tt class="py-op">)</tt> <tt class="py-keyword">and</tt> <tt class="py-keyword">not</tt> <tt class="py-name">base</tt><tt class="py-op">.</tt><tt class="py-name">__flags__</tt> <tt class="py-op">&amp;</tt> <tt id="link-5" class="py-name"><a title="copy_reg._HEAPTYPE" class="py-name" href="#" onclick="return doclink('link-5', '_HEAPTYPE', 'link-4');">_HEAPTYPE</a></tt><tt class="py-op">:</tt> </tt>
+<a name="L63"></a><tt class="py-lineno"> 63</tt>  <tt class="py-line">            <tt class="py-keyword">break</tt> </tt>
+<a name="L64"></a><tt class="py-lineno"> 64</tt>  <tt class="py-line">    <tt class="py-keyword">else</tt><tt class="py-op">:</tt> </tt>
+<a name="L65"></a><tt class="py-lineno"> 65</tt>  <tt class="py-line">        <tt class="py-name">base</tt> <tt class="py-op">=</tt> <tt class="py-name">object</tt> <tt class="py-comment"># not really reachable</tt> </tt>
+<a name="L66"></a><tt class="py-lineno"> 66</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-name">base</tt> <tt class="py-keyword">is</tt> <tt class="py-name">object</tt><tt class="py-op">:</tt> </tt>
+<a name="L67"></a><tt class="py-lineno"> 67</tt>  <tt class="py-line">        <tt class="py-name">state</tt> <tt class="py-op">=</tt> <tt class="py-name">None</tt> </tt>
+<a name="L68"></a><tt class="py-lineno"> 68</tt>  <tt class="py-line">    <tt class="py-keyword">else</tt><tt class="py-op">:</tt> </tt>
+<a name="L69"></a><tt class="py-lineno"> 69</tt>  <tt class="py-line">        <tt class="py-keyword">if</tt> <tt class="py-name">base</tt> <tt class="py-keyword">is</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">__class__</tt><tt class="py-op">:</tt> </tt>
+<a name="L70"></a><tt class="py-lineno"> 70</tt>  <tt class="py-line">            <tt class="py-keyword">raise</tt> <tt class="py-name">TypeError</tt><tt class="py-op">,</tt> <tt class="py-string">"can't pickle %s objects"</tt> <tt class="py-op">%</tt> <tt class="py-name">base</tt><tt class="py-op">.</tt><tt class="py-name">__name__</tt> </tt>
+<a name="L71"></a><tt class="py-lineno"> 71</tt>  <tt class="py-line">        <tt class="py-name">state</tt> <tt class="py-op">=</tt> <tt class="py-name">base</tt><tt class="py-op">(</tt><tt class="py-name">self</tt><tt class="py-op">)</tt> </tt>
+<a name="L72"></a><tt class="py-lineno"> 72</tt>  <tt class="py-line">    <tt class="py-name">args</tt> <tt class="py-op">=</tt> <tt class="py-op">(</tt><tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">__class__</tt><tt class="py-op">,</tt> <tt class="py-name">base</tt><tt class="py-op">,</tt> <tt class="py-name">state</tt><tt class="py-op">)</tt> </tt>
+<a name="L73"></a><tt class="py-lineno"> 73</tt>  <tt class="py-line">    <tt class="py-keyword">try</tt><tt class="py-op">:</tt> </tt>
+<a name="L74"></a><tt class="py-lineno"> 74</tt>  <tt class="py-line">        <tt class="py-name">getstate</tt> <tt class="py-op">=</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">__getstate__</tt> </tt>
+<a name="L75"></a><tt class="py-lineno"> 75</tt>  <tt class="py-line">    <tt class="py-keyword">except</tt> <tt class="py-name">AttributeError</tt><tt class="py-op">:</tt> </tt>
+<a name="L76"></a><tt class="py-lineno"> 76</tt>  <tt class="py-line">        <tt class="py-keyword">if</tt> <tt class="py-name">getattr</tt><tt class="py-op">(</tt><tt class="py-name">self</tt><tt class="py-op">,</tt> <tt class="py-string">"__slots__"</tt><tt class="py-op">,</tt> <tt class="py-name">None</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L77"></a><tt class="py-lineno"> 77</tt>  <tt class="py-line">            <tt class="py-keyword">raise</tt> <tt class="py-name">TypeError</tt><tt class="py-op">(</tt><tt class="py-string">"a class that defines __slots__ without "</tt> </tt>
+<a name="L78"></a><tt class="py-lineno"> 78</tt>  <tt class="py-line">                            <tt class="py-string">"defining __getstate__ cannot be pickled"</tt><tt class="py-op">)</tt> </tt>
+<a name="L79"></a><tt class="py-lineno"> 79</tt>  <tt class="py-line">        <tt class="py-keyword">try</tt><tt class="py-op">:</tt> </tt>
+<a name="L80"></a><tt class="py-lineno"> 80</tt>  <tt class="py-line">            <tt class="py-name">dict</tt> <tt class="py-op">=</tt> <tt class="py-name">self</tt><tt class="py-op">.</tt><tt class="py-name">__dict__</tt> </tt>
+<a name="L81"></a><tt class="py-lineno"> 81</tt>  <tt class="py-line">        <tt class="py-keyword">except</tt> <tt class="py-name">AttributeError</tt><tt class="py-op">:</tt> </tt>
+<a name="L82"></a><tt class="py-lineno"> 82</tt>  <tt class="py-line">            <tt class="py-name">dict</tt> <tt class="py-op">=</tt> <tt class="py-name">None</tt> </tt>
+<a name="L83"></a><tt class="py-lineno"> 83</tt>  <tt class="py-line">    <tt class="py-keyword">else</tt><tt class="py-op">:</tt> </tt>
+<a name="L84"></a><tt class="py-lineno"> 84</tt>  <tt class="py-line">        <tt class="py-name">dict</tt> <tt class="py-op">=</tt> <tt class="py-name">getstate</tt><tt class="py-op">(</tt><tt class="py-op">)</tt> </tt>
+<a name="L85"></a><tt class="py-lineno"> 85</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-name">dict</tt><tt class="py-op">:</tt> </tt>
+<a name="L86"></a><tt class="py-lineno"> 86</tt>  <tt class="py-line">        <tt class="py-keyword">return</tt> <tt class="py-name">_reconstructor</tt><tt class="py-op">,</tt> <tt class="py-name">args</tt><tt class="py-op">,</tt> <tt class="py-name">dict</tt> </tt>
+<a name="L87"></a><tt class="py-lineno"> 87</tt>  <tt class="py-line">    <tt class="py-keyword">else</tt><tt class="py-op">:</tt> </tt>
+<a name="L88"></a><tt class="py-lineno"> 88</tt>  <tt class="py-line">        <tt class="py-keyword">return</tt> <tt class="py-name">_reconstructor</tt><tt class="py-op">,</tt> <tt class="py-name">args</tt> </tt>
+</div><a name="L89"></a><tt class="py-lineno"> 89</tt>  <tt class="py-line"> </tt>
+<a name="L90"></a><tt class="py-lineno"> 90</tt>  <tt class="py-line"><tt class="py-comment"># Helper for __reduce_ex__ protocol 2</tt> </tt>
+<a name="L91"></a><tt class="py-lineno"> 91</tt>  <tt class="py-line"> </tt>
+<a name="__newobj__"></a><div id="__newobj__-def"><a name="L92"></a><tt class="py-lineno"> 92</tt> <a class="py-toggle" href="#" id="__newobj__-toggle" onclick="return toggle('__newobj__');">-</a><tt class="py-line"><tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#__newobj__">__newobj__</a><tt class="py-op">(</tt><tt class="py-param">cls</tt><tt class="py-op">,</tt> <tt class="py-op">*</tt><tt class="py-param">args</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="__newobj__-collapsed" style="display:none;" pad="+++" indent="++++"></div><div id="__newobj__-expanded"><a name="L93"></a><tt class="py-lineno"> 93</tt>  <tt class="py-line">    <tt class="py-keyword">return</tt> <tt class="py-name">cls</tt><tt class="py-op">.</tt><tt class="py-name">__new__</tt><tt class="py-op">(</tt><tt class="py-name">cls</tt><tt class="py-op">,</tt> <tt class="py-op">*</tt><tt class="py-name">args</tt><tt class="py-op">)</tt> </tt>
+</div><a name="L94"></a><tt class="py-lineno"> 94</tt>  <tt class="py-line"> </tt>
+<a name="_slotnames"></a><div id="_slotnames-def"><a name="L95"></a><tt class="py-lineno"> 95</tt> <a class="py-toggle" href="#" id="_slotnames-toggle" onclick="return toggle('_slotnames');">-</a><tt class="py-line"><tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#_slotnames">_slotnames</a><tt class="py-op">(</tt><tt class="py-param">cls</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="_slotnames-collapsed" style="display:none;" pad="+++" indent="++++"></div><div id="_slotnames-expanded"><a name="L96"></a><tt class="py-lineno"> 96</tt>  <tt class="py-line">    <tt class="py-docstring">"""Return a list of slot names for a given class.</tt> </tt>
+<a name="L97"></a><tt class="py-lineno"> 97</tt>  <tt class="py-line"><tt class="py-docstring"></tt> </tt>
+<a name="L98"></a><tt class="py-lineno"> 98</tt>  <tt class="py-line"><tt class="py-docstring">    This needs to find slots defined by the class and its bases, so we</tt> </tt>
+<a name="L99"></a><tt class="py-lineno"> 99</tt>  <tt class="py-line"><tt class="py-docstring">    can't simply return the __slots__ attribute.  We must walk down</tt> </tt>
+<a name="L100"></a><tt class="py-lineno">100</tt>  <tt class="py-line"><tt class="py-docstring">    the Method Resolution Order and concatenate the __slots__ of each</tt> </tt>
+<a name="L101"></a><tt class="py-lineno">101</tt>  <tt class="py-line"><tt class="py-docstring">    class found there.  (This assumes classes don't modify their</tt> </tt>
+<a name="L102"></a><tt class="py-lineno">102</tt>  <tt class="py-line"><tt class="py-docstring">    __slots__ attribute to misrepresent their slots after the class is</tt> </tt>
+<a name="L103"></a><tt class="py-lineno">103</tt>  <tt class="py-line"><tt class="py-docstring">    defined.)</tt> </tt>
+<a name="L104"></a><tt class="py-lineno">104</tt>  <tt class="py-line"><tt class="py-docstring">    """</tt> </tt>
+<a name="L105"></a><tt class="py-lineno">105</tt>  <tt class="py-line"> </tt>
+<a name="L106"></a><tt class="py-lineno">106</tt>  <tt class="py-line">    <tt class="py-comment"># Get the value from a cache in the class if possible</tt> </tt>
+<a name="L107"></a><tt class="py-lineno">107</tt>  <tt class="py-line">    <tt class="py-name">names</tt> <tt class="py-op">=</tt> <tt class="py-name">cls</tt><tt class="py-op">.</tt><tt class="py-name">__dict__</tt><tt class="py-op">.</tt><tt class="py-name">get</tt><tt class="py-op">(</tt><tt class="py-string">"__slotnames__"</tt><tt class="py-op">)</tt> </tt>
+<a name="L108"></a><tt class="py-lineno">108</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-name">names</tt> <tt class="py-keyword">is</tt> <tt class="py-keyword">not</tt> <tt class="py-name">None</tt><tt class="py-op">:</tt> </tt>
+<a name="L109"></a><tt class="py-lineno">109</tt>  <tt class="py-line">        <tt class="py-keyword">return</tt> <tt class="py-name">names</tt> </tt>
+<a name="L110"></a><tt class="py-lineno">110</tt>  <tt class="py-line"> </tt>
+<a name="L111"></a><tt class="py-lineno">111</tt>  <tt class="py-line">    <tt class="py-comment"># Not cached -- calculate the value</tt> </tt>
+<a name="L112"></a><tt class="py-lineno">112</tt>  <tt class="py-line">    <tt class="py-name">names</tt> <tt class="py-op">=</tt> <tt class="py-op">[</tt><tt class="py-op">]</tt> </tt>
+<a name="L113"></a><tt class="py-lineno">113</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-keyword">not</tt> <tt class="py-name">hasattr</tt><tt class="py-op">(</tt><tt class="py-name">cls</tt><tt class="py-op">,</tt> <tt class="py-string">"__slots__"</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L114"></a><tt class="py-lineno">114</tt>  <tt class="py-line">        <tt class="py-comment"># This class has no slots</tt> </tt>
+<a name="L115"></a><tt class="py-lineno">115</tt>  <tt class="py-line">        <tt class="py-keyword">pass</tt> </tt>
+<a name="L116"></a><tt class="py-lineno">116</tt>  <tt class="py-line">    <tt class="py-keyword">else</tt><tt class="py-op">:</tt> </tt>
+<a name="L117"></a><tt class="py-lineno">117</tt>  <tt class="py-line">        <tt class="py-comment"># Slots found -- gather slot names from all base classes</tt> </tt>
+<a name="L118"></a><tt class="py-lineno">118</tt>  <tt class="py-line">        <tt class="py-keyword">for</tt> <tt class="py-name">c</tt> <tt class="py-keyword">in</tt> <tt class="py-name">cls</tt><tt class="py-op">.</tt><tt class="py-name">__mro__</tt><tt class="py-op">:</tt> </tt>
+<a name="L119"></a><tt class="py-lineno">119</tt>  <tt class="py-line">            <tt class="py-keyword">if</tt> <tt class="py-string">"__slots__"</tt> <tt class="py-keyword">in</tt> <tt class="py-name">c</tt><tt class="py-op">.</tt><tt class="py-name">__dict__</tt><tt class="py-op">:</tt> </tt>
+<a name="L120"></a><tt class="py-lineno">120</tt>  <tt class="py-line">                <tt class="py-name">slots</tt> <tt class="py-op">=</tt> <tt class="py-name">c</tt><tt class="py-op">.</tt><tt class="py-name">__dict__</tt><tt class="py-op">[</tt><tt class="py-string">'__slots__'</tt><tt class="py-op">]</tt> </tt>
+<a name="L121"></a><tt class="py-lineno">121</tt>  <tt class="py-line">                <tt class="py-comment"># if class has a single slot, it can be given as a string</tt> </tt>
+<a name="L122"></a><tt class="py-lineno">122</tt>  <tt class="py-line">                <tt class="py-keyword">if</tt> <tt class="py-name">isinstance</tt><tt class="py-op">(</tt><tt class="py-name">slots</tt><tt class="py-op">,</tt> <tt class="py-name">basestring</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L123"></a><tt class="py-lineno">123</tt>  <tt class="py-line">                    <tt class="py-name">slots</tt> <tt class="py-op">=</tt> <tt class="py-op">(</tt><tt class="py-name">slots</tt><tt class="py-op">,</tt><tt class="py-op">)</tt> </tt>
+<a name="L124"></a><tt class="py-lineno">124</tt>  <tt class="py-line">                <tt class="py-keyword">for</tt> <tt id="link-6" class="py-name" targets="Variable copy.name=copy-module.html#name,Variable os.name=os-module.html#name"><a title="copy.name
+os.name" class="py-name" href="#" onclick="return doclink('link-6', 'name', 'link-6');">name</a></tt> <tt class="py-keyword">in</tt> <tt class="py-name">slots</tt><tt class="py-op">:</tt> </tt>
+<a name="L125"></a><tt class="py-lineno">125</tt>  <tt class="py-line">                    <tt class="py-comment"># special descriptors</tt> </tt>
+<a name="L126"></a><tt class="py-lineno">126</tt>  <tt class="py-line">                    <tt class="py-keyword">if</tt> <tt id="link-7" class="py-name"><a title="copy.name
+os.name" class="py-name" href="#" onclick="return doclink('link-7', 'name', 'link-6');">name</a></tt> <tt class="py-keyword">in</tt> <tt class="py-op">(</tt><tt class="py-string">"__dict__"</tt><tt class="py-op">,</tt> <tt class="py-string">"__weakref__"</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L127"></a><tt class="py-lineno">127</tt>  <tt class="py-line">                        <tt class="py-keyword">continue</tt> </tt>
+<a name="L128"></a><tt class="py-lineno">128</tt>  <tt class="py-line">                    <tt class="py-comment"># mangled names</tt> </tt>
+<a name="L129"></a><tt class="py-lineno">129</tt>  <tt class="py-line">                    <tt class="py-keyword">elif</tt> <tt id="link-8" class="py-name"><a title="copy.name
+os.name" class="py-name" href="#" onclick="return doclink('link-8', 'name', 'link-6');">name</a></tt><tt class="py-op">.</tt><tt class="py-name">startswith</tt><tt class="py-op">(</tt><tt class="py-string">'__'</tt><tt class="py-op">)</tt> <tt class="py-keyword">and</tt> <tt class="py-keyword">not</tt> <tt id="link-9" class="py-name"><a title="copy.name
+os.name" class="py-name" href="#" onclick="return doclink('link-9', 'name', 'link-6');">name</a></tt><tt class="py-op">.</tt><tt class="py-name">endswith</tt><tt class="py-op">(</tt><tt class="py-string">'__'</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L130"></a><tt class="py-lineno">130</tt>  <tt class="py-line">                        <tt class="py-name">names</tt><tt class="py-op">.</tt><tt class="py-name">append</tt><tt class="py-op">(</tt><tt class="py-string">'_%s%s'</tt> <tt class="py-op">%</tt> <tt class="py-op">(</tt><tt class="py-name">c</tt><tt class="py-op">.</tt><tt class="py-name">__name__</tt><tt class="py-op">,</tt> <tt id="link-10" class="py-name"><a title="copy.name
+os.name" class="py-name" href="#" onclick="return doclink('link-10', 'name', 'link-6');">name</a></tt><tt class="py-op">)</tt><tt class="py-op">)</tt> </tt>
+<a name="L131"></a><tt class="py-lineno">131</tt>  <tt class="py-line">                    <tt class="py-keyword">else</tt><tt class="py-op">:</tt> </tt>
+<a name="L132"></a><tt class="py-lineno">132</tt>  <tt class="py-line">                        <tt class="py-name">names</tt><tt class="py-op">.</tt><tt class="py-name">append</tt><tt class="py-op">(</tt><tt id="link-11" class="py-name"><a title="copy.name
+os.name" class="py-name" href="#" onclick="return doclink('link-11', 'name', 'link-6');">name</a></tt><tt class="py-op">)</tt> </tt>
+<a name="L133"></a><tt class="py-lineno">133</tt>  <tt class="py-line"> </tt>
+<a name="L134"></a><tt class="py-lineno">134</tt>  <tt class="py-line">    <tt class="py-comment"># Cache the outcome in the class if at all possible</tt> </tt>
+<a name="L135"></a><tt class="py-lineno">135</tt>  <tt class="py-line">    <tt class="py-keyword">try</tt><tt class="py-op">:</tt> </tt>
+<a name="L136"></a><tt class="py-lineno">136</tt>  <tt class="py-line">        <tt class="py-name">cls</tt><tt class="py-op">.</tt><tt class="py-name">__slotnames__</tt> <tt class="py-op">=</tt> <tt class="py-name">names</tt> </tt>
+<a name="L137"></a><tt class="py-lineno">137</tt>  <tt class="py-line">    <tt class="py-keyword">except</tt><tt class="py-op">:</tt> </tt>
+<a name="L138"></a><tt class="py-lineno">138</tt>  <tt class="py-line">        <tt class="py-keyword">pass</tt> <tt class="py-comment"># But don't die if we can't</tt> </tt>
+<a name="L139"></a><tt class="py-lineno">139</tt>  <tt class="py-line"> </tt>
+<a name="L140"></a><tt class="py-lineno">140</tt>  <tt class="py-line">    <tt class="py-keyword">return</tt> <tt class="py-name">names</tt> </tt>
+</div><a name="L141"></a><tt class="py-lineno">141</tt>  <tt class="py-line"> </tt>
+<a name="L142"></a><tt class="py-lineno">142</tt>  <tt class="py-line"><tt class="py-comment"># A registry of extension codes.  This is an ad-hoc compression</tt> </tt>
+<a name="L143"></a><tt class="py-lineno">143</tt>  <tt class="py-line"><tt class="py-comment"># mechanism.  Whenever a global reference to &lt;module&gt;, &lt;name&gt; is about</tt> </tt>
+<a name="L144"></a><tt class="py-lineno">144</tt>  <tt class="py-line"><tt class="py-comment"># to be pickled, the (&lt;module&gt;, &lt;name&gt;) tuple is looked up here to see</tt> </tt>
+<a name="L145"></a><tt class="py-lineno">145</tt>  <tt class="py-line"><tt class="py-comment"># if it is a registered extension code for it.  Extension codes are</tt> </tt>
+<a name="L146"></a><tt class="py-lineno">146</tt>  <tt class="py-line"><tt class="py-comment"># universal, so that the meaning of a pickle does not depend on</tt> </tt>
+<a name="L147"></a><tt class="py-lineno">147</tt>  <tt class="py-line"><tt class="py-comment"># context.  (There are also some codes reserved for local use that</tt> </tt>
+<a name="L148"></a><tt class="py-lineno">148</tt>  <tt class="py-line"><tt class="py-comment"># don't have this restriction.)  Codes are positive ints; 0 is</tt> </tt>
+<a name="L149"></a><tt class="py-lineno">149</tt>  <tt class="py-line"><tt class="py-comment"># reserved.</tt> </tt>
+<a name="L150"></a><tt class="py-lineno">150</tt>  <tt class="py-line"> </tt>
+<a name="L151"></a><tt class="py-lineno">151</tt>  <tt class="py-line"><tt id="link-12" class="py-name" targets="Variable copy_reg._extension_registry=copy_reg-module.html#_extension_registry,Variable pickle._extension_registry=pickle-module.html#_extension_registry"><a title="copy_reg._extension_registry
+pickle._extension_registry" class="py-name" href="#" onclick="return doclink('link-12', '_extension_registry', 'link-12');">_extension_registry</a></tt> <tt class="py-op">=</tt> <tt class="py-op">{</tt><tt class="py-op">}</tt>                <tt class="py-comment"># key -&gt; code</tt> </tt>
+<a name="L152"></a><tt class="py-lineno">152</tt>  <tt class="py-line"><tt id="link-13" class="py-name" targets="Variable copy_reg._inverted_registry=copy_reg-module.html#_inverted_registry,Variable pickle._inverted_registry=pickle-module.html#_inverted_registry"><a title="copy_reg._inverted_registry
+pickle._inverted_registry" class="py-name" href="#" onclick="return doclink('link-13', '_inverted_registry', 'link-13');">_inverted_registry</a></tt> <tt class="py-op">=</tt> <tt class="py-op">{</tt><tt class="py-op">}</tt>                 <tt class="py-comment"># code -&gt; key</tt> </tt>
+<a name="L153"></a><tt class="py-lineno">153</tt>  <tt class="py-line"><tt id="link-14" class="py-name" targets="Variable copy_reg._extension_cache=copy_reg-module.html#_extension_cache,Variable pickle._extension_cache=pickle-module.html#_extension_cache"><a title="copy_reg._extension_cache
+pickle._extension_cache" class="py-name" href="#" onclick="return doclink('link-14', '_extension_cache', 'link-14');">_extension_cache</a></tt> <tt class="py-op">=</tt> <tt class="py-op">{</tt><tt class="py-op">}</tt>                   <tt class="py-comment"># code -&gt; object</tt> </tt>
+<a name="L154"></a><tt class="py-lineno">154</tt>  <tt class="py-line"><tt class="py-comment"># Don't ever rebind those names:  cPickle grabs a reference to them when</tt> </tt>
+<a name="L155"></a><tt class="py-lineno">155</tt>  <tt class="py-line"><tt class="py-comment"># it's initialized, and won't see a rebinding.</tt> </tt>
+<a name="L156"></a><tt class="py-lineno">156</tt>  <tt class="py-line"> </tt>
+<a name="add_extension"></a><div id="add_extension-def"><a name="L157"></a><tt class="py-lineno">157</tt> <a class="py-toggle" href="#" id="add_extension-toggle" onclick="return toggle('add_extension');">-</a><tt class="py-line"><tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#add_extension">add_extension</a><tt class="py-op">(</tt><tt class="py-param">module</tt><tt class="py-op">,</tt> <tt class="py-param">name</tt><tt class="py-op">,</tt> <tt class="py-param">code</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="add_extension-collapsed" style="display:none;" pad="+++" indent="++++"></div><div id="add_extension-expanded"><a name="L158"></a><tt class="py-lineno">158</tt>  <tt class="py-line">    <tt class="py-docstring">"""Register an extension code."""</tt> </tt>
+<a name="L159"></a><tt class="py-lineno">159</tt>  <tt class="py-line">    <tt id="link-15" class="py-name" targets="Variable numpy.ctypeslib.code=numpy.ctypeslib-module.html#code"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-15', 'code', 'link-15');">code</a></tt> <tt class="py-op">=</tt> <tt class="py-name">int</tt><tt class="py-op">(</tt><tt id="link-16" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-16', 'code', 'link-15');">code</a></tt><tt class="py-op">)</tt> </tt>
+<a name="L160"></a><tt class="py-lineno">160</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-keyword">not</tt> <tt class="py-number">1</tt> <tt class="py-op">&lt;=</tt> <tt id="link-17" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-17', 'code', 'link-15');">code</a></tt> <tt class="py-op">&lt;=</tt> <tt class="py-number">0x7fffffff</tt><tt class="py-op">:</tt> </tt>
+<a name="L161"></a><tt class="py-lineno">161</tt>  <tt class="py-line">        <tt class="py-keyword">raise</tt> <tt class="py-name">ValueError</tt><tt class="py-op">,</tt> <tt class="py-string">"code out of range"</tt> </tt>
+<a name="L162"></a><tt class="py-lineno">162</tt>  <tt class="py-line">    <tt id="link-18" class="py-name" targets="Variable matplotlib.RcParams.key=matplotlib.RcParams-class.html#key,Variable matplotlib.key=matplotlib-module.html#key"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-18', 'key', 'link-18');">key</a></tt> <tt class="py-op">=</tt> <tt class="py-op">(</tt><tt class="py-name">module</tt><tt class="py-op">,</tt> <tt id="link-19" class="py-name"><a title="copy.name
+os.name" class="py-name" href="#" onclick="return doclink('link-19', 'name', 'link-6');">name</a></tt><tt class="py-op">)</tt> </tt>
+<a name="L163"></a><tt class="py-lineno">163</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-op">(</tt><tt id="link-20" class="py-name"><a title="copy_reg._extension_registry
+pickle._extension_registry" class="py-name" href="#" onclick="return doclink('link-20', '_extension_registry', 'link-12');">_extension_registry</a></tt><tt class="py-op">.</tt><tt class="py-name">get</tt><tt class="py-op">(</tt><tt id="link-21" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-21', 'key', 'link-18');">key</a></tt><tt class="py-op">)</tt> <tt class="py-op">==</tt> <tt id="link-22" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-22', 'code', 'link-15');">code</a></tt> <tt class="py-keyword">and</tt> </tt>
+<a name="L164"></a><tt class="py-lineno">164</tt>  <tt class="py-line">        <tt id="link-23" class="py-name"><a title="copy_reg._inverted_registry
+pickle._inverted_registry" class="py-name" href="#" onclick="return doclink('link-23', '_inverted_registry', 'link-13');">_inverted_registry</a></tt><tt class="py-op">.</tt><tt class="py-name">get</tt><tt class="py-op">(</tt><tt id="link-24" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-24', 'code', 'link-15');">code</a></tt><tt class="py-op">)</tt> <tt class="py-op">==</tt> <tt id="link-25" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-25', 'key', 'link-18');">key</a></tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L165"></a><tt class="py-lineno">165</tt>  <tt class="py-line">        <tt class="py-keyword">return</tt> <tt class="py-comment"># Redundant registrations are benign</tt> </tt>
+<a name="L166"></a><tt class="py-lineno">166</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt id="link-26" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-26', 'key', 'link-18');">key</a></tt> <tt class="py-keyword">in</tt> <tt id="link-27" class="py-name"><a title="copy_reg._extension_registry
+pickle._extension_registry" class="py-name" href="#" onclick="return doclink('link-27', '_extension_registry', 'link-12');">_extension_registry</a></tt><tt class="py-op">:</tt> </tt>
+<a name="L167"></a><tt class="py-lineno">167</tt>  <tt class="py-line">        <tt class="py-keyword">raise</tt> <tt class="py-name">ValueError</tt><tt class="py-op">(</tt><tt class="py-string">"key %s is already registered with code %s"</tt> <tt class="py-op">%</tt> </tt>
+<a name="L168"></a><tt class="py-lineno">168</tt>  <tt class="py-line">                         <tt class="py-op">(</tt><tt id="link-28" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-28', 'key', 'link-18');">key</a></tt><tt class="py-op">,</tt> <tt id="link-29" class="py-name"><a title="copy_reg._extension_registry
+pickle._extension_registry" class="py-name" href="#" onclick="return doclink('link-29', '_extension_registry', 'link-12');">_extension_registry</a></tt><tt class="py-op">[</tt><tt id="link-30" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-30', 'key', 'link-18');">key</a></tt><tt class="py-op">]</tt><tt class="py-op">)</tt><tt class="py-op">)</tt> </tt>
+<a name="L169"></a><tt class="py-lineno">169</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt id="link-31" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-31', 'code', 'link-15');">code</a></tt> <tt class="py-keyword">in</tt> <tt id="link-32" class="py-name"><a title="copy_reg._inverted_registry
+pickle._inverted_registry" class="py-name" href="#" onclick="return doclink('link-32', '_inverted_registry', 'link-13');">_inverted_registry</a></tt><tt class="py-op">:</tt> </tt>
+<a name="L170"></a><tt class="py-lineno">170</tt>  <tt class="py-line">        <tt class="py-keyword">raise</tt> <tt class="py-name">ValueError</tt><tt class="py-op">(</tt><tt class="py-string">"code %s is already in use for key %s"</tt> <tt class="py-op">%</tt> </tt>
+<a name="L171"></a><tt class="py-lineno">171</tt>  <tt class="py-line">                         <tt class="py-op">(</tt><tt id="link-33" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-33', 'code', 'link-15');">code</a></tt><tt class="py-op">,</tt> <tt id="link-34" class="py-name"><a title="copy_reg._inverted_registry
+pickle._inverted_registry" class="py-name" href="#" onclick="return doclink('link-34', '_inverted_registry', 'link-13');">_inverted_registry</a></tt><tt class="py-op">[</tt><tt id="link-35" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-35', 'code', 'link-15');">code</a></tt><tt class="py-op">]</tt><tt class="py-op">)</tt><tt class="py-op">)</tt> </tt>
+<a name="L172"></a><tt class="py-lineno">172</tt>  <tt class="py-line">    <tt id="link-36" class="py-name"><a title="copy_reg._extension_registry
+pickle._extension_registry" class="py-name" href="#" onclick="return doclink('link-36', '_extension_registry', 'link-12');">_extension_registry</a></tt><tt class="py-op">[</tt><tt id="link-37" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-37', 'key', 'link-18');">key</a></tt><tt class="py-op">]</tt> <tt class="py-op">=</tt> <tt id="link-38" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-38', 'code', 'link-15');">code</a></tt> </tt>
+<a name="L173"></a><tt class="py-lineno">173</tt>  <tt class="py-line">    <tt id="link-39" class="py-name"><a title="copy_reg._inverted_registry
+pickle._inverted_registry" class="py-name" href="#" onclick="return doclink('link-39', '_inverted_registry', 'link-13');">_inverted_registry</a></tt><tt class="py-op">[</tt><tt id="link-40" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-40', 'code', 'link-15');">code</a></tt><tt class="py-op">]</tt> <tt class="py-op">=</tt> <tt id="link-41" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-41', 'key', 'link-18');">key</a></tt> </tt>
+</div><a name="L174"></a><tt class="py-lineno">174</tt>  <tt class="py-line"> </tt>
+<a name="remove_extension"></a><div id="remove_extension-def"><a name="L175"></a><tt class="py-lineno">175</tt> <a class="py-toggle" href="#" id="remove_extension-toggle" onclick="return toggle('remove_extension');">-</a><tt class="py-line"><tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#remove_extension">remove_extension</a><tt class="py-op">(</tt><tt class="py-param">module</tt><tt class="py-op">,</tt> <tt class="py-param">name</tt><tt class="py-op">,</tt> <tt class="py-param">code</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="remove_extension-collapsed" style="display:none;" pad="+++" indent="++++"></div><div id="remove_extension-expanded"><a name="L176"></a><tt class="py-lineno">176</tt>  <tt class="py-line">    <tt class="py-docstring">"""Unregister an extension code.  For testing only."""</tt> </tt>
+<a name="L177"></a><tt class="py-lineno">177</tt>  <tt class="py-line">    <tt id="link-42" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-42', 'key', 'link-18');">key</a></tt> <tt class="py-op">=</tt> <tt class="py-op">(</tt><tt class="py-name">module</tt><tt class="py-op">,</tt> <tt id="link-43" class="py-name"><a title="copy.name
+os.name" class="py-name" href="#" onclick="return doclink('link-43', 'name', 'link-6');">name</a></tt><tt class="py-op">)</tt> </tt>
+<a name="L178"></a><tt class="py-lineno">178</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt class="py-op">(</tt><tt id="link-44" class="py-name"><a title="copy_reg._extension_registry
+pickle._extension_registry" class="py-name" href="#" onclick="return doclink('link-44', '_extension_registry', 'link-12');">_extension_registry</a></tt><tt class="py-op">.</tt><tt class="py-name">get</tt><tt class="py-op">(</tt><tt id="link-45" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-45', 'key', 'link-18');">key</a></tt><tt class="py-op">)</tt> <tt class="py-op">!=</tt> <tt id="link-46" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-46', 'code', 'link-15');">code</a></tt> <tt class="py-keyword">or</tt> </tt>
+<a name="L179"></a><tt class="py-lineno">179</tt>  <tt class="py-line">        <tt id="link-47" class="py-name"><a title="copy_reg._inverted_registry
+pickle._inverted_registry" class="py-name" href="#" onclick="return doclink('link-47', '_inverted_registry', 'link-13');">_inverted_registry</a></tt><tt class="py-op">.</tt><tt class="py-name">get</tt><tt class="py-op">(</tt><tt id="link-48" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-48', 'code', 'link-15');">code</a></tt><tt class="py-op">)</tt> <tt class="py-op">!=</tt> <tt id="link-49" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-49', 'key', 'link-18');">key</a></tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+<a name="L180"></a><tt class="py-lineno">180</tt>  <tt class="py-line">        <tt class="py-keyword">raise</tt> <tt class="py-name">ValueError</tt><tt class="py-op">(</tt><tt class="py-string">"key %s is not registered with code %s"</tt> <tt class="py-op">%</tt> </tt>
+<a name="L181"></a><tt class="py-lineno">181</tt>  <tt class="py-line">                         <tt class="py-op">(</tt><tt id="link-50" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-50', 'key', 'link-18');">key</a></tt><tt class="py-op">,</tt> <tt id="link-51" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-51', 'code', 'link-15');">code</a></tt><tt class="py-op">)</tt><tt class="py-op">)</tt> </tt>
+<a name="L182"></a><tt class="py-lineno">182</tt>  <tt class="py-line">    <tt class="py-keyword">del</tt> <tt id="link-52" class="py-name"><a title="copy_reg._extension_registry
+pickle._extension_registry" class="py-name" href="#" onclick="return doclink('link-52', '_extension_registry', 'link-12');">_extension_registry</a></tt><tt class="py-op">[</tt><tt id="link-53" class="py-name"><a title="matplotlib.RcParams.key
+matplotlib.key" class="py-name" href="#" onclick="return doclink('link-53', 'key', 'link-18');">key</a></tt><tt class="py-op">]</tt> </tt>
+<a name="L183"></a><tt class="py-lineno">183</tt>  <tt class="py-line">    <tt class="py-keyword">del</tt> <tt id="link-54" class="py-name"><a title="copy_reg._inverted_registry
+pickle._inverted_registry" class="py-name" href="#" onclick="return doclink('link-54', '_inverted_registry', 'link-13');">_inverted_registry</a></tt><tt class="py-op">[</tt><tt id="link-55" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-55', 'code', 'link-15');">code</a></tt><tt class="py-op">]</tt> </tt>
+<a name="L184"></a><tt class="py-lineno">184</tt>  <tt class="py-line">    <tt class="py-keyword">if</tt> <tt id="link-56" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-56', 'code', 'link-15');">code</a></tt> <tt class="py-keyword">in</tt> <tt id="link-57" class="py-name"><a title="copy_reg._extension_cache
+pickle._extension_cache" class="py-name" href="#" onclick="return doclink('link-57', '_extension_cache', 'link-14');">_extension_cache</a></tt><tt class="py-op">:</tt> </tt>
+<a name="L185"></a><tt class="py-lineno">185</tt>  <tt class="py-line">        <tt class="py-keyword">del</tt> <tt id="link-58" class="py-name"><a title="copy_reg._extension_cache
+pickle._extension_cache" class="py-name" href="#" onclick="return doclink('link-58', '_extension_cache', 'link-14');">_extension_cache</a></tt><tt class="py-op">[</tt><tt id="link-59" class="py-name"><a title="numpy.ctypeslib.code" class="py-name" href="#" onclick="return doclink('link-59', 'code', 'link-15');">code</a></tt><tt class="py-op">]</tt> </tt>
+</div><a name="L186"></a><tt class="py-lineno">186</tt>  <tt class="py-line"> </tt>
+<a name="clear_extension_cache"></a><div id="clear_extension_cache-def"><a name="L187"></a><tt class="py-lineno">187</tt> <a class="py-toggle" href="#" id="clear_extension_cache-toggle" onclick="return toggle('clear_extension_cache');">-</a><tt class="py-line"><tt class="py-keyword">def</tt> <a class="py-def-name" href="copy_reg-module.html#clear_extension_cache">clear_extension_cache</a><tt class="py-op">(</tt><tt class="py-op">)</tt><tt class="py-op">:</tt> </tt>
+</div><div id="clear_extension_cache-collapsed" style="display:none;" pad="+++" indent="++++"></div><div id="clear_extension_cache-expanded"><a name="L188"></a><tt class="py-lineno">188</tt>  <tt class="py-line">    <tt id="link-60" class="py-name"><a title="copy_reg._extension_cache
+pickle._extension_cache" class="py-name" href="#" onclick="return doclink('link-60', '_extension_cache', 'link-14');">_extension_cache</a></tt><tt class="py-op">.</tt><tt class="py-name">clear</tt><tt class="py-op">(</tt><tt class="py-op">)</tt> </tt>
+</div><a name="L189"></a><tt class="py-lineno">189</tt>  <tt class="py-line"> </tt>
+<a name="L190"></a><tt class="py-lineno">190</tt>  <tt class="py-line"><tt class="py-comment"># Standard extension code assignments</tt> </tt>
+<a name="L191"></a><tt class="py-lineno">191</tt>  <tt class="py-line"> </tt>
+<a name="L192"></a><tt class="py-lineno">192</tt>  <tt class="py-line"><tt class="py-comment"># Reserved ranges</tt> </tt>
+<a name="L193"></a><tt class="py-lineno">193</tt>  <tt class="py-line"> </tt>
+<a name="L194"></a><tt class="py-lineno">194</tt>  <tt class="py-line"><tt class="py-comment"># First  Last Count  Purpose</tt> </tt>
+<a name="L195"></a><tt class="py-lineno">195</tt>  <tt class="py-line"><tt class="py-comment">#     1   127   127  Reserved for Python standard library</tt> </tt>
+<a name="L196"></a><tt class="py-lineno">196</tt>  <tt class="py-line"><tt class="py-comment">#   128   191    64  Reserved for Zope</tt> </tt>
+<a name="L197"></a><tt class="py-lineno">197</tt>  <tt class="py-line"><tt class="py-comment">#   192   239    48  Reserved for 3rd parties</tt> </tt>
+<a name="L198"></a><tt class="py-lineno">198</tt>  <tt class="py-line"><tt class="py-comment">#   240   255    16  Reserved for private use (will never be assigned)</tt> </tt>
+<a name="L199"></a><tt class="py-lineno">199</tt>  <tt class="py-line"><tt class="py-comment">#   256   Inf   Inf  Reserved for future assignment</tt> </tt>
+<a name="L200"></a><tt class="py-lineno">200</tt>  <tt class="py-line"> </tt>
+<a name="L201"></a><tt class="py-lineno">201</tt>  <tt class="py-line"><tt class="py-comment"># Extension codes are assigned by the Python Software Foundation.</tt> </tt>
+<a name="L202"></a><tt class="py-lineno">202</tt>  <tt class="py-line"> </tt><script type="text/javascript">
+<!--
+expandto(location.href);
+// -->
+</script>
+</pre>
+<br />
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%%">
+  <tr>
+    <td align="left" class="footer">
+    Generated by Epydoc 3.0.1 on Tue Apr 27 11:02:45 2010
+    </td>
+    <td align="right" class="footer">
+      <a target="mainFrame" href="http://epydoc.sourceforge.net"
+        >http://epydoc.sourceforge.net</a>
+    </td>
+  </tr>
+</table>
+
+<script type="text/javascript">
+  <!--
+  // Private objects are initially displayed (because if
+  // javascript is turned off then we want them to be
+  // visible); but by default, we want to hide them.  So hide
+  // them unless we have a cookie that says to show them.
+  checkCookie();
+  // -->
+</script>
+</body>
+</html>

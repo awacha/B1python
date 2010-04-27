@@ -1,0 +1,1036 @@
+<?xml version="1.0" encoding="ascii"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>numpy.lib.scimath</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css" />
+  <script type="text/javascript" src="epydoc.js"></script>
+</head>
+
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <span class="breadcrumbs">
+        <a href="numpy-module.html">Package&nbsp;numpy</a> ::
+        Package&nbsp;lib ::
+        Module&nbsp;scimath
+      </span>
+    </td>
+    <td>
+      <table cellpadding="0" cellspacing="0">
+        <!-- hide/show private -->
+        <tr><td align="right"><span class="options">[<a href="javascript:void(0);" class="privatelink"
+    onclick="toggle_private();">hide&nbsp;private</a>]</span></td></tr>
+        <tr><td align="right"><span class="options"
+            >[<a href="frames.html" target="_top">frames</a
+            >]&nbsp;|&nbsp;<a href="numpy.lib.scimath-module.html"
+            target="_top">no&nbsp;frames</a>]</span></td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<!-- ==================== MODULE DESCRIPTION ==================== -->
+<h1 class="epydoc">Module scimath</h1><p class="nomargin-top"><span class="codelink"><a href="numpy.lib.scimath-pysrc.html">source&nbsp;code</a></span></p>
+<p>Wrapper functions to more user-friendly calling of certain math 
+  functions whose output data-type is different than the input data-type in
+  certain domains of the input.</p>
+  <p>For example, for functions like log() with branch cuts, the versions 
+  in this module provide the mathematically valid answers in the complex 
+  plane:</p>
+<pre class="py-doctest">
+<span class="py-prompt">&gt;&gt;&gt; </span><span class="py-keyword">import</span> math
+<span class="py-prompt">&gt;&gt;&gt; </span><span class="py-keyword">from</span> numpy.lib <span class="py-keyword">import</span> scimath
+<span class="py-prompt">&gt;&gt;&gt; </span>scimath.log(-math.exp(1)) == (1+1j*math.pi)
+<span class="py-output">True</span></pre>
+  <p>Similarly, sqrt(), other base logarithms, power() and trig functions 
+  are correctly handled.  See their respective docstrings for specific 
+  examples.</p>
+
+<!-- ==================== FUNCTIONS ==================== -->
+<a name="section-Functions"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Functions</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Functions"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#_fix_int_lt_zero" class="summary-sig-name" onclick="show_private();">_fix_int_lt_zero</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Convert `x` to double if it has real, negative components.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#_fix_int_lt_zero">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#_fix_real_abs_gt_1" class="summary-sig-name" onclick="show_private();">_fix_real_abs_gt_1</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Convert `x` to complex if it has real components x_i with abs(x_i)&gt;1.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#_fix_real_abs_gt_1">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#_fix_real_lt_zero" class="summary-sig-name" onclick="show_private();">_fix_real_lt_zero</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Convert `x` to complex if it has real, negative components.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#_fix_real_lt_zero">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#_tocomplex" class="summary-sig-name" onclick="show_private();">_tocomplex</a>(<span class="summary-sig-arg">arr</span>)</span><br />
+      Convert its input `arr` to a complex array.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#_tocomplex">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#arccos" class="summary-sig-name">arccos</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Compute the inverse cosine of x.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#arccos">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#arcsin" class="summary-sig-name">arcsin</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Compute the inverse sine of x.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#arcsin">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#arctanh" class="summary-sig-name">arctanh</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Compute the inverse hyperbolic tangent of x.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#arctanh">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#log" class="summary-sig-name">log</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Return the natural logarithm of x.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#log">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#log10" class="summary-sig-name">log10</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Return the base 10 logarithm of x.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#log10">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#log2" class="summary-sig-name">log2</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Take log base 2 of x.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#log2">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#logn" class="summary-sig-name">logn</a>(<span class="summary-sig-arg">n</span>,
+        <span class="summary-sig-arg">x</span>)</span><br />
+      Take log base n of x.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#logn">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#power" class="summary-sig-name">power</a>(<span class="summary-sig-arg">x</span>,
+        <span class="summary-sig-arg">p</span>)</span><br />
+      Return x**p.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#power">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.lib.scimath-module.html#sqrt" class="summary-sig-name">sqrt</a>(<span class="summary-sig-arg">x</span>)</span><br />
+      Return the square root of x.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.lib.scimath-pysrc.html#sqrt">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+</table>
+<!-- ==================== VARIABLES ==================== -->
+<a name="section-Variables"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Variables</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Variables"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="__package__"></a><span class="summary-name">__package__</span> = <code title="'numpy.lib'"><code class="variable-quote">'</code><code class="variable-string">numpy.lib</code><code class="variable-quote">'</code></code>
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="_ln2"></a><span class="summary-name">_ln2</span> = <code title="0.69314718055994529">0.69314718055994529</code>
+    </td>
+  </tr>
+</table>
+<!-- ==================== FUNCTION DETAILS ==================== -->
+<a name="section-FunctionDetails"></a>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Function Details</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-FunctionDetails"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+</table>
+<a name="_fix_int_lt_zero"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">_fix_int_lt_zero</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#_fix_int_lt_zero">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Convert `x` to double if it has real, negative components.
+
+Otherwise, output is just the array version of the input (via asarray).
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array
+
+Examples
+--------
+&gt;&gt;&gt; np.lib.scimath._fix_int_lt_zero([1,2])
+array([1, 2])
+
+&gt;&gt;&gt; np.lib.scimath._fix_int_lt_zero([-1,2])
+array([-1.,  2.])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="_fix_real_abs_gt_1"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">_fix_real_abs_gt_1</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#_fix_real_abs_gt_1">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Convert `x` to complex if it has real components x_i with abs(x_i)&gt;1.
+
+Otherwise, output is just the array version of the input (via asarray).
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array
+
+Examples
+--------
+&gt;&gt;&gt; np.lib.scimath._fix_real_abs_gt_1([0,1])
+array([0, 1])
+
+&gt;&gt;&gt; np.lib.scimath._fix_real_abs_gt_1([0,2])
+array([ 0.+0.j,  2.+0.j])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="_fix_real_lt_zero"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">_fix_real_lt_zero</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#_fix_real_lt_zero">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Convert `x` to complex if it has real, negative components.
+
+Otherwise, output is just the array version of the input (via asarray).
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array
+
+Examples
+--------
+&gt;&gt;&gt; np.lib.scimath._fix_real_lt_zero([1,2])
+array([1, 2])
+
+&gt;&gt;&gt; np.lib.scimath._fix_real_lt_zero([-1,2])
+array([-1.+0.j,  2.+0.j])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="_tocomplex"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">_tocomplex</span>(<span class="sig-arg">arr</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#_tocomplex">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Convert its input `arr` to a complex array.
+
+The input is returned as a complex array of the smallest type that will fit
+the original data: types like single, byte, short, etc. become csingle,
+while others become cdouble.
+
+A copy of the input is always made.
+
+Parameters
+----------
+arr : array
+
+Returns
+-------
+array
+    An array with the same input data as the input but in complex form.
+
+Examples
+--------
+
+First, consider an input of type short:
+
+&gt;&gt;&gt; a = np.array([1,2,3],np.short)
+
+&gt;&gt;&gt; ac = np.lib.scimath._tocomplex(a); ac
+array([ 1.+0.j,  2.+0.j,  3.+0.j], dtype=complex64)
+
+&gt;&gt;&gt; ac.dtype
+dtype('complex64')
+
+If the input is of type double, the output is correspondingly of the
+complex double type as well:
+
+&gt;&gt;&gt; b = np.array([1,2,3],np.double)
+
+&gt;&gt;&gt; bc = np.lib.scimath._tocomplex(b); bc
+array([ 1.+0.j,  2.+0.j,  3.+0.j])
+
+&gt;&gt;&gt; bc.dtype
+dtype('complex128')
+
+Note that even if the input was complex to begin with, a copy is still
+made, since the astype() method always copies:
+
+&gt;&gt;&gt; c = np.array([1,2,3],np.csingle)
+
+&gt;&gt;&gt; cc = np.lib.scimath._tocomplex(c); cc
+array([ 1.+0.j,  2.+0.j,  3.+0.j], dtype=complex64)
+
+&gt;&gt;&gt; c *= 2; c
+array([ 2.+0.j,  4.+0.j,  6.+0.j], dtype=complex64)
+
+&gt;&gt;&gt; cc
+array([ 1.+0.j,  2.+0.j,  3.+0.j], dtype=complex64)
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="arccos"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">arccos</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#arccos">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Compute the inverse cosine of x.
+
+For real x with abs(x)&lt;=1, this returns the principal value.
+
+If abs(x)&gt;1, the complex arccos() is computed.
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array_like
+
+Examples
+--------
+&gt;&gt;&gt; np.set_printoptions(precision=4)
+
+&gt;&gt;&gt; np.lib.scimath.arccos(1)
+0.0
+
+&gt;&gt;&gt; np.lib.scimath.arccos([1,2])
+array([ 0.-0.j   ,  0.+1.317j])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="arcsin"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">arcsin</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#arcsin">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Compute the inverse sine of x.
+
+For real x with abs(x)&lt;=1, this returns the principal value.
+
+If abs(x)&gt;1, the complex arcsin() is computed.
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array_like
+
+Examples
+--------
+(We set the printing precision so the example can be auto-tested)
+&gt;&gt;&gt; np.set_printoptions(precision=4)
+
+&gt;&gt;&gt; np.lib.scimath.arcsin(0)
+0.0
+
+&gt;&gt;&gt; np.lib.scimath.arcsin([0,1])
+array([ 0.    ,  1.5708])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="arctanh"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">arctanh</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#arctanh">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Compute the inverse hyperbolic tangent of x.
+
+For real x with abs(x)&lt;=1, this returns the principal value.
+
+If abs(x)&gt;1, the complex arctanh() is computed.
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array_like
+
+Examples
+--------
+(We set the printing precision so the example can be auto-tested)
+&gt;&gt;&gt; np.set_printoptions(precision=4)
+
+&gt;&gt;&gt; np.lib.scimath.arctanh(0)
+0.0
+
+&gt;&gt;&gt; np.lib.scimath.arctanh([0,2])
+array([ 0.0000+0.j    ,  0.5493-1.5708j])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="log"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">log</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#log">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Return the natural logarithm of x.
+
+If x contains negative inputs, the answer is computed and returned in the
+complex domain.
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array_like
+
+Examples
+--------
+&gt;&gt;&gt; import math
+&gt;&gt;&gt; np.lib.scimath.log(math.exp(1))
+1.0
+
+Negative arguments are correctly handled (recall that for negative
+arguments, the identity exp(log(z))==z does not hold anymore):
+
+&gt;&gt;&gt; np.lib.scimath.log(-math.exp(1)) == (1+1j*math.pi)
+True
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="log10"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">log10</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#log10">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Return the base 10 logarithm of x.
+
+If x contains negative inputs, the answer is computed and returned in the
+complex domain.
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array_like
+
+Examples
+--------
+
+(We set the printing precision so the example can be auto-tested)
+&gt;&gt;&gt; np.set_printoptions(precision=4)
+
+&gt;&gt;&gt; np.lib.scimath.log10([10**1,10**2])
+array([ 1.,  2.])
+
+
+&gt;&gt;&gt; np.lib.scimath.log10([-10**1,-10**2,10**2])
+array([ 1.+1.3644j,  2.+1.3644j,  2.+0.j    ])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="log2"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">log2</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#log2">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Take log base 2 of x.
+
+If x contains negative inputs, the answer is computed and returned in the
+complex domain.
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array_like
+
+Examples
+--------
+
+(We set the printing precision so the example can be auto-tested)
+&gt;&gt;&gt; np.set_printoptions(precision=4)
+
+&gt;&gt;&gt; np.lib.scimath.log2([4,8])
+array([ 2.,  3.])
+
+&gt;&gt;&gt; np.lib.scimath.log2([-4,-8,8])
+array([ 2.+4.5324j,  3.+4.5324j,  3.+0.j    ])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="logn"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">logn</span>(<span class="sig-arg">n</span>,
+        <span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#logn">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Take log base n of x.
+
+If x contains negative inputs, the answer is computed and returned in the
+complex domain.
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array_like
+
+Examples
+--------
+
+(We set the printing precision so the example can be auto-tested)
+&gt;&gt;&gt; np.set_printoptions(precision=4)
+
+&gt;&gt;&gt; np.lib.scimath.logn(2,[4,8])
+array([ 2.,  3.])
+
+&gt;&gt;&gt; np.lib.scimath.logn(2,[-4,-8,8])
+array([ 2.+4.5324j,  3.+4.5324j,  3.+0.j    ])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="power"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">power</span>(<span class="sig-arg">x</span>,
+        <span class="sig-arg">p</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#power">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Return x**p.
+
+If x contains negative values, it is converted to the complex domain.
+
+If p contains negative values, it is converted to floating point.
+
+Parameters
+----------
+x : array_like
+p : array_like of integers
+
+Returns
+-------
+array_like
+
+Examples
+--------
+(We set the printing precision so the example can be auto-tested)
+&gt;&gt;&gt; np.set_printoptions(precision=4)
+
+&gt;&gt;&gt; np.lib.scimath.power([2,4],2)
+array([ 4, 16])
+
+&gt;&gt;&gt; np.lib.scimath.power([2,4],-2)
+array([ 0.25  ,  0.0625])
+
+&gt;&gt;&gt; np.lib.scimath.power([-2,4],2)
+array([  4.+0.j,  16.+0.j])
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="sqrt"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">sqrt</span>(<span class="sig-arg">x</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.lib.scimath-pysrc.html#sqrt">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Return the square root of x.
+
+Parameters
+----------
+x : array_like
+
+Returns
+-------
+array_like output.
+
+Examples
+--------
+
+For real, non-negative inputs this works just like numpy.sqrt():
+&gt;&gt;&gt; np.lib.scimath.sqrt(1)
+1.0
+
+&gt;&gt;&gt; np.lib.scimath.sqrt([1,4])
+array([ 1.,  2.])
+
+But it automatically handles negative inputs:
+&gt;&gt;&gt; np.lib.scimath.sqrt(-1)
+(0.0+1.0j)
+
+&gt;&gt;&gt; np.lib.scimath.sqrt([-1,4])
+array([ 0.+1.j,  2.+0.j])
+
+Notes
+-----
+
+As the numpy.sqrt, this returns the principal square root of x, which is
+what most people mean when they use square root; the principal square root
+of x is not any number z such as z^2 = x.
+
+For positive numbers, the principal square root is defined as the positive
+number z such as z^2 = x.
+
+The principal square root of -1 is i, the principal square root of any
+negative number -x is defined a i * sqrt(x). For any non zero complex
+number, it is defined by using the following branch cut: x = r e^(i t) with
+r &gt; 0 and -pi &lt; t &lt;= pi. The principal square root is then
+sqrt(r) e^(i t/2).
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<br />
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%%">
+  <tr>
+    <td align="left" class="footer">
+    Generated by Epydoc 3.0.1 on Tue Apr 27 11:02:17 2010
+    </td>
+    <td align="right" class="footer">
+      <a target="mainFrame" href="http://epydoc.sourceforge.net"
+        >http://epydoc.sourceforge.net</a>
+    </td>
+  </tr>
+</table>
+
+<script type="text/javascript">
+  <!--
+  // Private objects are initially displayed (because if
+  // javascript is turned off then we want them to be
+  // visible); but by default, we want to hide them.  So hide
+  // them unless we have a cookie that says to show them.
+  checkCookie();
+  // -->
+</script>
+</body>
+</html>

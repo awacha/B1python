@@ -1,0 +1,679 @@
+<?xml version="1.0" encoding="ascii"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>numpy.core.records</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css" />
+  <script type="text/javascript" src="epydoc.js"></script>
+</head>
+
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <span class="breadcrumbs">
+        <a href="numpy-module.html">Package&nbsp;numpy</a> ::
+        Package&nbsp;core ::
+        Module&nbsp;records
+      </span>
+    </td>
+    <td>
+      <table cellpadding="0" cellspacing="0">
+        <!-- hide/show private -->
+        <tr><td align="right"><span class="options">[<a href="javascript:void(0);" class="privatelink"
+    onclick="toggle_private();">hide&nbsp;private</a>]</span></td></tr>
+        <tr><td align="right"><span class="options"
+            >[<a href="frames.html" target="_top">frames</a
+            >]&nbsp;|&nbsp;<a href="numpy.core.records-module.html"
+            target="_top">no&nbsp;frames</a>]</span></td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<!-- ==================== MODULE DESCRIPTION ==================== -->
+<h1 class="epydoc">Module records</h1><p class="nomargin-top"><span class="codelink"><a href="numpy.core.records-pysrc.html">source&nbsp;code</a></span></p>
+<h1 class="heading">Record Arrays</h1>
+    <p>Record arrays expose the fields of structured arrays as 
+    properties.</p>
+    <p>Most commonly, ndarrays contain elements of a single type, e.g. 
+    floats, integers, bools etc.  However, it is possible for elements to 
+    be combinations of these, such as:</p>
+<pre class="literalblock">
+ &gt;&gt;&gt; a = np.array([(1, 2.0), (1, 2.0)], dtype=[('x', int), ('y', float)])
+ &gt;&gt;&gt; a
+ array([(1, 2.0), (1, 2.0)],
+       dtype=[('x', '&lt;i4'), ('y', '&lt;f8')])
+</pre>
+    <p>Here, each element consists of two fields: x (and int), and y (a 
+    float). This is known as a structured array.  The different fields are 
+    analogous to columns in a spread-sheet.  The different fields can be 
+    accessed as one would a dictionary:</p>
+<pre class="literalblock">
+ &gt;&gt;&gt; a['x']
+ array([1, 1])
+
+ &gt;&gt;&gt; a['y']
+ array([ 2.,  2.])
+</pre>
+    <p>Record arrays allow us to access fields as properties:</p>
+<pre class="literalblock">
+ &gt;&gt;&gt; ar = a.view(np.recarray)
+
+ &gt;&gt;&gt; ar.x
+ array([1, 1])
+
+ &gt;&gt;&gt; ar.y
+ array([ 2.,  2.])
+</pre>
+
+<!-- ==================== CLASSES ==================== -->
+<a name="section-Classes"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Classes</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Classes"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="numpy.core.records.format_parser-class.html" class="summary-name">format_parser</a><br />
+      Class to convert formats, names, titles description to a dtype
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="numpy.core.records.recarray-class.html" class="summary-name">recarray</a><br />
+      Construct an ndarray that allows field access using attributes.
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="numpy.core.records.record-class.html" class="summary-name">record</a><br />
+      A data-type scalar that allows field access as attribute lookup.
+    </td>
+  </tr>
+</table>
+<!-- ==================== FUNCTIONS ==================== -->
+<a name="section-Functions"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Functions</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Functions"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="array"></a><span class="summary-sig-name">array</span>(<span class="summary-sig-arg">obj</span>,
+        <span class="summary-sig-arg">dtype</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">shape</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">offset</span>=<span class="summary-sig-default">0</span>,
+        <span class="summary-sig-arg">strides</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">formats</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">names</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">titles</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">aligned</span>=<span class="summary-sig-default">False</span>,
+        <span class="summary-sig-arg">byteorder</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">copy</span>=<span class="summary-sig-default">True</span>)</span><br />
+      Construct a record array from a wide-variety of objects.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.core.records-pysrc.html#array">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="find_duplicate"></a><span class="summary-sig-name">find_duplicate</span>(<span class="summary-sig-arg">list</span>)</span><br />
+      Find duplication in a list, return a list of duplicated elements</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.core.records-pysrc.html#find_duplicate">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.core.records-module.html#fromarrays" class="summary-sig-name" onclick="show_private();">fromarrays</a>(<span class="summary-sig-arg">arrayList</span>,
+        <span class="summary-sig-arg">dtype</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">shape</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">formats</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">names</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">titles</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">aligned</span>=<span class="summary-sig-default">False</span>,
+        <span class="summary-sig-arg">byteorder</span>=<span class="summary-sig-default">None</span>)</span><br />
+      create a record array from a (flat) list of arrays</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.core.records-pysrc.html#fromarrays">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.core.records-module.html#fromfile" class="summary-sig-name" onclick="show_private();">fromfile</a>(<span class="summary-sig-arg">fd</span>,
+        <span class="summary-sig-arg">dtype</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">shape</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">offset</span>=<span class="summary-sig-default">0</span>,
+        <span class="summary-sig-arg">formats</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">names</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">titles</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">aligned</span>=<span class="summary-sig-default">False</span>,
+        <span class="summary-sig-arg">byteorder</span>=<span class="summary-sig-default">None</span>)</span><br />
+      Create an array from binary file data</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.core.records-pysrc.html#fromfile">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="numpy.core.records-module.html#fromrecords" class="summary-sig-name" onclick="show_private();">fromrecords</a>(<span class="summary-sig-arg">recList</span>,
+        <span class="summary-sig-arg">dtype</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">shape</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">formats</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">names</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">titles</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">aligned</span>=<span class="summary-sig-default">False</span>,
+        <span class="summary-sig-arg">byteorder</span>=<span class="summary-sig-default">None</span>)</span><br />
+      create a recarray from a list of records in text form</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.core.records-pysrc.html#fromrecords">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="fromstring"></a><span class="summary-sig-name">fromstring</span>(<span class="summary-sig-arg">datastring</span>,
+        <span class="summary-sig-arg">dtype</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">shape</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">offset</span>=<span class="summary-sig-default">0</span>,
+        <span class="summary-sig-arg">formats</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">names</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">titles</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">aligned</span>=<span class="summary-sig-default">False</span>,
+        <span class="summary-sig-arg">byteorder</span>=<span class="summary-sig-default">None</span>)</span><br />
+      create a (read-only) record array from binary data contained in a 
+      string</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.core.records-pysrc.html#fromstring">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="get_remaining_size"></a><span class="summary-sig-name">get_remaining_size</span>(<span class="summary-sig-arg">fd</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="numpy.core.records-pysrc.html#get_remaining_size">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+</table>
+<!-- ==================== VARIABLES ==================== -->
+<a name="section-Variables"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Variables</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Variables"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="__package__"></a><span class="summary-name">__package__</span> = <code title="'numpy.core'"><code class="variable-quote">'</code><code class="variable-string">numpy.core</code><code class="variable-quote">'</code></code>
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="numpy.core.records-module.html#_byteorderconv" class="summary-name" onclick="show_private();">_byteorderconv</a> = <code title="{'&lt;': '&lt;',
+ '=': '=',
+ '&gt;': '&gt;',
+ 'B': '&gt;',
+ 'I': '|',
+ 'L': '&lt;',
+ 'N': '=',
+ 'S': 's',
+..."><code class="variable-group">{</code><code class="variable-quote">'</code><code class="variable-string">&lt;</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">&lt;</code><code class="variable-quote">'</code><code class="variable-op">, </code><code class="variable-quote">'</code><code class="variable-string">=</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">=</code><code class="variable-quote">'</code><code class="variable-op">, </code><code class="variable-quote">'</code><code class="variable-string">&gt;</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">&gt;</code><code class="variable-quote">'</code><code class="variable-op">, </code><code class="variable-quote">'</code><code class="variable-string">B</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">&gt;</code><code class="variable-quote">'</code><code class="variable-op">, </code><code class="variable-quote">'</code><code class="variable-string">I</code><code class="variable-quote">'</code><code class="variable-op">:</code><code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="numpy.core.records-module.html#_typestr" class="summary-name" onclick="show_private();">_typestr</a> = <code title="{&lt;type 'numpy.int64'&gt;: 'i8', &lt;type 'numpy.int16'&gt;: 'i2', &lt;type 'numpy.\
+object_'&gt;: 'O4', &lt;type 'numpy.uint32'&gt;: 'u4', &lt;type 'numpy.bool_'&gt;: 'b\
+1', &lt;type 'numpy.float96'&gt;: 'f12', &lt;type 'numpy.int32'&gt;: 'i4', &lt;type '\
+numpy.string_'&gt;: 'S', &lt;type 'numpy.uint32'&gt;: 'u4', &lt;type 'numpy.comple\
+x64'&gt;: 'c8', &lt;type 'numpy.unicode_'&gt;: 'U', &lt;type 'numpy.uint64'&gt;: 'u8'\
+, &lt;type 'numpy.int8'&gt;: 'i1', &lt;type 'numpy.complex128'&gt;: 'c16', &lt;type '\
+numpy.uint8'&gt;: 'u1', &lt;type 'numpy.void'&gt;: 'V', &lt;type 'numpy.float32'&gt;:\
+ 'f4', &lt;type 'numpy.int32'&gt;: 'i4', &lt;type 'numpy.complex192'&gt;: 'c24', &lt;\
+...">{&lt;type 'numpy.int64'&gt;: 'i8', &lt;type 'numpy.int16'&gt;: <code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="numpy.core.records-module.html#numfmt" class="summary-name" onclick="show_private();">numfmt</a> = <code title="{0: &lt;type 'numpy.bool_'&gt;,
+ 1: &lt;type 'numpy.int8'&gt;,
+ 2: &lt;type 'numpy.uint8'&gt;,
+ 3: &lt;type 'numpy.int16'&gt;,
+ 4: &lt;type 'numpy.uint16'&gt;,
+ 5: &lt;type 'numpy.int32'&gt;,
+ 6: &lt;type 'numpy.uint32'&gt;,
+ 7: &lt;type 'numpy.int32'&gt;,
+..."><code class="variable-group">{</code>0<code class="variable-op">: </code>&lt;type 'numpy.bool_'&gt;<code class="variable-op">, </code>1<code class="variable-op">: </code>&lt;type 'numpy.int8'&gt;<code class="variable-op">, </code>2<code class="variable-op">: </code><code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+</table>
+<!-- ==================== FUNCTION DETAILS ==================== -->
+<a name="section-FunctionDetails"></a>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Function Details</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-FunctionDetails"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+</table>
+<a name="fromarrays"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">fromarrays</span>(<span class="sig-arg">arrayList</span>,
+        <span class="sig-arg">dtype</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">shape</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">formats</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">names</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">titles</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">aligned</span>=<span class="sig-default">False</span>,
+        <span class="sig-arg">byteorder</span>=<span class="sig-default">None</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.core.records-pysrc.html#fromarrays">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>create a record array from a (flat) list of arrays</p>
+<pre class="py-doctest">
+<span class="py-prompt">&gt;&gt;&gt; </span>x1=np.array([1,2,3,4])
+<span class="py-prompt">&gt;&gt;&gt; </span>x2=np.array([<span class="py-string">'a'</span>,<span class="py-string">'dd'</span>,<span class="py-string">'xyz'</span>,<span class="py-string">'12'</span>])
+<span class="py-prompt">&gt;&gt;&gt; </span>x3=np.array([1.1,2,3,4])
+<span class="py-prompt">&gt;&gt;&gt; </span>r = np.core.records.fromarrays([x1,x2,x3],names=<span class="py-string">'a,b,c'</span>)
+<span class="py-prompt">&gt;&gt;&gt; </span><span class="py-keyword">print</span> r[1]
+<span class="py-output">(2, 'dd', 2.0)</span>
+<span class="py-output"></span><span class="py-prompt">&gt;&gt;&gt; </span>x1[1]=34
+<span class="py-prompt">&gt;&gt;&gt; </span>r.a
+<span class="py-output">array([1, 2, 3, 4])</span></pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="fromfile"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">fromfile</span>(<span class="sig-arg">fd</span>,
+        <span class="sig-arg">dtype</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">shape</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">offset</span>=<span class="sig-default">0</span>,
+        <span class="sig-arg">formats</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">names</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">titles</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">aligned</span>=<span class="sig-default">False</span>,
+        <span class="sig-arg">byteorder</span>=<span class="sig-default">None</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.core.records-pysrc.html#fromfile">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Create an array from binary file data</p>
+  <p>If file is a string then that file is opened, else it is assumed to be
+  a file object.</p>
+<pre class="py-doctest">
+<span class="py-prompt">&gt;&gt;&gt; </span><span class="py-keyword">from</span> tempfile <span class="py-keyword">import</span> TemporaryFile
+<span class="py-prompt">&gt;&gt;&gt; </span>a = np.empty(10,dtype=<span class="py-string">'f8,i4,a5'</span>)
+<span class="py-prompt">&gt;&gt;&gt; </span>a[5] = (0.5,10,<span class="py-string">'abcde'</span>)
+<span class="py-prompt">&gt;&gt;&gt;</span>
+<span class="py-prompt">&gt;&gt;&gt; </span>fd=TemporaryFile()
+<span class="py-prompt">&gt;&gt;&gt; </span>a = a.newbyteorder(<span class="py-string">'&lt;'</span>)
+<span class="py-prompt">&gt;&gt;&gt; </span>a.tofile(fd)
+<span class="py-prompt">&gt;&gt;&gt;</span>
+<span class="py-prompt">&gt;&gt;&gt; </span>fd.seek(0)
+<span class="py-prompt">&gt;&gt;&gt; </span>r=np.core.records.fromfile(fd, formats=<span class="py-string">'f8,i4,a5'</span>, shape=10,
+<span class="py-more">... </span>byteorder=<span class="py-string">'&lt;'</span>)
+<span class="py-prompt">&gt;&gt;&gt; </span><span class="py-keyword">print</span> r[5]
+<span class="py-output">(0.5, 10, 'abcde')</span>
+<span class="py-output"></span><span class="py-prompt">&gt;&gt;&gt; </span>r.shape
+<span class="py-output">(10,)</span></pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="fromrecords"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">fromrecords</span>(<span class="sig-arg">recList</span>,
+        <span class="sig-arg">dtype</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">shape</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">formats</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">names</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">titles</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">aligned</span>=<span class="sig-default">False</span>,
+        <span class="sig-arg">byteorder</span>=<span class="sig-default">None</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="numpy.core.records-pysrc.html#fromrecords">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+create a recarray from a list of records in text form
+
+    The data in the same field can be heterogeneous, they will be promoted
+    to the highest data type.  This method is intended for creating
+    smaller record arrays.  If used to create large array without formats
+    defined
+
+    r=fromrecords([(2,3.,'abc')]*100000)
+
+    it can be slow.
+
+    If formats is None, then this will auto-detect formats. Use list of
+    tuples rather than list of lists for faster processing.
+
+&gt;&gt;&gt; r=np.core.records.fromrecords([(456,'dbe',1.2),(2,'de',1.3)],
+... names='col1,col2,col3')
+&gt;&gt;&gt; print r[0]
+(456, 'dbe', 1.2)
+&gt;&gt;&gt; r.col1
+array([456,   2])
+&gt;&gt;&gt; r.col2
+chararray(['dbe', 'de'],
+      dtype='|S3')
+&gt;&gt;&gt; import cPickle
+&gt;&gt;&gt; print cPickle.loads(cPickle.dumps(r))
+[(456, 'dbe', 1.2) (2, 'de', 1.3)]
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<br />
+<!-- ==================== VARIABLES DETAILS ==================== -->
+<a name="section-VariablesDetails"></a>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Variables Details</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-VariablesDetails"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+</table>
+<a name="_byteorderconv"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">_byteorderconv</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+<code class="variable-group">{</code><code class="variable-quote">'</code><code class="variable-string">&lt;</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">&lt;</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">=</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">=</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">&gt;</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">&gt;</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">B</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">&gt;</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">I</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">|</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">L</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">&lt;</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">N</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">=</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">S</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">s</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+<code class="variable-ellipsis">...</code>
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="_typestr"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">_typestr</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+{&lt;type 'numpy.int64'&gt;: 'i8', &lt;type 'numpy.int16'&gt;: 'i2', &lt;type 'numpy.<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+object_'&gt;: 'O4', &lt;type 'numpy.uint32'&gt;: 'u4', &lt;type 'numpy.bool_'&gt;: 'b<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+1', &lt;type 'numpy.float96'&gt;: 'f12', &lt;type 'numpy.int32'&gt;: 'i4', &lt;type '<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+numpy.string_'&gt;: 'S', &lt;type 'numpy.uint32'&gt;: 'u4', &lt;type 'numpy.comple<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+x64'&gt;: 'c8', &lt;type 'numpy.unicode_'&gt;: 'U', &lt;type 'numpy.uint64'&gt;: 'u8'<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+, &lt;type 'numpy.int8'&gt;: 'i1', &lt;type 'numpy.complex128'&gt;: 'c16', &lt;type '<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+numpy.uint8'&gt;: 'u1', &lt;type 'numpy.void'&gt;: 'V', &lt;type 'numpy.float32'&gt;:<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+ 'f4', &lt;type 'numpy.int32'&gt;: 'i4', &lt;type 'numpy.complex192'&gt;: 'c24', &lt;<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+<code class="variable-ellipsis">...</code>
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="numfmt"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">numfmt</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+<code class="variable-group">{</code>0<code class="variable-op">: </code>&lt;type 'numpy.bool_'&gt;<code class="variable-op">,</code>
+ 1<code class="variable-op">: </code>&lt;type 'numpy.int8'&gt;<code class="variable-op">,</code>
+ 2<code class="variable-op">: </code>&lt;type 'numpy.uint8'&gt;<code class="variable-op">,</code>
+ 3<code class="variable-op">: </code>&lt;type 'numpy.int16'&gt;<code class="variable-op">,</code>
+ 4<code class="variable-op">: </code>&lt;type 'numpy.uint16'&gt;<code class="variable-op">,</code>
+ 5<code class="variable-op">: </code>&lt;type 'numpy.int32'&gt;<code class="variable-op">,</code>
+ 6<code class="variable-op">: </code>&lt;type 'numpy.uint32'&gt;<code class="variable-op">,</code>
+ 7<code class="variable-op">: </code>&lt;type 'numpy.int32'&gt;<code class="variable-op">,</code>
+<code class="variable-ellipsis">...</code>
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<br />
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%%">
+  <tr>
+    <td align="left" class="footer">
+    Generated by Epydoc 3.0.1 on Tue Apr 27 11:02:17 2010
+    </td>
+    <td align="right" class="footer">
+      <a target="mainFrame" href="http://epydoc.sourceforge.net"
+        >http://epydoc.sourceforge.net</a>
+    </td>
+  </tr>
+</table>
+
+<script type="text/javascript">
+  <!--
+  // Private objects are initially displayed (because if
+  // javascript is turned off then we want them to be
+  // visible); but by default, we want to hide them.  So hide
+  // them unless we have a cookie that says to show them.
+  checkCookie();
+  // -->
+</script>
+</body>
+</html>

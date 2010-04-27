@@ -1,0 +1,1419 @@
+<?xml version="1.0" encoding="ascii"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>matplotlib</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css" />
+  <script type="text/javascript" src="epydoc.js"></script>
+</head>
+
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <span class="breadcrumbs">
+        Package&nbsp;matplotlib
+      </span>
+    </td>
+    <td>
+      <table cellpadding="0" cellspacing="0">
+        <!-- hide/show private -->
+        <tr><td align="right"><span class="options">[<a href="javascript:void(0);" class="privatelink"
+    onclick="toggle_private();">hide&nbsp;private</a>]</span></td></tr>
+        <tr><td align="right"><span class="options"
+            >[<a href="frames.html" target="_top">frames</a
+            >]&nbsp;|&nbsp;<a href="matplotlib-module.html"
+            target="_top">no&nbsp;frames</a>]</span></td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<!-- ==================== PACKAGE DESCRIPTION ==================== -->
+<h1 class="epydoc">Package matplotlib</h1><p class="nomargin-top"><span class="codelink"><a href="matplotlib-pysrc.html">source&nbsp;code</a></span></p>
+<pre class="literalblock">
+
+This is an object-orient plotting library.
+
+A procedural interface is provided by the companion pylab module,
+which may be imported directly, e.g::
+
+    from pylab import *
+
+or using ipython::
+
+    ipython -pylab
+
+For the most part, direct use of the object-oriented library is
+encouraged when programming rather than working interactively.  The
+exceptions are the pylab commands :func:`~matplotlib.pyplot.figure`,
+:func:`~matplotlib.pyplot.subplot`,
+:func:`~matplotlib.backends.backend_qt4agg.show`, and
+:func:`~pyplot.savefig`, which can greatly simplify scripting.
+
+Modules include:
+
+    :mod:`matplotlib.axes`
+        defines the :class:`~matplotlib.axes.Axes` class.  Most pylab
+        commands are wrappers for :class:`~matplotlib.axes.Axes`
+        methods.  The axes module is the highest level of OO access to
+        the library.
+
+    :mod:`matplotlib.figure`
+        defines the :class:`~matplotlib.figure.Figure` class.
+
+    :mod:`matplotlib.artist`
+        defines the :class:`~matplotlib.artist.Artist` base class for
+        all classes that draw things.
+
+    :mod:`matplotlib.lines`
+        defines the :class:`~matplotlib.lines.Line2D` class for
+        drawing lines and markers
+
+    :mod:`matplotlib.patches`
+        defines classes for drawing polygons
+
+    :mod:`matplotlib.text`
+        defines the :class:`~matplotlib.text.Text`,
+        :class:`~matplotlib.text.TextWithDash`, and
+        :class:`~matplotlib.text.Annotate` classes
+
+    :mod:`matplotlib.image`
+        defines the :class:`~matplotlib.image.AxesImage` and
+        :class:`~matplotlib.image.FigureImage` classes
+
+    :mod:`matplotlib.collections`
+        classes for efficient drawing of groups of lines or polygons
+
+    :mod:`matplotlib.colors`
+        classes for interpreting color specifications and for making
+        colormaps
+
+    :mod:`matplotlib.cm`
+        colormaps and the :class:`~matplotlib.image.ScalarMappable`
+        mixin class for providing color mapping functionality to other
+        classes
+
+    :mod:`matplotlib.ticker`
+        classes for calculating tick mark locations and for formatting
+        tick labels
+
+    :mod:`matplotlib.backends`
+        a subpackage with modules for various gui libraries and output
+        formats
+
+The base matplotlib namespace includes:
+
+    :data:`~matplotlib.rcParams`
+        a global dictionary of default configuration settings.  It is
+        initialized by code which may be overridded by a matplotlibrc
+        file.
+
+    :func:`~matplotlib.rc`
+        a function for setting groups of rcParams values
+
+    :func:`~matplotlib.use`
+        a function for setting the matplotlib backend.  If used, this
+        function must be called immediately after importing matplotlib
+        for the first time.  In particular, it must be called
+        **before** importing pylab (if pylab is imported).
+
+matplotlib is written by John D. Hunter (jdh2358 at gmail.com) and a
+host of others.
+
+</pre>
+
+<hr />
+<div class="fields">      <p><strong>Version:</strong>
+        0.99.0
+      </p>
+      <p><strong>Date:</strong>
+        $Date: 2009-08-06 07:02:33 -0500 (Thu, 06 Aug 2009) $
+      </p>
+</div><!-- ==================== CLASSES ==================== -->
+<a name="section-Classes"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Classes</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Classes"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib.RcParams-class.html" class="summary-name">RcParams</a><br />
+      A dictionary object including validation
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib.Verbose-class.html" class="summary-name">Verbose</a><br />
+      A class to handle reporting.
+    </td>
+  </tr>
+</table>
+<!-- ==================== FUNCTIONS ==================== -->
+<a name="section-Functions"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Functions</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Functions"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#_get_configdir" class="summary-sig-name" onclick="show_private();">_get_configdir</a>()</span><br />
+      Return the string representing the configuration dir.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#_get_configdir">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="_get_data_path"></a><span class="summary-sig-name">_get_data_path</span>()</span><br />
+      get the path to matplotlib data</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#_get_data_path">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="_get_data_path_cached"></a><span class="summary-sig-name">_get_data_path_cached</span>()</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#_get_data_path_cached">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#_get_home" class="summary-sig-name" onclick="show_private();">_get_home</a>()</span><br />
+      Find user's home directory if possible.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#_get_home">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="_is_writable_dir"></a><span class="summary-sig-name">_is_writable_dir</span>(<span class="summary-sig-arg">p</span>)</span><br />
+      p is a string pointing to a putative writable dir -- return True p is
+      such a string, else False</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#_is_writable_dir">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="checkdep_dvipng"></a><span class="summary-sig-name">checkdep_dvipng</span>()</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#checkdep_dvipng">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="checkdep_ghostscript"></a><span class="summary-sig-name">checkdep_ghostscript</span>()</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#checkdep_ghostscript">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="checkdep_pdftops"></a><span class="summary-sig-name">checkdep_pdftops</span>()</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#checkdep_pdftops">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="checkdep_ps_distiller"></a><span class="summary-sig-name">checkdep_ps_distiller</span>(<span class="summary-sig-arg">s</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#checkdep_ps_distiller">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="checkdep_tex"></a><span class="summary-sig-name">checkdep_tex</span>()</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#checkdep_tex">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="checkdep_usetex"></a><span class="summary-sig-name">checkdep_usetex</span>(<span class="summary-sig-arg">s</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#checkdep_usetex">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="compare_versions"></a><span class="summary-sig-name">compare_versions</span>(<span class="summary-sig-arg">a</span>,
+        <span class="summary-sig-arg">b</span>)</span><br />
+      return True if a is greater than or equal to b</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#compare_versions">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="get_backend"></a><span class="summary-sig-name">get_backend</span>()</span><br />
+      Returns the current backend</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#get_backend">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#get_configdir" class="summary-sig-name">get_configdir</a>(<span class="summary-sig-arg">*args</span>,
+        <span class="summary-sig-arg">**kwargs</span>)</span><br />
+      Return the string representing the configuration dir.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#get_configdir">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="get_data_path"></a><span class="summary-sig-name">get_data_path</span>(<span class="summary-sig-arg">*args</span>,
+        <span class="summary-sig-arg">**kwargs</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#get_data_path">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#get_example_data" class="summary-sig-name">get_example_data</a>(<span class="summary-sig-arg">fname</span>)</span><br />
+      return a filehandle to one of the example files in mpl-data/example</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#get_example_data">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#get_home" class="summary-sig-name">get_home</a>(<span class="summary-sig-arg">*args</span>,
+        <span class="summary-sig-arg">**kwargs</span>)</span><br />
+      Find user's home directory if possible.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#get_home">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="get_py2exe_datafiles"></a><span class="summary-sig-name">get_py2exe_datafiles</span>()</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#get_py2exe_datafiles">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#interactive" class="summary-sig-name">interactive</a>(<span class="summary-sig-arg">b</span>)</span><br />
+      Set interactive mode to boolean b.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#interactive">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="is_interactive"></a><span class="summary-sig-name">is_interactive</span>()</span><br />
+      Return true if plot mode is interactive</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#is_interactive">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="is_string_like"></a><span class="summary-sig-name">is_string_like</span>(<span class="summary-sig-arg">obj</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#is_string_like">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#matplotlib_fname" class="summary-sig-name">matplotlib_fname</a>()</span><br />
+      Return the path to the rc file</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#matplotlib_fname">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#rc" class="summary-sig-name">rc</a>(<span class="summary-sig-arg">group</span>,
+        <span class="summary-sig-arg">**kwargs</span>)</span><br />
+      Set the current rc params.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#rc">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="rc_params"></a><span class="summary-sig-name">rc_params</span>(<span class="summary-sig-arg">fail_on_error</span>=<span class="summary-sig-default">False</span>)</span><br />
+      Return the default params updated from the values in the rc file</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#rc_params">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="rcdefaults"></a><span class="summary-sig-name">rcdefaults</span>()</span><br />
+      Restore the default rc params - the ones that were created at 
+      matplotlib load time.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#rcdefaults">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#tk_window_focus" class="summary-sig-name">tk_window_focus</a>()</span><br />
+      Return true if focus maintenance under TkAgg on win32 is on.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#tk_window_focus">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="matplotlib-module.html#use" class="summary-sig-name">use</a>(<span class="summary-sig-arg">arg</span>,
+        <span class="summary-sig-arg">warn</span>=<span class="summary-sig-default">True</span>)</span><br />
+      Set the matplotlib backend to one of the known backends.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="matplotlib-pysrc.html#use">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+</table>
+<!-- ==================== VARIABLES ==================== -->
+<a name="section-Variables"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Variables</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Variables"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="NEWCONFIG"></a><span class="summary-name">NEWCONFIG</span> = <code title="False">False</code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="__package__"></a><span class="summary-name">__package__</span> = <code title="'matplotlib'"><code class="variable-quote">'</code><code class="variable-string">matplotlib</code><code class="variable-quote">'</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="__revision__"></a><span class="summary-name">__revision__</span> = <code title="'$Revision: 7397 $'"><code class="variable-quote">'</code><code class="variable-string">$Revision: 7397 $</code><code class="variable-quote">'</code></code>
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib-module.html#_deprecated_ignore_map" class="summary-name" onclick="show_private();">_deprecated_ignore_map</a> = <code title="{'legend.axespad': 'legend.borderaxespad',
+ 'legend.handlelen': 'legend.handlelength',
+ 'legend.handletextsep': 'legend.handletextpad',
+ 'legend.labelsep': 'legend.labelspacing',
+ 'legend.pad': 'legend.borderpad'}"><code class="variable-group">{</code><code class="variable-quote">'</code><code class="variable-string">legend.axespad</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">legend.borderaxes</code><code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib-module.html#_deprecated_map" class="summary-name" onclick="show_private();">_deprecated_map</a> = <code title="{'text.fontangle': 'font.style',
+ 'text.fontsize': 'font.size',
+ 'text.fontstyle': 'font.style',
+ 'text.fontvariant': 'font.variant',
+ 'text.fontweight': 'font.weight',
+ 'tick.size': 'tick.major.size'}"><code class="variable-group">{</code><code class="variable-quote">'</code><code class="variable-string">text.fontangle</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">font.style</code><code class="variable-quote">'</code><code class="variable-op">, </code><code class="variable-quote">'</code><code class="variable-string">text.fonts</code><code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="_havedate"></a><span class="summary-name">_havedate</span> = <code title="True">True</code>
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="_python24"></a><span class="summary-name">_python24</span> = <code title="True">True</code>
+    </td>
+  </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib-module.html#_use_error_msg" class="summary-name" onclick="show_private();">_use_error_msg</a> = <code title="''' This call to matplotlib.use() has no effect
+because the the backend has already been chosen;
+matplotlib.use() must be called *before* pylab, matplotlib.pyplot,
+or matplotlib.backends is imported for the first time.
+'''"><code class="variable-quote">'</code><code class="variable-string"> This call to matplotlib.use() has no effect</code><code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="default"></a><span class="summary-name">default</span> = <code title="'upper'"><code class="variable-quote">'</code><code class="variable-string">upper</code><code class="variable-quote">'</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib-module.html#defaultParams" class="summary-name">defaultParams</a> = <code title="{'agg.path.chunksize': [0, &lt;function validate_int at 0xa0ebc6c&gt;],
+ 'axes.axisbelow': [False, &lt;function validate_bool at 0xa0ebbc4&gt;],
+ 'axes.edgecolor': ['k', &lt;function validate_color at 0xa0ebdbc&gt;],
+ 'axes.facecolor': ['w', &lt;function validate_color at 0xa0ebdbc&gt;],
+ 'axes.formatter.limits': [[-7, 7],
+                           &lt;matplotlib.rcsetup.validate_nseq_int insta\
+nce at 0xa0ef3ec&gt;],
+ 'axes.grid': [False, &lt;function validate_bool at 0xa0ebbc4&gt;],
+..."><code class="variable-group">{</code><code class="variable-quote">'</code><code class="variable-string">agg.path.chunksize</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-group">[</code>0<code class="variable-op">, </code>&lt;function validate_<code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="key"></a><span class="summary-name">key</span> = <code title="'image.origin'"><code class="variable-quote">'</code><code class="variable-string">image.origin</code><code class="variable-quote">'</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="major"></a><span class="summary-name">major</span> = <code title="2">2</code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="minor1"></a><span class="summary-name">minor1</span> = <code title="6">6</code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="minor2"></a><span class="summary-name">minor2</span> = <code title="4">4</code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="nn"></a><span class="summary-name">nn</span> = <code title="['1', '3', '0']"><code class="variable-group">[</code><code class="variable-quote">'</code><code class="variable-string">1</code><code class="variable-quote">'</code><code class="variable-op">, </code><code class="variable-quote">'</code><code class="variable-string">3</code><code class="variable-quote">'</code><code class="variable-op">, </code><code class="variable-quote">'</code><code class="variable-string">0</code><code class="variable-quote">'</code><code class="variable-group">]</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib-module.html#rcParams" class="summary-name">rcParams</a> = <code title="{'figure.subplot.right': 0.90000000000000002, 'mathtext.cal': 'cursive\
+', 'font.fantasy': ['Comic Sans MS', 'Chicago', 'Charcoal', 'ImpactWes\
+tern', 'fantasy'], 'xtick.minor.pad': 4, 'tk.pythoninspect': False, 'i\
+mage.aspect': 'equal', 'font.cursive': ['Apple Chancery', 'Textile', '\
+Zapf Chancery', 'Sand', 'cursive'], 'figure.subplot.hspace': 0.2000000\
+0000000001, 'xtick.direction': 'in', 'axes.facecolor': 'w', 'mathtext.\
+fontset': 'cm', 'ytick.direction': 'in', 'svg.image_inline': True, 'li\
+nes.markersize': 6, 'figure.dpi': 80, 'text.usetex': False, 'text.font\
+...">{'figure.subplot.right': 0.90000000000000002, 'math<code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib-module.html#rcParamsDefault" class="summary-name">rcParamsDefault</a> = <code title="{'figure.subplot.right': 0.90000000000000002, 'mathtext.cal': 'cursive\
+', 'font.fantasy': ['Comic Sans MS', 'Chicago', 'Charcoal', 'ImpactWes\
+tern', 'fantasy'], 'xtick.minor.pad': 4, 'tk.pythoninspect': False, 'i\
+mage.aspect': 'equal', 'font.cursive': ['Apple Chancery', 'Textile', '\
+Zapf Chancery', 'Sand', 'cursive'], 'figure.subplot.hspace': 0.2000000\
+0000000001, 'xtick.direction': 'in', 'axes.facecolor': 'w', 'mathtext.\
+fontset': 'cm', 'ytick.direction': 'in', 'svg.image_inline': True, 'li\
+nes.markersize': 6, 'figure.dpi': 80, 'text.usetex': False, 'text.font\
+...">{'figure.subplot.right': 0.90000000000000002<code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="s"></a><span class="summary-name">s</span> = <code title="'final'"><code class="variable-quote">'</code><code class="variable-string">final</code><code class="variable-quote">'</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="tmp"></a><span class="summary-name">tmp</span> = <code title="0">0</code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib-module.html#validate_cairo_format" class="summary-name">validate_cairo_format</a> = <code title="&lt;matplotlib.rcsetup.ValidateInStrings instance at 0xa0ec54c&gt;">&lt;matplotlib.rcsetup.ValidateInStrings <code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="matplotlib-module.html#validate_toolbar" class="summary-name">validate_toolbar</a> = <code title="&lt;matplotlib.rcsetup.ValidateInStrings instance at 0xa0ec2cc&gt;">&lt;matplotlib.rcsetup.ValidateInStrings insta<code class="variable-ellipsis">...</code></code>
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="verbose"></a><span class="summary-name">verbose</span> = <code title="&lt;matplotlib.Verbose instance at 0x9d8880c&gt;">&lt;matplotlib.Verbose instance at 0x9d8880c&gt;</code>
+    </td>
+  </tr>
+</table>
+<!-- ==================== FUNCTION DETAILS ==================== -->
+<a name="section-FunctionDetails"></a>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Function Details</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-FunctionDetails"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+</table>
+<a name="_get_configdir"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">_get_configdir</span>()</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#_get_configdir">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Return the string representing the configuration dir.</p>
+  <p>default is HOME/.matplotlib.  you can override this with the 
+  MPLCONFIGDIR environment variable</p>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="_get_home"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">_get_home</span>()</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#_get_home">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Find user's home directory if possible. Otherwise raise error.</p>
+  <p>:see:  
+  http://mail.python.org/pipermail/python-list/2005-February/263921.html</p>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="get_configdir"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_configdir</span>(<span class="sig-arg">*args</span>,
+        <span class="sig-arg">**kwargs</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#get_configdir">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Return the string representing the configuration dir.</p>
+  <p>default is HOME/.matplotlib.  you can override this with the 
+  MPLCONFIGDIR environment variable</p>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="get_example_data"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_example_data</span>(<span class="sig-arg">fname</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#get_example_data">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+
+return a filehandle to one of the example files in mpl-data/example
+
+*fname*
+    the name of one of the files in mpl-data/example
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="get_home"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_home</span>(<span class="sig-arg">*args</span>,
+        <span class="sig-arg">**kwargs</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#get_home">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Find user's home directory if possible. Otherwise raise error.</p>
+  <p>:see:  
+  http://mail.python.org/pipermail/python-list/2005-February/263921.html</p>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="interactive"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">interactive</span>(<span class="sig-arg">b</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#interactive">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Set interactive mode to boolean b.</p>
+  <p>If b is True, then draw after every plotting command, eg, after 
+  xlabel</p>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="matplotlib_fname"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">matplotlib_fname</span>()</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#matplotlib_fname">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+
+Return the path to the rc file
+
+Search order:
+
+ * current working dir
+ * environ var MATPLOTLIBRC
+ * HOME/.matplotlib/matplotlibrc
+ * MATPLOTLIBDATA/matplotlibrc
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="rc"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">rc</span>(<span class="sig-arg">group</span>,
+        <span class="sig-arg">**kwargs</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#rc">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Set the current rc params.  Group is the grouping for the rc, eg. for 
+  ``lines.linewidth`` the group is ``lines``, for ``axes.facecolor``, the 
+  group is ``axes``, and so on.  Group may also be a list or tuple of group
+  names, eg. (*xtick*, *ytick*). *kwargs* is a dictionary attribute 
+  name/value pairs, eg:</p>
+<pre class="literalblock">
+ rc('lines', linewidth=2, color='r')
+</pre>
+  <p>sets the current rc params and is equivalent to:</p>
+<pre class="literalblock">
+ rcParams['lines.linewidth'] = 2
+ rcParams['lines.color'] = 'r'
+</pre>
+  <p>The following aliases are available to save typing for interactive 
+  users:</p>
+  <p>=====   ================= Alias   Property =====   ================= 
+  'lw'    'linewidth' 'ls'    'linestyle' 'c'     'color' 'fc'    
+  'facecolor' 'ec'    'edgecolor' 'mew'   'markeredgewidth' 'aa'    
+  'antialiased' =====   =================</p>
+  <p>Thus you could abbreviate the above rc command as:</p>
+<pre class="literalblock">
+     rc('lines', lw=2, c='r')
+</pre>
+  <p>Note you can use python's kwargs dictionary facility to store 
+  dictionaries of default parameters.  Eg, you can customize the font rc as
+  follows:</p>
+<pre class="literalblock">
+ font = {'family' : 'monospace',
+         'weight' : 'bold',
+         'size'   : 'larger'}
+
+ rc('font', **font)  # pass in the font dict as kwargs
+</pre>
+  <p>This enables you to easily switch between several configurations. Use 
+  :func:`~matplotlib.pyplot.rcdefaults` to restore the default rc params 
+  after changes.</p>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="tk_window_focus"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">tk_window_focus</span>()</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#tk_window_focus">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Return true if focus maintenance under TkAgg on win32 is on. This 
+  currently works only for python.exe and IPython.exe. Both IDLE and 
+  Pythonwin.exe fail badly when tk_window_focus is on.</p>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="use"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">use</span>(<span class="sig-arg">arg</span>,
+        <span class="sig-arg">warn</span>=<span class="sig-default">True</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="matplotlib-pysrc.html#use">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+
+Set the matplotlib backend to one of the known backends.
+
+The argument is case-insensitive.  For the Cairo backend,
+the argument can have an extension to indicate the type of
+output.  Example:
+
+    use('cairo.pdf')
+
+will specify a default of pdf output generated by Cairo.
+
+Note: this function must be called *before* importing pylab for
+the first time; or, if you are not using pylab, it must be called
+before importing matplotlib.backends.  If warn is True, a warning
+is issued if you try and callthis after pylab or pyplot have been
+loaded.  In certain black magic use cases, eg
+pyplot.switch_backends, we are doing the reloading necessary to
+make the backend switch work (in some cases, eg pure image
+backends) so one can set warn=False to supporess the warnings
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<br />
+<!-- ==================== VARIABLES DETAILS ==================== -->
+<a name="section-VariablesDetails"></a>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Variables Details</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-VariablesDetails"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+</table>
+<a name="_deprecated_ignore_map"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">_deprecated_ignore_map</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+<code class="variable-group">{</code><code class="variable-quote">'</code><code class="variable-string">legend.axespad</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">legend.borderaxespad</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">legend.handlelen</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">legend.handlelength</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">legend.handletextsep</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">legend.handletextpad</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">legend.labelsep</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">legend.labelspacing</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">legend.pad</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">legend.borderpad</code><code class="variable-quote">'</code><code class="variable-group">}</code>
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="_deprecated_map"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">_deprecated_map</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+<code class="variable-group">{</code><code class="variable-quote">'</code><code class="variable-string">text.fontangle</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">font.style</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">text.fontsize</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">font.size</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">text.fontstyle</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">font.style</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">text.fontvariant</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">font.variant</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">text.fontweight</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">font.weight</code><code class="variable-quote">'</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">tick.size</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-quote">'</code><code class="variable-string">tick.major.size</code><code class="variable-quote">'</code><code class="variable-group">}</code>
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="_use_error_msg"></a>
+<div class="private">
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">_use_error_msg</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+<code class="variable-quote">'''</code><code class="variable-string"> This call to matplotlib.use() has no effect</code>
+<code class="variable-string">because the the backend has already been chosen;</code>
+<code class="variable-string">matplotlib.use() must be called *before* pylab, matplotlib.pyplot,</code>
+<code class="variable-string">or matplotlib.backends is imported for the first time.</code>
+<code class="variable-string"></code><code class="variable-quote">'''</code>
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="defaultParams"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">defaultParams</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+<code class="variable-group">{</code><code class="variable-quote">'</code><code class="variable-string">agg.path.chunksize</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-group">[</code>0<code class="variable-op">, </code>&lt;function validate_int at 0xa0ebc6c&gt;<code class="variable-group">]</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">axes.axisbelow</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-group">[</code>False<code class="variable-op">, </code>&lt;function validate_bool at 0xa0ebbc4&gt;<code class="variable-group">]</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">axes.edgecolor</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-group">[</code><code class="variable-quote">'</code><code class="variable-string">k</code><code class="variable-quote">'</code><code class="variable-op">, </code>&lt;function validate_color at 0xa0ebdbc&gt;<code class="variable-group">]</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">axes.facecolor</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-group">[</code><code class="variable-quote">'</code><code class="variable-string">w</code><code class="variable-quote">'</code><code class="variable-op">, </code>&lt;function validate_color at 0xa0ebdbc&gt;<code class="variable-group">]</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">axes.formatter.limits</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-group">[</code><code class="variable-group">[</code>-7<code class="variable-op">, </code>7<code class="variable-group">]</code><code class="variable-op">,</code>
+                           &lt;matplotlib.rcsetup.validate_nseq_int insta<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+nce at 0xa0ef3ec&gt;<code class="variable-group">]</code><code class="variable-op">,</code>
+ <code class="variable-quote">'</code><code class="variable-string">axes.grid</code><code class="variable-quote">'</code><code class="variable-op">: </code><code class="variable-group">[</code>False<code class="variable-op">, </code>&lt;function validate_bool at 0xa0ebbc4&gt;<code class="variable-group">]</code><code class="variable-op">,</code>
+<code class="variable-ellipsis">...</code>
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="rcParams"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">rcParams</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+{'figure.subplot.right': 0.90000000000000002, 'mathtext.cal': 'cursive<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+', 'font.fantasy': ['Comic Sans MS', 'Chicago', 'Charcoal', 'ImpactWes<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+tern', 'fantasy'], 'xtick.minor.pad': 4, 'tk.pythoninspect': False, 'i<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+mage.aspect': 'equal', 'font.cursive': ['Apple Chancery', 'Textile', '<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+Zapf Chancery', 'Sand', 'cursive'], 'figure.subplot.hspace': 0.2000000<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+0000000001, 'xtick.direction': 'in', 'axes.facecolor': 'w', 'mathtext.<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+fontset': 'cm', 'ytick.direction': 'in', 'svg.image_inline': True, 'li<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+nes.markersize': 6, 'figure.dpi': 80, 'text.usetex': False, 'text.font<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+<code class="variable-ellipsis">...</code>
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="rcParamsDefault"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">rcParamsDefault</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+{'figure.subplot.right': 0.90000000000000002, 'mathtext.cal': 'cursive<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+', 'font.fantasy': ['Comic Sans MS', 'Chicago', 'Charcoal', 'ImpactWes<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+tern', 'fantasy'], 'xtick.minor.pad': 4, 'tk.pythoninspect': False, 'i<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+mage.aspect': 'equal', 'font.cursive': ['Apple Chancery', 'Textile', '<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+Zapf Chancery', 'Sand', 'cursive'], 'figure.subplot.hspace': 0.2000000<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+0000000001, 'xtick.direction': 'in', 'axes.facecolor': 'w', 'mathtext.<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+fontset': 'cm', 'ytick.direction': 'in', 'svg.image_inline': True, 'li<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+nes.markersize': 6, 'figure.dpi': 80, 'text.usetex': False, 'text.font<span class="variable-linewrap"><img src="crarr.png" alt="\" /></span>
+<code class="variable-ellipsis">...</code>
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="validate_cairo_format"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">validate_cairo_format</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+&lt;matplotlib.rcsetup.ValidateInStrings instance at 0xa0ec54c&gt;
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="validate_toolbar"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">validate_toolbar</h3>
+  
+  <dl class="fields">
+  </dl>
+  <dl class="fields">
+    <dt>Value:</dt>
+      <dd><table><tr><td><pre class="variable">
+&lt;matplotlib.rcsetup.ValidateInStrings instance at 0xa0ec2cc&gt;
+</pre></td></tr></table>
+</dd>
+  </dl>
+</td></tr></table>
+</div>
+<br />
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%%">
+  <tr>
+    <td align="left" class="footer">
+    Generated by Epydoc 3.0.1 on Tue Apr 27 11:02:15 2010
+    </td>
+    <td align="right" class="footer">
+      <a target="mainFrame" href="http://epydoc.sourceforge.net"
+        >http://epydoc.sourceforge.net</a>
+    </td>
+  </tr>
+</table>
+
+<script type="text/javascript">
+  <!--
+  // Private objects are initially displayed (because if
+  // javascript is turned off then we want them to be
+  // visible); but by default, we want to hide them.  So hide
+  // them unless we have a cookie that says to show them.
+  checkCookie();
+  // -->
+</script>
+</body>
+</html>

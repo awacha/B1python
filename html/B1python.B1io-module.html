@@ -1,0 +1,1831 @@
+<?xml version="1.0" encoding="ascii"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>B1python.B1io</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css" />
+  <script type="text/javascript" src="epydoc.js"></script>
+</head>
+
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <span class="breadcrumbs">
+        <a href="B1python-module.html">Package&nbsp;B1python</a> ::
+        Module&nbsp;B1io
+      </span>
+    </td>
+    <td>
+      <table cellpadding="0" cellspacing="0">
+        <!-- hide/show private -->
+        <tr><td align="right"><span class="options">[<a href="javascript:void(0);" class="privatelink"
+    onclick="toggle_private();">hide&nbsp;private</a>]</span></td></tr>
+        <tr><td align="right"><span class="options"
+            >[<a href="frames.html" target="_top">frames</a
+            >]&nbsp;|&nbsp;<a href="B1python.B1io-module.html"
+            target="_top">no&nbsp;frames</a>]</span></td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<!-- ==================== MODULE DESCRIPTION ==================== -->
+<h1 class="epydoc">Module B1io</h1><p class="nomargin-top"><span class="codelink"><a href="B1python.B1io-pysrc.html">source&nbsp;code</a></span></p>
+<!-- ==================== FUNCTIONS ==================== -->
+<a name="section-Functions"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Functions</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Functions"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#normintBessy" class="summary-sig-name">normintBessy</a>(<span class="summary-sig-arg">fsn</span>,
+        <span class="summary-sig-arg">filenameformat</span>,
+        <span class="summary-sig-arg">mask</span>,
+        <span class="summary-sig-arg">thicknesses</span>,
+        <span class="summary-sig-arg">referencethickness</span>,
+        <span class="summary-sig-arg">referenceindex</span>,
+        <span class="summary-sig-arg">doffset</span>,
+        <span class="summary-sig-arg">step2cm</span>,
+        <span class="summary-sig-arg">resol</span>,
+        <span class="summary-sig-arg">energyapp</span>,
+        <span class="summary-sig-arg">energytheor</span>,
+        <span class="summary-sig-arg">ref_qrange</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">qphirange</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">center_override</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">inttype</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">radial</code><code class="variable-quote">'</code></span>,
+        <span class="summary-sig-arg">int_aux</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">save_with_extension</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">noplot</span>=<span class="summary-sig-default">False</span>)</span><br />
+      Normalize Bessy data according to glassy carbon measurements</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#normintBessy">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#bdf2B1" class="summary-sig-name">bdf2B1</a>(<span class="summary-sig-arg">bdf</span>,
+        <span class="summary-sig-arg">doffset</span>,
+        <span class="summary-sig-arg">steps2cm</span>,
+        <span class="summary-sig-arg">energyreal</span>,
+        <span class="summary-sig-arg">fsnref</span>,
+        <span class="summary-sig-arg">thicknessref</span>,
+        <span class="summary-sig-arg">pixelsize</span>,
+        <span class="summary-sig-arg">mult</span>,
+        <span class="summary-sig-arg">errmult</span>,
+        <span class="summary-sig-arg">thickness</span>)</span><br />
+      Convert BDF file to B1-type logfile and int2dnorm files.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#bdf2B1">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#bdf_read" class="summary-sig-name">bdf_read</a>(<span class="summary-sig-arg">filename</span>)</span><br />
+      Read bdf file (Bessy Data Format)</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#bdf_read">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readasa" class="summary-sig-name">readasa</a>(<span class="summary-sig-arg">basename</span>)</span><br />
+      Load SAXS/WAXS measurement files from ASA *.INF, *.P00 and *.E00 files.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readasa">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readheader" class="summary-sig-name">readheader</a>(<span class="summary-sig-arg">filename</span>,
+        <span class="summary-sig-arg">fsn</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">fileend</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span><br />
+      Reads header data from measurement files</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readheader">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#read2dB1data" class="summary-sig-name">read2dB1data</a>(<span class="summary-sig-arg">filename</span>,
+        <span class="summary-sig-arg">files</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">fileend</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span><br />
+      Read 2D measurement files, along with their header data</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#read2dB1data">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#getsamplenames" class="summary-sig-name">getsamplenames</a>(<span class="summary-sig-arg">filename</span>,
+        <span class="summary-sig-arg">files</span>,
+        <span class="summary-sig-arg">fileend</span>,
+        <span class="summary-sig-arg">showtitles</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">Gabriel</code><code class="variable-quote">'</code></span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span><br />
+      Prints information on the measurement files</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#getsamplenames">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#read2dintfile" class="summary-sig-name">read2dintfile</a>(<span class="summary-sig-arg">fsns</span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>,
+        <span class="summary-sig-arg">norm</span>=<span class="summary-sig-default">True</span>)</span><br />
+      Read corrected intensity and error matrices</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#read2dintfile">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#write2dintfile" class="summary-sig-name">write2dintfile</a>(<span class="summary-sig-arg">A</span>,
+        <span class="summary-sig-arg">Aerr</span>,
+        <span class="summary-sig-arg">params</span>,
+        <span class="summary-sig-arg">norm</span>=<span class="summary-sig-default">True</span>,
+        <span class="summary-sig-arg">filetype</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">npz</code><code class="variable-quote">'</code></span>)</span><br />
+      Save the intensity and error matrices to int2dnorm&lt;FSN&gt;.mat</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#write2dintfile">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readintfile" class="summary-sig-name">readintfile</a>(<span class="summary-sig-arg">filename</span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>,
+        <span class="summary-sig-arg">sanitize</span>=<span class="summary-sig-default">True</span>)</span><br />
+      Read intfiles.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readintfile">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#writeintfile" class="summary-sig-name">writeintfile</a>(<span class="summary-sig-arg">qs</span>,
+        <span class="summary-sig-arg">ints</span>,
+        <span class="summary-sig-arg">errs</span>,
+        <span class="summary-sig-arg">header</span>,
+        <span class="summary-sig-arg">areas</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">filetype</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">intnorm</code><code class="variable-quote">'</code></span>)</span><br />
+      Save 1D scattering data to intnorm files.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#writeintfile">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#write1dsasdict" class="summary-sig-name">write1dsasdict</a>(<span class="summary-sig-arg">data</span>,
+        <span class="summary-sig-arg">filename</span>)</span><br />
+      Save 1D scattering data to file</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#write1dsasdict">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readintnorm" class="summary-sig-name">readintnorm</a>(<span class="summary-sig-arg">fsns</span>,
+        <span class="summary-sig-arg">filetype</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">intnorm</code><code class="variable-quote">'</code></span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span><br />
+      Read intnorm*.dat files along with their headers</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readintnorm">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readbinned" class="summary-sig-name">readbinned</a>(<span class="summary-sig-arg">fsn</span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span><br />
+      Read intbinned*.dat files along with their headers.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readbinned">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readlogfile" class="summary-sig-name">readlogfile</a>(<span class="summary-sig-arg">fsn</span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>,
+        <span class="summary-sig-arg">norm</span>=<span class="summary-sig-default">True</span>)</span><br />
+      Read logfiles.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readlogfile">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#writelogfile" class="summary-sig-name">writelogfile</a>(<span class="summary-sig-arg">header</span>,
+        <span class="summary-sig-arg">ori</span>,
+        <span class="summary-sig-arg">thick</span>,
+        <span class="summary-sig-arg">dc</span>,
+        <span class="summary-sig-arg">realenergy</span>,
+        <span class="summary-sig-arg">distance</span>,
+        <span class="summary-sig-arg">mult</span>,
+        <span class="summary-sig-arg">errmult</span>,
+        <span class="summary-sig-arg">reffsn</span>,
+        <span class="summary-sig-arg">thickGC</span>,
+        <span class="summary-sig-arg">injectionGC</span>,
+        <span class="summary-sig-arg">injectionEB</span>,
+        <span class="summary-sig-arg">pixelsize</span>,
+        <span class="summary-sig-arg">mode</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">Pilatus300k</code><code class="variable-quote">'</code></span>,
+        <span class="summary-sig-arg">norm</span>=<span class="summary-sig-default">True</span>)</span><br />
+      Write logfiles.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#writelogfile">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readwaxscor" class="summary-sig-name">readwaxscor</a>(<span class="summary-sig-arg">fsns</span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span><br />
+      Read corrected waxs file</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readwaxscor">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readenergyfio" class="summary-sig-name">readenergyfio</a>(<span class="summary-sig-arg">filename</span>,
+        <span class="summary-sig-arg">files</span>,
+        <span class="summary-sig-arg">fileend</span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span><br />
+      Read abt_*.fio files.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readenergyfio">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readf1f2" class="summary-sig-name">readf1f2</a>(<span class="summary-sig-arg">filename</span>)</span><br />
+      Load fprime files created by Hephaestus</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readf1f2">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#getsequences" class="summary-sig-name">getsequences</a>(<span class="summary-sig-arg">headers</span>,
+        <span class="summary-sig-arg">ebname</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">Empty_beam</code><code class="variable-quote">'</code></span>)</span><br />
+      Separate measurements made at different energies in an ASAXS sequence</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#getsequences">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#getsequencesfsn" class="summary-sig-name">getsequencesfsn</a>(<span class="summary-sig-arg">headers</span>,
+        <span class="summary-sig-arg">ebname</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">Empty_beam</code><code class="variable-quote">'</code></span>)</span><br />
+      Separate measurements made at different energies in an ASAXS
+    sequence and return the lists of FSNs</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#getsequencesfsn">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#energiesfromparam" class="summary-sig-name">energiesfromparam</a>(<span class="summary-sig-arg">param</span>)</span><br />
+      Return the (uncalibrated) energies from the measurement files</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#energiesfromparam">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#samplenamesfromparam" class="summary-sig-name">samplenamesfromparam</a>(<span class="summary-sig-arg">param</span>)</span><br />
+      Return the sample names</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#samplenamesfromparam">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#mandelbrot" class="summary-sig-name">mandelbrot</a>(<span class="summary-sig-arg">real</span>,
+        <span class="summary-sig-arg">imag</span>,
+        <span class="summary-sig-arg">iters</span>)</span><br />
+      Calculate the Mandelbrot set</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#mandelbrot">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#writechooch" class="summary-sig-name">writechooch</a>(<span class="summary-sig-arg">mud</span>,
+        <span class="summary-sig-arg">filename</span>)</span><br />
+      Saves the data read by readxanes to a format which can be recognized
+by CHOOCH</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#writechooch">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readxanes" class="summary-sig-name">readxanes</a>(<span class="summary-sig-arg">filebegin</span>,
+        <span class="summary-sig-arg">files</span>,
+        <span class="summary-sig-arg">fileend</span>,
+        <span class="summary-sig-arg">energymeas</span>,
+        <span class="summary-sig-arg">energycalib</span>,
+        <span class="summary-sig-arg">dirs</span>=<span class="summary-sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span><br />
+      Read energy scans from abt_*.fio files by readenergyfio() then
+put them on a correct energy scale.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readxanes">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#writef1f2" class="summary-sig-name">writef1f2</a>(<span class="summary-sig-arg">f1f2</span>,
+        <span class="summary-sig-arg">filename</span>)</span><br />
+      Saves f1f2 data to file</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#writef1f2">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#readabt" class="summary-sig-name">readabt</a>(<span class="summary-sig-arg">filename</span>)</span><br />
+      Read abt_*.fio type files.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#readabt">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="B1python.B1io-module.html#savespheres" class="summary-sig-name">savespheres</a>(<span class="summary-sig-arg">spheres</span>,
+        <span class="summary-sig-arg">filename</span>)</span><br />
+      Save sphere structure in a file.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="B1python.B1io-pysrc.html#savespheres">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+</table>
+<!-- ==================== VARIABLES ==================== -->
+<a name="section-Variables"></a>
+<table class="summary" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Variables</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-Variables"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a name="__package__"></a><span class="summary-name">__package__</span> = <code title="'B1python'"><code class="variable-quote">'</code><code class="variable-string">B1python</code><code class="variable-quote">'</code></code>
+    </td>
+  </tr>
+</table>
+<!-- ==================== FUNCTION DETAILS ==================== -->
+<a name="section-FunctionDetails"></a>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Function Details</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-FunctionDetails"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+</table>
+<a name="normintBessy"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">normintBessy</span>(<span class="sig-arg">fsn</span>,
+        <span class="sig-arg">filenameformat</span>,
+        <span class="sig-arg">mask</span>,
+        <span class="sig-arg">thicknesses</span>,
+        <span class="sig-arg">referencethickness</span>,
+        <span class="sig-arg">referenceindex</span>,
+        <span class="sig-arg">doffset</span>,
+        <span class="sig-arg">step2cm</span>,
+        <span class="sig-arg">resol</span>,
+        <span class="sig-arg">energyapp</span>,
+        <span class="sig-arg">energytheor</span>,
+        <span class="sig-arg">ref_qrange</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">qphirange</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">center_override</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">inttype</span>=<span class="sig-default"><code class="variable-quote">'</code><code class="variable-string">radial</code><code class="variable-quote">'</code></span>,
+        <span class="sig-arg">int_aux</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">save_with_extension</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">noplot</span>=<span class="sig-default">False</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#normintBessy">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Normalize Bessy data according to glassy carbon measurements
+
+Inputs:
+    fsn: range of file sequence numbers. Only give one ASAXS
+        sequence at a time! The first fsn should be the first frame
+        of the sequence.
+    filenameformat: C-style format string for the filename without
+        extension, e.g. 's%07u_000'
+    mask: mask matrix. 0 is masked, 1 is unmasked
+    thicknesses: a single thickness value for all measurements OR a
+        dictionary, the keys being the sample names. In cm-s.
+    referencethickness: thickness of the reference sample, in microns
+    referenceindex: the index of the reference measurement in the
+        sequence. 0 is the first measurement (usually empty beam).
+    doffset: additive correction to the detector position read from
+        the BDF file. In cm-s.
+    step2cm: multiplicative correction to the detector position read
+        from the BDF file. The true sample-to-detector distance is
+        calculated: SD [cm] = detx*step2cm+doffset
+    resol: resolution of the detector (pixel size), in mm/pixel
+    energyapp: list of apparent energies
+    energytheor: list of theoretical energies, corresponding to the
+        apparent energies
+    ref_qrange: q-range to be taken into account for the reference.
+        Only the first and the last value of this will be used. Set
+        it to None if the complete available reference dataset is to
+        be used.
+    qphirange: if a vector, the q- or theta-range onto which the
+        integration is to be carried out. If an integer, the number
+        of bins. In this case, the smallest and largest border is
+        auto-determined. If None, the whole q- or phi-range will be
+        auto-determined.
+    center_override: if you want to set the beam center by hand. Leave
+        it None if you want to use the default value (read from the
+        bdf file).
+    inttype: integration mode: 'r[adial]', 's[ector]' or
+        'a[zimuthal]'. Case-insensitive.
+    int_aux: auxiliary data for integration. If sector integration is
+        preferred, then this should be a list of two. The first value
+        is the starting azimuth angle, the second is the arc angle,
+        both in radians. If azimuthal integration is requested, these
+        are the smallest and largest q-values to be taken into account.
+    save_with_extension: a string to append to the filename, just
+        before the extension. If None, it will be the integration method.
+    noplot: set this to True to suppress plotting.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="bdf2B1"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">bdf2B1</span>(<span class="sig-arg">bdf</span>,
+        <span class="sig-arg">doffset</span>,
+        <span class="sig-arg">steps2cm</span>,
+        <span class="sig-arg">energyreal</span>,
+        <span class="sig-arg">fsnref</span>,
+        <span class="sig-arg">thicknessref</span>,
+        <span class="sig-arg">pixelsize</span>,
+        <span class="sig-arg">mult</span>,
+        <span class="sig-arg">errmult</span>,
+        <span class="sig-arg">thickness</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#bdf2B1">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Convert BDF file to B1-type logfile and int2dnorm files.
+
+Inputs:
+    bdf: bdf dictionary
+    doffset: detector offset in cm-s
+    steps2cm: multiplicative correction to detector position (cm/motor step)
+    energyreal: true (calibrated) energy
+    fsnref: FSN for the reference file (Glassy carbon)
+    thicknessref: thickness of the reference, in microns
+    pixelsize: detector resolution (mm/pixel)
+    mult: absolute normalization factor
+    errmult: error of mult
+    thickness: sample thickness
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="bdf_read"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">bdf_read</span>(<span class="sig-arg">filename</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#bdf_read">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read bdf file (Bessy Data Format)
+
+Input:
+    filename: the name of the file
+
+Output:
+    bdf: the BDF structure
+
+Adapted the bdf_read.m macro from Sylvio Haas.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readasa"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readasa</span>(<span class="sig-arg">basename</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readasa">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Load SAXS/WAXS measurement files from ASA *.INF, *.P00 and *.E00 files.
+
+Input:
+    basename: the basename (without extension) of the files
+
+Output:
+    An ASA dictionary of the following fields:
+        position: the counts for each pixel (numpy array)
+        energy: the energy spectrum (numpy array)
+        params: parameter dictionary. It has the following fields:
+            Month: The month of the measurement
+            Day: The day of the measurement
+            Year: The year of the measurement
+            Hour: The hour of the measurement
+            Minute: The minute of the measurement
+            Second: The second of the measurement
+            Title: The title. If the user has written something to the
+                first line of the .INF file, it will be regarded as the
+                title. Otherwise the basename will be picked for this
+                field.
+            Basename: The base name of the files (without the extension)
+            Energywindow_Low: the lower value of the energy window
+            Energywindow_High: the higher value of the energy window
+            Stopcondition: stop condition in a string
+            Realtime: real time in seconds
+            Livetime: live time in seconds
+        pixels: the pixel numbers.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readheader"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readheader</span>(<span class="sig-arg">filename</span>,
+        <span class="sig-arg">fsn</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">fileend</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readheader">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Reads header data from measurement files
+
+Inputs:
+    filename: the beginning of the filename, or the whole filename
+    fsn: the file sequence number or None if the whole filenam was supplied
+        in filename. It can be a list as well.
+    fileend: the end of the file. If it ends with .gz, then the file is
+        treated as a gzip archive.
+    dirs [optional]: a list of directories to try
+    
+Output:
+    A list of header dictionaries. An empty list if no headers were read.
+    
+Examples:
+    read header data from 'ORG000123.DAT':
+    
+    header=readheader('ORG',123,'.DAT')
+    
+    or
+    
+    header=readheader('ORG00123.DAT')
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="read2dB1data"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">read2dB1data</span>(<span class="sig-arg">filename</span>,
+        <span class="sig-arg">files</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">fileend</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#read2dB1data">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read 2D measurement files, along with their header data
+
+Inputs:
+    filename: the beginning of the filename, or the whole filename
+    fsn: the file sequence number or None if the whole filenam was supplied
+        in filename. It is possible to give a list of fsns here.
+    fileend: the end of the file.
+    dirs [optional]: a list of directories to try
+    
+Outputs:
+    A list of 2d scattering data matrices
+    A list of header data
+    
+Examples:
+    Read FSN 123-130:
+    a) measurements with the Gabriel detector:
+    data,header=read2dB1data('ORG',range(123,131),'.DAT')
+    b) measurements with the Pilatus300k detector:
+    #in this case the org_*.header files should be present in the same folder
+    data,header=read2dB1data('org_',range(123,131),'.tif')
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="getsamplenames"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">getsamplenames</span>(<span class="sig-arg">filename</span>,
+        <span class="sig-arg">files</span>,
+        <span class="sig-arg">fileend</span>,
+        <span class="sig-arg">showtitles</span>=<span class="sig-default"><code class="variable-quote">'</code><code class="variable-string">Gabriel</code><code class="variable-quote">'</code></span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#getsamplenames">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Prints information on the measurement files
+
+Inputs:
+    filename: the beginning of the filename, or the whole filename
+    fsn: the file sequence number or None if the whole filenam was supplied
+        in filename
+    fileend: the end of the file.
+    showtitles: if this is 'Gabriel', prints column headers for the gabriel
+        detector. 'Pilatus300k' prints the appropriate headers for that
+        detector. All other values suppress header printing.
+    dirs [optional]: a list of directories to try
+
+Outputs:
+    None
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="read2dintfile"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">read2dintfile</span>(<span class="sig-arg">fsns</span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>,
+        <span class="sig-arg">norm</span>=<span class="sig-default">True</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#read2dintfile">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read corrected intensity and error matrices
+
+Input:
+    fsns: one or more fsn-s in a list
+    dirs: list of directories to try
+    norm: True if int2dnorm*.mat file is to be loaded, False if
+        int2darb*.mat is preferred
+    
+Output:
+    a list of 2d intensity matrices
+    a list of error matrices
+    a list of param dictionaries
+    dirs [optional]: a list of directories to try
+
+Note:
+    It tries to load int2dnorm&lt;FSN&gt;.mat. If it does not succeed,
+    it tries int2dnorm&lt;FSN&gt;.dat and err2dnorm&lt;FSN&gt;.dat. If these do not
+    exist, int2dnorm&lt;FSN&gt;.dat.zip and err2dnorm&lt;FSN&gt;.dat.zip is tried. If
+    still no luck, int2dnorm&lt;FSN&gt;.dat.gz and err2dnorm&lt;FSN&gt;.dat.gz is
+    opened. If this fails as well, the given FSN is skipped. If no files
+    have been loaded, empty lists are returned.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="write2dintfile"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">write2dintfile</span>(<span class="sig-arg">A</span>,
+        <span class="sig-arg">Aerr</span>,
+        <span class="sig-arg">params</span>,
+        <span class="sig-arg">norm</span>=<span class="sig-default">True</span>,
+        <span class="sig-arg">filetype</span>=<span class="sig-default"><code class="variable-quote">'</code><code class="variable-string">npz</code><code class="variable-quote">'</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#write2dintfile">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Save the intensity and error matrices to int2dnorm&lt;FSN&gt;.mat
+
+Inputs:
+    A: the intensity matrix
+    Aerr: the error matrix
+    params: the parameter dictionary
+    norm: if int2dnorm files are to be saved. If it is false, int2darb files
+        are saved (arb = arbitrary units, ie. not absolute intensity)
+    filetype: 'npz' or 'mat'
+int2dnorm&lt;FSN&gt;.[mat or npz] is written. The parameter structure is not
+    saved, since it should be saved already in intnorm&lt;FSN&gt;.log
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readintfile"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readintfile</span>(<span class="sig-arg">filename</span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>,
+        <span class="sig-arg">sanitize</span>=<span class="sig-default">True</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readintfile">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read intfiles.
+
+Input:
+    filename: the file name, eg. intnorm123.dat
+    dirs [optional]: a list of directories to try
+
+Output:
+    A dictionary with 'q' holding the values for the momentum transfer,
+        'Intensity' being the intensity vector and 'Error' has the error
+        values. These three fields are numpy ndarrays. An empty dict
+        is returned if file is not found.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="writeintfile"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">writeintfile</span>(<span class="sig-arg">qs</span>,
+        <span class="sig-arg">ints</span>,
+        <span class="sig-arg">errs</span>,
+        <span class="sig-arg">header</span>,
+        <span class="sig-arg">areas</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">filetype</span>=<span class="sig-default"><code class="variable-quote">'</code><code class="variable-string">intnorm</code><code class="variable-quote">'</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#writeintfile">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Save 1D scattering data to intnorm files.
+
+Inputs:
+    qs: list of q values
+    ints: list of intensity (scattering cross-section) values
+    errs: list of error values
+    header: header dictionary (only the key 'FSN' is used)
+    areas [optional]: list of effective area values or None
+    filetype: 'intnorm' to save 'intnorm%d.dat' files. 'intbinned' to
+        write 'intbinned%d.dat' files. Case insensitive.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="write1dsasdict"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">write1dsasdict</span>(<span class="sig-arg">data</span>,
+        <span class="sig-arg">filename</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#write1dsasdict">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Save 1D scattering data to file
+
+Inputs:
+    data: 1D SAXS dictionary
+    filename: filename
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readintnorm"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readintnorm</span>(<span class="sig-arg">fsns</span>,
+        <span class="sig-arg">filetype</span>=<span class="sig-default"><code class="variable-quote">'</code><code class="variable-string">intnorm</code><code class="variable-quote">'</code></span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readintnorm">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read intnorm*.dat files along with their headers
+
+Inputs:
+    fsns: one or more fsn-s.
+    filetype: prefix of the filename
+    dirs [optional]: a list of directories to try
+    
+Outputs:
+    A vector of dictionaries, in each dictionary the self-explanatory
+        'q', 'Intensity' and 'Error' fields are present.
+    A vector of parameters, read from the logfiles.
+
+Note:
+    When loading only one fsn, the outputs will be still in lists, thus
+        lists with one elements will be returned.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readbinned"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readbinned</span>(<span class="sig-arg">fsn</span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readbinned">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Read intbinned*.dat files along with their headers.</p>
+  <p>This is a shortcut to readintnorm(fsn,'intbinned',dirs)</p>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readlogfile"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readlogfile</span>(<span class="sig-arg">fsn</span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>,
+        <span class="sig-arg">norm</span>=<span class="sig-default">True</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readlogfile">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read logfiles.
+
+Inputs:
+    fsn: the file sequence number(s). It is possible to
+        give a single value or a list
+    dirs [optional]: a list of directories to try
+    norm: if a normalized file is to be loaded (intnorm*.log). If
+        False, intarb*.log will be loaded instead.
+        
+Output:
+    a list of dictionaries corresponding to the header files. This
+        is a list with one element if only one fsn was given. Thus the
+        parameter dictionary will be params[0].
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="writelogfile"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">writelogfile</span>(<span class="sig-arg">header</span>,
+        <span class="sig-arg">ori</span>,
+        <span class="sig-arg">thick</span>,
+        <span class="sig-arg">dc</span>,
+        <span class="sig-arg">realenergy</span>,
+        <span class="sig-arg">distance</span>,
+        <span class="sig-arg">mult</span>,
+        <span class="sig-arg">errmult</span>,
+        <span class="sig-arg">reffsn</span>,
+        <span class="sig-arg">thickGC</span>,
+        <span class="sig-arg">injectionGC</span>,
+        <span class="sig-arg">injectionEB</span>,
+        <span class="sig-arg">pixelsize</span>,
+        <span class="sig-arg">mode</span>=<span class="sig-default"><code class="variable-quote">'</code><code class="variable-string">Pilatus300k</code><code class="variable-quote">'</code></span>,
+        <span class="sig-arg">norm</span>=<span class="sig-default">True</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#writelogfile">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Write logfiles.
+
+Inputs:
+    header: header structure as read by readheader()
+    ori: origin vector of 2
+    thick: thickness of the sample (cm)
+    dc: if mode=='Pilatus300k' then this is the DC level which is subtracted.
+        Otherwise it is the dark current FSN.
+    realenergy: calibrated energy (eV)
+    distance: sample-to-detector distance (mm)
+    mult: absolute normalization factor
+    errmult: error of mult
+    reffsn: FSN of GC measurement
+    thickGC: thickness of GC (cm)
+    injectionGC: if injection occurred between GC and sample measurements:
+        'y' or True. Otherwise 'n' or False
+    injectionEB: the same as injectionGC but for empty beam and sample.
+    pixelsize: the size of the pixel of the 2D detector (mm)
+    mode: 'Pilatus300k' or 'Gabriel'. If invalid, it defaults to 'Gabriel'
+    norm: if the normalization went good. If failed, intarb*.dat will be saved.
+Output:
+    a file intnorm&lt;fsn&gt;.log is saved to the current directory
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readwaxscor"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readwaxscor</span>(<span class="sig-arg">fsns</span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readwaxscor">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read corrected waxs file
+
+Inputs:
+    fsns: a range of fsns or a single fsn.
+    dirs [optional]: a list of directories to try
+    
+Output:
+    a list of scattering data dictionaries (see readintfile())
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readenergyfio"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readenergyfio</span>(<span class="sig-arg">filename</span>,
+        <span class="sig-arg">files</span>,
+        <span class="sig-arg">fileend</span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readenergyfio">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read abt_*.fio files.
+
+Inputs:
+    filename: beginning of the file name, eg. 'abt_'
+    files: a list or a single fsn number, eg. [1, 5, 12] or 3
+    fileend: extension of a file, eg. '.fio'
+    dirs [optional]: a list of directories to try
+
+Outputs: three lists:
+    energies: the uncalibrated (=apparent) energies for each fsn.
+    samples: the sample names for each fsn
+    muds: the mu*d values for each fsn
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readf1f2"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readf1f2</span>(<span class="sig-arg">filename</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readf1f2">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Load fprime files created by Hephaestus
+
+Input: 
+    filename: the name (and path) of the file
+
+Output:
+    an array. Each row contain Energy, f', f''
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="getsequences"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">getsequences</span>(<span class="sig-arg">headers</span>,
+        <span class="sig-arg">ebname</span>=<span class="sig-default"><code class="variable-quote">'</code><code class="variable-string">Empty_beam</code><code class="variable-quote">'</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#getsequences">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Separate measurements made at different energies in an ASAXS sequence
+
+Inputs:
+    header: header (or param) dictionary
+    ebname: the title of the empty beam measurements.
+
+Output:
+    a list of lists. Each sub-list in this list contains the indices in the
+    supplied header structure which correspond to the sub-sequence.
+
+Example:
+    If measurements were carried out:
+    EB_E1, Ref_before_E1, Sample1_E1, Sample2_E1, Ref_after_E1, EB_E2,...
+    Ref_after_EN then the function will return:
+    [[0,1,2,3,4],[5,6,7,8,9],...[(N-1)*5,(N-1)*5+1...N*5-1]].
+    
+    Sequences of different lengths are allowed
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="getsequencesfsn"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">getsequencesfsn</span>(<span class="sig-arg">headers</span>,
+        <span class="sig-arg">ebname</span>=<span class="sig-default"><code class="variable-quote">'</code><code class="variable-string">Empty_beam</code><code class="variable-quote">'</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#getsequencesfsn">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Separate measurements made at different energies in an ASAXS
+    sequence and return the lists of FSNs
+
+Inputs:
+    header: header (or param) dictionary
+    ebname: the title of the empty beam measurements.
+
+Output:
+    a list of lists. Each sub-list in this list contains the FSNS in the
+    supplied header structure which correspond to the sub-sequence.
+
+    Sequences of different lengths are allowed.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="energiesfromparam"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">energiesfromparam</span>(<span class="sig-arg">param</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#energiesfromparam">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Return the (uncalibrated) energies from the measurement files
+
+Inputs:
+    param dictionary
+    
+Outputs:
+    a list of sorted energies
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="samplenamesfromparam"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">samplenamesfromparam</span>(<span class="sig-arg">param</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#samplenamesfromparam">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Return the sample names
+
+Inputs:
+    param dictionary
+    
+Output:
+    a list of sorted sample titles
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="mandelbrot"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">mandelbrot</span>(<span class="sig-arg">real</span>,
+        <span class="sig-arg">imag</span>,
+        <span class="sig-arg">iters</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#mandelbrot">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Calculate the Mandelbrot set
+
+Inputs:
+    real: a vector of the real values (x coordinate). pylab.linspace(-2,2)
+        is a good choice.
+    imag: a vector of the imaginary values (y coordinate). pylab.linspace(-2,2)
+        is a good choice.
+    iters: the number of iterations.
+    
+Output:
+    a matrix. Each element is the number of iterations which made the corresponding
+        point to become larger than 2 in absolute value. 0 if no divergence
+        up to the number of simulations
+        
+Note:
+    You may be curious how comes this function to this file. Have you ever
+    heard of easter eggs? ;-D Btw it can be a good sample data for radial
+    integration routines.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="writechooch"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">writechooch</span>(<span class="sig-arg">mud</span>,
+        <span class="sig-arg">filename</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#writechooch">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Saves the data read by readxanes to a format which can be recognized
+by CHOOCH
+
+Inputs:
+    mud: a muds dictionary
+    filename: the filename to write the datasets to
+
+Outputs:
+    a file with filename will be saved
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readxanes"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readxanes</span>(<span class="sig-arg">filebegin</span>,
+        <span class="sig-arg">files</span>,
+        <span class="sig-arg">fileend</span>,
+        <span class="sig-arg">energymeas</span>,
+        <span class="sig-arg">energycalib</span>,
+        <span class="sig-arg">dirs</span>=<span class="sig-default"><code class="variable-group">[</code><code class="variable-group">]</code></span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readxanes">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read energy scans from abt_*.fio files by readenergyfio() then
+put them on a correct energy scale.
+
+Inputs:
+    filebegin: the beginning of the filename, like 'abt_'
+    files: FSNs, like range(2,36)
+    fileend: the end of the filename, like '.fio'
+    energymeas: list of the measured energies
+    energycalib: list of the true energies corresponding to the measured
+        ones
+    dirs [optional]: a list of directories to try
+
+Output:
+    a list of mud dictionaries. Each dict will have the following items:
+        'Energy', 'Mud', 'Title', 'scan'. The first three are
+        self-describing. The last will be the FSN.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="writef1f2"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">writef1f2</span>(<span class="sig-arg">f1f2</span>,
+        <span class="sig-arg">filename</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#writef1f2">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Saves f1f2 data to file
+
+Inputs:
+    f1f2: matrix of anomalous correction terms
+    filename: file name
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="readabt"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">readabt</span>(<span class="sig-arg">filename</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#readabt">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Read abt_*.fio type files.
+
+Input:
+    filename: the name of the file.
+    
+Output:
+    A dictionary with the following fields:
+        'title': the sample title
+        'mode': 'Energy' or 'Motor'
+        'columns': the description of the columns in 'data'
+        'data': the data found in the file, in a matrix.
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<a name="savespheres"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">savespheres</span>(<span class="sig-arg">spheres</span>,
+        <span class="sig-arg">filename</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="B1python.B1io-pysrc.html#savespheres">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <pre class="literalblock">
+Save sphere structure in a file.
+
+Inputs:
+    spheres: sphere matrix
+    filename: filename
+
+</pre>
+  <dl class="fields">
+  </dl>
+</td></tr></table>
+</div>
+<br />
+<!-- ==================== NAVIGATION BAR ==================== -->
+<table class="navbar" border="0" width="100%" cellpadding="0"
+       bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="middle">
+  <!-- Home link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="B1python-module.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Tree link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="module-tree.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Index link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="identifier-index.html">Indices</a>&nbsp;&nbsp;&nbsp;</th>
+
+  <!-- Help link -->
+      <th>&nbsp;&nbsp;&nbsp;<a
+        href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+
+      <th class="navbar" width="100%"></th>
+  </tr>
+</table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%%">
+  <tr>
+    <td align="left" class="footer">
+    Generated by Epydoc 3.0.1 on Tue Apr 27 11:02:13 2010
+    </td>
+    <td align="right" class="footer">
+      <a target="mainFrame" href="http://epydoc.sourceforge.net"
+        >http://epydoc.sourceforge.net</a>
+    </td>
+  </tr>
+</table>
+
+<script type="text/javascript">
+  <!--
+  // Private objects are initially displayed (because if
+  // javascript is turned off then we want them to be
+  // visible); but by default, we want to hide them.  So hide
+  // them unless we have a cookie that says to show them.
+  checkCookie();
+  // -->
+</script>
+</body>
+</html>
