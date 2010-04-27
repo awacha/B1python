@@ -18,6 +18,57 @@ import types
 import scipy.special
 _pausemode=True
 
+def combinesasdicts(*args):
+    """Combines 1D SAS dictionaries.
+    
+    Inputs:
+        arbitrary number of SAS dictionaries (field 'q' is mandatory)
+        
+    Output:
+        combined 1D SAS dict.
+    
+    Note:
+        the SAS dictionaries should have the 'q' field. The fields in a SAS
+        dictionary should be numpy ndarrays of the same length. Combining works
+        as follows. Let d1 and d2 be two SAS dicts, nd the resulting dict,
+        initialized to a copy of d1. For each element of the fields of d2, it
+        is first checked, if the corresponding q-value is present in d1. If
+        yes, the corresponding element in nd will be the average of those in
+        d1 and d2 (nd['fieldname'][i]=0.5*(d1['fieldname'][i]+d2['fieldname'][i])).
+        If no, the bin is simply added as a new bin.
+        The only exception is field 'Error', where instead of the arithmetic
+        average, the quadratic average is used (0.5*sqrt(x**2+y**2))
+    """
+    if len(args)==1:
+        return args[0] # do nothing
+    if len(args)==0:
+        return None
+    newdict={}
+    d1=args[0]
+    for i in range(1,len(args)):
+        d2=args[i]
+        a=d1.keys()
+        b=d2.keys()
+        a.sort()
+        b.sort()
+        if a!=b:
+            raise ValueError,"Input dictionary #%u does not have the same fields (%s) as the previous ones (%s)!" % (i,b,a)
+        for i in d1.keys():
+            newdict[i]=d1[i].copy()
+        for i in range(len(d2['q'])):
+            idx=(newdict['q']==d2['q'][i])
+            if idx.sum()==0:
+                for j in d2.keys():
+                    np.append(newdict[j],d2[j][i])
+            for j in d2.keys():
+                if j=='Error':
+                    newdict['Error'][idx]=np.sqrt(newdict['Error'][idx]**2+d2['Error'][i]**2)*0.5
+                elif j=='q':
+                    continue
+                else:
+                    newdict[j][idx]=(newdict[j][idx]+d2[j][i])*0.5
+        d1=newdict
+    return newdict
 def matrixsummary(matrix,name):
     """Returns numerical summary of a matrix as a string
 

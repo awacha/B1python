@@ -135,7 +135,7 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
         while len(fig.axes)==3:
             fig.waitforbuttonpress()
             pylab.draw()
-def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1,blacknegative=False,crosshair=True):
+def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1,blacknegative=False,crosshair=True,zscaling='log'):
     """Plots the matrix A in logarithmic coloured plot
     
     Inputs:
@@ -157,6 +157,9 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         pmin: colour-scaling. See parameter pmax for description. 
         pmax: colour-scaling. imshow() will be called with vmin=A.max()*pmin,
             vmax=A.max()*pmax
+        blacknegative: True if you want to black out nonpositive pixels
+        crosshair: True if you want to draw a beam-center testing cross-hair
+        zscaling: 'log' or 'linear' (color scale model)
     """
     tmp=A.copy(); # this is needed as Python uses the pass-by-object method,
                   # so A is the SAME as the version of the caller. tmp=A would
@@ -173,7 +176,8 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
 #    t1=time.time()
     tmp[nonpos]=tmp[tmp>0].min()
 #    t2=time.time()
-    tmp=np.log(tmp);
+    if zscaling.upper()=='LOG':
+        tmp=np.log(tmp);
 #    t3=time.time()
     tmp[np.isnan(tmp)]=tmp[-np.isnan(tmp)].min();
 #    t4=time.time()

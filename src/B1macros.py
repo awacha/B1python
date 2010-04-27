@@ -140,6 +140,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         print 'You should supply at least 2 different energy pairs to have a correct energy calibration! Now doing only a shift.'
     dat=[]
     print 'Loading header files...'
+    fsnfound=[]
     for i in range(len(fsn)):
         bdfname='%s.bhf' %(filenameformat % (fsn[i]))
         try:
@@ -151,6 +152,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
         if center_override is not None:
             dat[-1]['C']['xcen']=str(center_override[1])
             dat[-1]['C']['ycen']=str(center_override[0])
+        fsnfound.append(fsn[i])
         print 'File %s loaded.'%bdfname
     print 'Done loading header files.'
     # now determine the length of an element of the sequence. This is done by
@@ -164,7 +166,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
     nseq=float(len(dat))/seqlen # number of sequences
     if int(nseq)!=nseq: # not integer: some (usually the last) sequence is incomplete.
         print 'Disregarding the last sequence, since it is incomplete.'
-    nseq=int(floor(nseq)) # force this, so the rest of the code won't complain about float indices
+    nseq=int(nseq) # force this, so the rest of the code won't complain about float indices
     #doing energy and distance correction
     dist=np.zeros(seqlen*nseq)
     energyreal=np.zeros(seqlen*nseq)

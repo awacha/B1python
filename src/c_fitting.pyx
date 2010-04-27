@@ -3,6 +3,8 @@ cimport numpy as np
 
 from stdlib cimport *
 
+HC=12398.419
+
 cdef extern from "math.h":
     double sin(double)
     double cos(double)
@@ -27,7 +29,40 @@ cdef inline double fsphere(double q, double R):
 def Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
                    double dist, double wavelength, Py_ssize_t Nx,
                    Py_ssize_t Ny, double pixelsizex, double pixelsizey,
-                   double dx=0,double dy=0):
+                   double dx=0,double dy=0,bint headerout=False,
+                   Py_ssize_t FSN=0,Title=''):
+    """Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
+                   double dist, double wavelength, Py_ssize_t Nx,
+                   Py_ssize_t Ny, double pixelsizex, double pixelsizey,
+                   double dx=0,double dy=0,bint headerout=False,
+                   Py_ssize_t FSN=0,Title=''):
+    
+    Calculate theoretical scattering of a sphere-structure in a virtual
+    transmission SAXS setup.
+    
+    Inputs:
+        data: numpy array representing the sphere structure data. It should have
+            at least 5 columns, which are interpreted as x, y, z, R, rho, thus
+            the center of the sphere, its radius and average electron density.
+            Superfluous columns are disregarded. x is horizontal, y is vertical.
+            z points towards the detector.
+        dist: sample-to-detector distance, usually in mm.
+        wavelength: wavelength of the radiation used, usually in Angstroems
+        Nx, Ny: the width and height of the virtual 2D detector, in pixels.
+        pixelsizex, pixelsizey: the horizontal and vertical pixel size, usually
+            expressed in millimetres (the same as dist)
+        dx, dy: horizontal and vertical displacement of the detector. If these
+            are 0, the beam falls at the centre. Of the same dimension as dist
+            and pixelsize.
+        headerout: True if a header structure is to be returned (with beam
+            beam center, distance, wavelength etc.)
+        FSN: File Sequence Number to write in header.
+        Title: Sample title to write in header.
+
+    Output:
+        a 2D numpy array containing the scattering image. The row coordinate is
+        the vertical coordinate (rows are horizontal).
+    """
     cdef double *x,*y,*z,*R,*rho
     cdef np.ndarray[np.double_t, ndim=2] output
     cdef Py_ssize_t i,j,k,l
@@ -37,7 +72,7 @@ def Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
     cdef double sx,sy,sz
     
     if data.shape[1]<5:
-        raise ValueError('the shape of the input matrix should be 5.')
+        raise ValueError('the number of columns in the input matrix should be 5.')
     output=np.zeros((Ny,Nx),dtype=np.double)
     numspheres=data.shape[0]
     x=<double*>malloc(sizeof(double)*numspheres)
@@ -73,13 +108,25 @@ def Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
                     tmp=(x[k]-x[l])*qx+(y[k]-y[l])*qy+(z[k]-z[l])*qz
                     I+=fsphere(q,R[k])*fsphere(q,R[l])*2*rho[k]*rho[l]*cos(tmp)
             output[j,i]=I
-        print "column",i,"/",Nx,"done"
+        #print "column",i,"/",Nx,"done"
     free(rho); free(R); free(z); free(y); free(x);
-    return output
+    if headerout:
+        return output,{'BeamPosX':(0.5*Ny+1)-dy/pixelsizey,\
+                       'BeamPosY':(0.5*Nx+1)-dx/pixelsizex,'Dist':dist,\
+                       'EnergyCalibrated':HC/wavelength,'PixelSizeX':pixelsizex,\
+                       'PixelSizeY':pixelsizey,\
+                       'PixelSize':sqrt(pixelsizex*pixelsizex+pixelsizey*pixelsizey),\
+                       'FSN':FSN,'Title':Title}
+    else:
+        return output
 def Ctheorspheregas(np.ndarray[np.double_t, ndim=1] qrange not None,
                     np.ndarray[np.double_t, ndim=1] R not None,
                     np.ndarray[np.double_t, ndim=1] rho not None):
-    """Calculate the theoretical scattering intensity of a spatially
+    """Ctheorspheregas(np.ndarray[np.double_t, ndim=1] qrange not None,
+                    np.ndarray[np.double_t, ndim=1] R not None,
+                    np.ndarray[np.double_t, ndim=1] rho not None):
+    
+    Calculate the theoretical scattering intensity of a spatially
         uncorrelated sphere structure
     
     Inputs:
@@ -114,7 +161,14 @@ def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
                   np.ndarray[np.double_t, ndim=1] z not None,
                   np.ndarray[np.double_t, ndim=1] R not None,
                   np.ndarray[np.double_t, ndim=1] rho not None):
-    """Calculate the theoretical scattering intensity of the sphere structure
+    """def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
+                  np.ndarray[np.double_t, ndim=1] x not None,
+                  np.ndarray[np.double_t, ndim=1] y not None,
+                  np.ndarray[np.double_t, ndim=1] z not None,
+                  np.ndarray[np.double_t, ndim=1] R not None,
+                  np.ndarray[np.double_t, ndim=1] rho not None):
+    
+    Calculate the theoretical scattering intensity of the sphere structure
     
     Inputs:
         qrange: np.ndarray of q values

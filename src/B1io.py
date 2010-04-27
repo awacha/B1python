@@ -981,59 +981,78 @@ def read2dintfile(fsns,dirs=[],norm=True):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
-    if type(fsns)!=types.ListType: # if only one fsn was supplied, make it a list of one element
+    try:
+        lenfsn=len(fsns)
+    except TypeError:
         fsns=[fsns]
+        lenfsn=1
     int2d=[]
     err2d=[]
     params=[]
     for fsn in fsns: # this also works if len(fsns)==1
         filefound=False
         for d in dirs:
-            try: # first try to load the mat file. This is the most effective way.
+            try: # first try to load the npz file. This is the most effective way.
                 if norm:
-                    tmp0=scipy.io.loadmat('%s%sint2dnorm%d.mat' % (d,os.sep,fsn))
+                    tmp0=np.load('%s%sint2dnorm%d.npz' % (d,os.sep,fsn))
                 else:
-                    tmp0=scipy.io.loadmat('%s%sint2darb%d.mat' % (d,os.sep,fsn))
-                tmp=tmp0['Intensity'].copy()
-                tmp1=tmp0['Error'].copy()
-            except IOError: # if mat file is not found, try the ascii files
-                if norm:
-#                    print 'Cannot find file int2dnorm%d.mat: trying to read int2dnorm%d.dat(.gz|.zip) and err2dnorm%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
-                    tmp=read2dascii('%s%sint2dnorm%d.dat' % (d,os.sep,fsn));
-                    tmp1=read2dascii('%s%serr2dnorm%d.dat' % (d,os.sep,fsn));
-                else:
-#                    print 'Cannot find file int2darb%d.mat: trying to read int2darb%d.dat(.gz|.zip) and err2darb%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
-                    tmp=read2dascii('%s%sint2darb%d.dat' % (d,os.sep,fsn));
-                    tmp1=read2dascii('%s%serr2darb%d.dat' % (d,os.sep,fsn));
-            except TypeError: # if mat file was found but scipy.io.loadmat was unable to read it
-                print "Malformed MAT file! Skipping."
-                continue # try from another directory
+                    tmp0=np.load('%s%sint2darb%d.npz' % (d,os.sep,fsn))
+                tmp=tmp0['Intensity']
+                tmp1=tmp0['Error']
+            except IOError:
+                try: # first try to load the mat file. This is the second effective way.
+                    if norm:
+                        tmp0=scipy.io.loadmat('%s%sint2dnorm%d.mat' % (d,os.sep,fsn))
+                    else:
+                        tmp0=scipy.io.loadmat('%s%sint2darb%d.mat' % (d,os.sep,fsn))
+                    tmp=tmp0['Intensity']
+                    tmp1=tmp0['Error']
+                except IOError: # if mat file is not found, try the ascii files
+                    if norm:
+    #                    print 'Cannot find file int2dnorm%d.mat: trying to read int2dnorm%d.dat(.gz|.zip) and err2dnorm%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
+                        tmp=read2dascii('%s%sint2dnorm%d.dat' % (d,os.sep,fsn));
+                        tmp1=read2dascii('%s%serr2dnorm%d.dat' % (d,os.sep,fsn));
+                    else:
+    #                    print 'Cannot find file int2darb%d.mat: trying to read int2darb%d.dat(.gz|.zip) and err2darb%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
+                        tmp=read2dascii('%s%sint2darb%d.dat' % (d,os.sep,fsn));
+                        tmp1=read2dascii('%s%serr2darb%d.dat' % (d,os.sep,fsn));
+                except TypeError: # if mat file was found but scipy.io.loadmat was unable to read it
+                    print "Malformed MAT file! Skipping."
+                    continue # try from another directory
             tmp2=readlogfile(fsn,d) # read the logfile
             if (tmp is not None) and (tmp1 is not None) and (tmp2 is not None): # if all of int,err and log is read successfully
                 int2d.append(tmp)
                 err2d.append(tmp1)
                 params.append(tmp2[0])
                 filefound=True
+                print 'Files corresponding to fsn %d were found.' % fsn
                 break # file was found, do not try to load it again from another directory
         if not filefound:
             print "read2dintfile: Cannot find file(s ) for FSN %d" % fsn
     return int2d,err2d,params # return the lists
-def write2dintfile(A,Aerr,params,norm=True):
+def write2dintfile(A,Aerr,params,norm=True,filetype='npz'):
     """Save the intensity and error matrices to int2dnorm<FSN>.mat
     
     Inputs:
         A: the intensity matrix
         Aerr: the error matrix
         params: the parameter dictionary
-        
-    int2dnorm<FSN>.mat is written. The parameter structure is not saved,
-        since it should be saved already in intnorm<FSN>.log
+        norm: if int2dnorm files are to be saved. If it is false, int2darb files
+            are saved (arb = arbitrary units, ie. not absolute intensity)
+        filetype: 'npz' or 'mat'
+    int2dnorm<FSN>.[mat or npz] is written. The parameter structure is not
+        saved, since it should be saved already in intnorm<FSN>.log
     """
     if norm:
-        filename='int2dnorm%d.mat' % params['FSN'];
+        fileprefix='int2dnorm%d' % params['FSN']
     else:
-        filename='int2darb%d.mat' % params['FSN'];
-    scipy.io.savemat(filename,{'Intensity':A,'Error':Aerr});
+        fileprefix='int2darb%d' % params['FSN']
+    if filetype.upper() in ['NPZ','NPY','NUMPY']:
+        np.savez('%s.npz' % fileprefix, Intensity=A,Error=Aerr)
+    elif filetype.upper() in ['MAT','MATLAB']:
+        scipy.io.savemat('%s.mat' % fileprefix,{'Intensity':A,'Error':Aerr});
+    else:
+        raise ValueError,"Unknown file type: %s" % repr(filetype)
 def readintfile(filename,dirs=[],sanitize=True):
     """Read intfiles.
 
@@ -1255,7 +1274,9 @@ def readlogfile(fsn,dirs=[],norm=True):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
-    if type(fsn)!=types.ListType: # if fsn is not a list, convert it to a list
+    try:
+        lenfsn=len(fsn)
+    except TypeError:
         fsn=[fsn];
     params=[]; #initially empty
     for f in fsn:
