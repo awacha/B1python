@@ -18,12 +18,15 @@ import types
 import scipy.special
 _pausemode=True
 
-def combinesasdicts(*args):
+def combinesasdicts(*args,**kwargs):
     """Combines 1D SAS dictionaries.
     
     Inputs:
-        arbitrary number of SAS dictionaries (field 'q' is mandatory)
+        arbitrary number of SAS dictionaries
         
+    Allowed keyword arguments:
+        'accordingto': the key name in the dicts according to which the combining
+            will take place. Usually (default) 'q'.
     Output:
         combined 1D SAS dict.
     
@@ -39,6 +42,10 @@ def combinesasdicts(*args):
         The only exception is field 'Error', where instead of the arithmetic
         average, the quadratic average is used (0.5*sqrt(x**2+y**2))
     """
+    try:
+        accordingto=kwargs['accordingto']
+    except KeyError:
+        accordingto='q'
     if len(args)==1:
         return args[0] # do nothing
     if len(args)==0:
@@ -54,16 +61,18 @@ def combinesasdicts(*args):
         if a!=b:
             raise ValueError,"Input dictionary #%u does not have the same fields (%s) as the previous ones (%s)!" % (i,b,a)
         for i in d1.keys():
-            newdict[i]=d1[i].copy()
-        for i in range(len(d2['q'])):
-            idx=(newdict['q']==d2['q'][i])
-            if idx.sum()==0:
-                for j in d2.keys():
-                    np.append(newdict[j],d2[j][i])
+            newdict[i]=d1[i].copy() # make a copy of d1 and add d2 later.
+        # add elements of d2:
+        for i in range(len(d2[accordingto])): # for each item in d2:
+            idx=(newdict[accordingto]==d2[accordingto][i]) #find if the current 'q' value in d2 is already present in newdict
+            if idx.sum()==0: # if not:
+                print "appending to newdict"
+                for j in d2.keys(): # append.
+                    newdict[j]=np.append(newdict[j],d2[j][i])
             for j in d2.keys():
                 if j=='Error':
                     newdict['Error'][idx]=np.sqrt(newdict['Error'][idx]**2+d2['Error'][i]**2)*0.5
-                elif j=='q':
+                elif j==accordingto:
                     continue
                 else:
                     newdict[j][idx]=(newdict[j][idx]+d2[j][i])*0.5
@@ -306,17 +315,19 @@ def flatten1dsasdict(data):
     for k in data.keys():
         d1[k]=data[k].flatten()
     return d1
-def sanitizeint(data):
-    """Remove points with nonpositive intensity from 1D SAXS dataset
+def sanitizeint(data,accordingto='Intensity'):
+    """Remove points with nonpositive values of a given field from 1D SAXS dataset
     
     Input:
         data: 1D SAXS dictionary
+        accordingto: the name of the key where the nonpositive values should be
+            checked for. Defaults to 'Intensity'
         
     Output:
-        a new dictionary of which the points with nonpositive intensities were
-            omitted
+        a new dictionary of which the points with nonpositive values of a given
+            key (see parameter 'accordingto') are omitted
     """
-    indices=(data['Intensity']>0)
+    indices=(data[accordingto]>0)
     data1={}
     for k in data.keys():
         data1[k]=data[k][indices]
