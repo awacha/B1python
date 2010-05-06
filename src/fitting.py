@@ -24,14 +24,65 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 
+import warnings
 import numpy as np
 import pylab
 import scipy.interpolate
 import matplotlib.widgets
 import utils
 import types
+try:
+    import Ifeffit
+except ImportError:
+    warnings.warn('Failed to import module <Ifeffit>. You won\'t be able to use functions depending on it (eg. CromerLiberman).')
+    
 from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D, Coffchipbinning
 
+def CromerLiberman(energy,z,convolution=0,shutup=True):
+    """Calculate anomalous scattering factors according to Cromer and Liberman,
+    using ifeffit.
+    
+    Inputs:
+        energy: list or numpy array of energy values
+        z: atomic number of the element
+        convolution: convolve the resulting values by a Lorentzian of this width
+        shutup: set it to False if you want to get debugging output
+        
+    Outputs: f1,f2 in np.arrays or lists (depending on the type of the first
+        input parameter
+        
+    Notes:
+        you have to have module Ifeffit installed to use this function.
+    """
+    ifeffit_maxlen=8000
+    if type(energy)==np.ndarray:
+        energy1=energy.tolist()
+    else:
+        energy1=energy
+    f1=[]
+    f2=[]
+    n=(len(energy1)/ifeffit_maxlen)
+    if n>0:
+        print "Calculating f1 and f2 curves in %d parts. This may cause undesired oscillations in the result. You can get rid of these by reducing the number of points in the energy scale, under %d." % (n+1,ifeffit_maxlen)
+    for i in range(n+1):
+        if not shutup:
+            print "Calling ifeffit> f1f2(), turn %d." % i 
+        startidx=i*ifeffit_maxlen
+        endidx=min((i+1)*ifeffit_maxlen,len(energy1))
+        e0=energy1[startidx:endidx]
+        iff=Ifeffit.Ifeffit()
+        iff.put_array('my.energy',e0)
+        
+        iff.ifeffit('f1f2(energy=my.energy, z=%u, group=my, width=%f)' % (z,convolution))
+        f10=iff.get_array('my.f1')
+        f20=iff.get_array('my.f2')
+        f1.extend(f10)
+        f2.extend(f20)
+        del iff
+    if type(energy)==np.ndarray:
+        f1=np.array(f1)
+        f2=np.array(f2)
+    return f1,f2
 def smoothcurve(x,y,param,mode='logspline',extrapolate='reflect'):
     """General function for smoothing
     

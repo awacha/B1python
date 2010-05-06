@@ -108,7 +108,7 @@ def Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
                     tmp=(x[k]-x[l])*qx+(y[k]-y[l])*qy+(z[k]-z[l])*qz
                     I+=fsphere(q,R[k])*fsphere(q,R[l])*2*rho[k]*rho[l]*cos(tmp)
             output[j,i]=I
-        #print "column",i,"/",Nx,"done"
+        print "column",i,"/",Nx,"done"
     free(rho); free(R); free(z); free(y); free(x);
     if headerout:
         return output,{'BeamPosX':(0.5*Ny+1)-dy/pixelsizey,\

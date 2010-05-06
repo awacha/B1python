@@ -18,6 +18,28 @@ import types
 import scipy.special
 _pausemode=True
 
+def sortsasdict(data,*args):
+    """Sorts 1D SAS dicts.
+    
+    Inputs:
+        data: SAS dict
+        *args: key names, sorting sequence
+    
+    Output:
+        sorted dict
+    """
+#    print "Sorting SAS dict."
+    if len(args)==0:
+        args='q'
+    #create a structured array. This may look like the darkest voodoo magic,
+    # but it isn't. Check the help text of np.sort and zip. Also the tuple
+    # expansion operator (*) is used.
+    array=np.array(zip(*(data.values())),dtype=zip(data.keys(),[np.double]*len(data.keys())))
+    sorted=np.sort(array,order=args)
+    ret={}
+    for k in data.keys():
+        ret[k]=sorted[k]
+    return ret
 def combinesasdicts(*args,**kwargs):
     """Combines 1D SAS dictionaries.
     
@@ -66,7 +88,6 @@ def combinesasdicts(*args,**kwargs):
         for i in range(len(d2[accordingto])): # for each item in d2:
             idx=(newdict[accordingto]==d2[accordingto][i]) #find if the current 'q' value in d2 is already present in newdict
             if idx.sum()==0: # if not:
-                print "appending to newdict"
                 for j in d2.keys(): # append.
                     newdict[j]=np.append(newdict[j],d2[j][i])
             for j in d2.keys():
@@ -77,7 +98,8 @@ def combinesasdicts(*args,**kwargs):
                 else:
                     newdict[j][idx]=(newdict[j][idx]+d2[j][i])*0.5
         d1=newdict
-    return newdict
+#    print "combine: new length is",len(newdict[accordingto])
+    return sortsasdict(newdict)
 def matrixsummary(matrix,name):
     """Returns numerical summary of a matrix as a string
 

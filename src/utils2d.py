@@ -422,7 +422,7 @@ def calculateDmatrix(mask,res,bcx,bcy):
     D=np.sqrt((res[0]*(X-bcx-1))**2+
                  (res[1]*(Y-bcy-1))**2)
     return D
-def qrangefrommask(mask,energy,distance,res,bcx,bcy):
+def qrangefrommask(mask,energy,distance,res,bcx,bcy,fullyunmasked=False):
     """Calculate q-range from mask matrix
     
     Inputs:
@@ -432,7 +432,11 @@ def qrangefrommask(mask,energy,distance,res,bcx,bcy):
         res: pixel size
         bcx: row coordinate of beam center (starting from 1)
         bcy: column coordinate of beam center (starting from 1)
-        
+        fullyunmasked: if the q-range should be fully unmasked (only the
+            beginning and the end is checked). Set it to True if you want only
+            full circles (eg. for azimuthal averaging). False gives you the
+            entire unmasked q-range (ti. including partially covered q rings)
+            
     Outputs: qmin,qmax,Nq
         qmin: smallest q-value (smallest distance of unmasked points from
             the origin)
@@ -446,4 +450,24 @@ def qrangefrommask(mask,energy,distance,res,bcx,bcy):
     Nq=np.ceil(dmax-dmin)
     qmin=4*np.pi*np.sin(0.5*np.arctan(dmin/distance))*energy/HC
     qmax=4*np.pi*np.sin(0.5*np.arctan(dmax/distance))*energy/HC
-    return qmin,qmax,Nq
+
+    q0,I0,E0,A0=radintC(mask.astype(np.double),\
+                            np.ones(mask.shape,np.double),\
+                            energy,distance,\
+                            res,bcx,bcy,\
+                            np.zeros(mask.shape,np.uint8),q=None,\
+                            returnavgq=False)
+    if fullyunmasked:
+        # the smallest of the border elements in D
+        Dbordermin=min(D[:,0].min(),D[0,:].min(),D[-1,:].min(),D[:,-1].min())
+        qbordermin=4*np.pi*np.sin(0.5*np.arctan(Dbordermin/distance))*energy/HC
+        qmin1=q0[np.nonzero(I0==1)[0][0]] # find the first unmasked q-value
+        qmax1=q0[np.nonzero(I0==1)[0][-1]] # find the last unmasked q-value
+        qmax1=min(qmax1,qbordermin)
+    else:
+        qmin1=q0[np.nonzero(I0>0)[0][0]] # find the first unmasked q-value
+        qmax1=q0[np.nonzero(I0>0)[0][-1]] # find the last unmasked q-value
+        print "qrangefrommask: old method - new method: qmin: ",qmin-qmin1,"; qmax:",qmax-qmax1
+
+    
+    return qmin1,qmax1,Nq

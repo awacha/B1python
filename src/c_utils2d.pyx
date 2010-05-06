@@ -64,7 +64,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             double bcx, double bcy,
             np.ndarray[np.uint8_t, ndim=2] mask not None,
             np.ndarray[np.double_t, ndim=1] q=None,
-            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None, returnmask=False, double fuzzy_FWHM=0):
+            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None,
+            returnmask=False, double fuzzy_FWHM=0, bint symmetric_sector=False):
     """
     def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             np.ndarray[np.double_t,ndim=2] dataerr not None,
@@ -72,7 +73,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             double bcx, double bcy,
             np.ndarray[np.uint8_t, ndim=2] mask not None,
             np.ndarray[np.double_t, ndim=1] q=None,
-            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None, returnmask=False, double fuzzy_FWHM=0):
+            bint shutup=True, bint returnavgq=False, phi0=None, dphi=None,
+            returnmask=False, double fuzzy_FWHM=0, bint symmetric_sector=False):
 
         Do radial integration on 2D scattering images. Now this takes the
         functional determinant dq/dr into account.
@@ -107,6 +109,10 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         fuzzy_FWHM: FWHM for the Gauss weighing function for fuzzy integration
             (where pixels are weighed according to their distance in q
             from the desired q value of the bin.
+        symmetric_sector: True if the mirror part of the sector should be taken
+            into account as well on sector integration. Ie. pixels falling into
+            sectors of width dphi, and starting at phi0 and pi+phi0, respectively,
+            will be accounted for.
     Outputs: four ndarrays.
         the q vector
         the intensity vector
@@ -135,6 +141,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     cdef int sectorint
     cdef np.ndarray[np.uint8_t,ndim=2] maskout
     cdef double g,w1
+    cdef double symmetric_sector_periodicity
    
     if type(res)!=type([]) and type(res)!=type(()) and type(res)!=np.ndarray:
         res=[res,res];
@@ -162,6 +169,11 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         phi0a=0
         dphia=3*M_PI
         sectorint=0
+
+    if symmetric_sector:
+        symmetric_sector_periodicity=1
+    else:
+        symmetric_sector_periodicity=2
 
     if returnmask:
         maskout=np.ones([data.shape[0],data.shape[1]],dtype=np.uint8)
@@ -234,7 +246,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             y=((iy-bcy)*yres)
             if sectorint:
                 phi=atan2(y,x)
-                if fmod(phi-phi0a+M_PI*10,2*M_PI)>dphia:
+                if fmod(phi-phi0a+M_PI*10,symmetric_sector_periodicity*M_PI)>dphia:
                     continue
             rho=sqrt(x*x+y*y)/distance
             q1=4*M_PI*sin(0.5*atan(rho))*energy/HC

@@ -39,6 +39,96 @@ import B1io
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
+def plotintegrated(A,q,intensity,error=None,area=None,qtheor=None,mask=None,param=None,xscale='log',yscale='log',mode='radial'):
+    """Plot the results of a radial/azimuthal integration
+    
+    Inputs:
+        A: 2D image
+        q: list of scattering variables (4*pi*sin(theta)/lambda) or azimuth
+            angles. Should be the integrated (averaged) one, ie. returned by
+            radintC or azimintqC.
+        intensity: list of scattering intensity
+        error: error of the scattering intensity. None if unapplicable
+        area: effective area for bins. None if unapplicable.
+        qtheor: theoretical values for q (or azimuth angle). None if
+            unapplicable.
+        mask: mask matrix. 1 means unmasked, 0 masked. None if unapplicable
+        param: parameter structure. Supplied opaquely to plot2dmatrix(). None
+            if unapplicable
+        xscale: 'li[near]' or 'lo[garithmic]'. Characters in square brackets
+            are optional. This controls the plotting of all x axes. Default is
+            'log'.
+        yscale: 'li[near]' or 'lo[garithmic]', see xscale. This only controls
+            the scaling of the y axis in the I vs. q plot. Area vs. q is
+            unaffected. Default value: 'log'.
+        mode: mode of the integration. 'r[adial]' or 'a[zimuthal]'. Default is
+            'radial'
+    """
+    pylab.clf()
+    if (area is not None) or (qtheor is not None):
+        Nsubplotrows=2
+    else:
+        Nsubplotrows=1
+    pylab.subplot(Nsubplotrows,2,1)
+    plot2dmatrix(A,mask=mask,header=param,showqscale=True)
+    pylab.subplot(Nsubplotrows,2,2)
+    
+    if mode.upper()=='AZIMUTHAL'[:max(1,len(mode))]:
+        xlabel=u'azimuth angle (rad)'
+    elif (mode.upper()=='RADIAL'[:max(1,len(mode))]) or (mode.upper()=='SECTOR'[:max(1,len(mode))]) (mode.upper()=='SLICE'[:max(1,len(mode))]):
+        xlabel=u'q (1/%c)' % 197
+    else:
+        raise ValueError, "Invalid integration mode: %s" %mode
+    
+    if error is not None:
+        pylab.errorbar(q,intensity,error)
+    else:
+        pylab.plot(q,intensity)
+        
+    if xscale.upper()=='LOGARITHMIC'[:max(2,len(xscale))]:
+        pylab.xscale('log')
+    elif xscale.upper()=='LINEAR'[:max(2,len(xscale))]:
+        pylab.xscale('linear')
+    else:
+        raise ValueError, 'invalid scaling mode %s' % xscale
+
+    if yscale.upper()=='LOGARITHMIC'[:max(2,len(yscale))]:
+        pylab.yscale('log')
+    elif yscale.upper()=='LINEAR'[:max(2,len(yscale))]:
+        pylab.yscale('linear')
+    else:
+        raise ValueError, 'invalid scaling mode %s' % yscale
+        
+    pylab.xlabel(xlabel)
+    pylab.ylabel(u'Intensity')
+    pylab.title('Integrated intensity')
+    
+    if area is not None:        
+        pylab.subplot(Nsubplotrows,2,3)
+        pylab.plot(q,area)
+        pylab.xlabel(xlabel)
+        pylab.ylabel(u'Effective area')
+        if xscale.upper()=='LOGARITHMIC'[:max(2,len(xscale))]:
+            pylab.xscale('log')
+        elif xscale.upper()=='LINEAR'[:max(2,len(xscale))]:
+            pylab.xscale('linear')
+        else:
+            raise ValueError, 'invalid scaling mode %s' % xscale
+        pylab.title('Effective area')
+    if qtheor is not None:
+        pylab.subplot(Nsubplotrows,2,4)
+        pylab.plot(q,q/qtheor)
+        pylab.xlabel(xlabel)
+        pylab.ylabel(u'Effective q / desired q (==1 if correct)')
+        if xscale.upper()=='LOGARITHMIC'[:max(2,len(xscale))]:
+            pylab.xscale('log')
+        elif xscale.upper()=='LINEAR'[:max(2,len(xscale))]:
+            pylab.xscale('linear')
+        else:
+            raise ValueError, 'invalid scaling mode %s' % xscale
+        pylab.title('q_eff/q_theor')
+    pylab.gcf().show()
+
 def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
     """Plot intensities
     
