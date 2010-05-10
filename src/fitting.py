@@ -36,8 +36,7 @@ try:
 except ImportError:
     warnings.warn('Failed to import module <Ifeffit>. You won\'t be able to use functions depending on it (eg. CromerLiberman).')
     
-from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D, Coffchipbinning
-
+from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D, Cbin2D
 def CromerLiberman(energy,z,convolution=0,shutup=True):
     """Calculate anomalous scattering factors according to Cromer and Liberman,
     using ifeffit.

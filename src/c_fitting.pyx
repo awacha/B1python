@@ -215,8 +215,21 @@ def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
     free(I)
     return Intensity            
 
-def Coffchipbinning(np.ndarray[np.double_t, ndim=2] M, Py_ssize_t xlen, Py_ssize_t ylen):
-    """
+def Cbin2D(np.ndarray[np.double_t, ndim=2] M, Py_ssize_t xlen, Py_ssize_t ylen):
+    """def Cbin2D(np.ndarray[np.double_t, ndim=2] M, Py_ssize_t xlen, Py_ssize_t ylen):
+    
+    Binning of a 2D matrix.
+    
+    Inputs:
+        M: the matrix as a numpy array of type double
+        xlen: this many pixels in the x (row) direction will be added up
+        ylen: this many pixels in the y (column) direction will be added up.
+    
+    Output: the binned matrix
+    
+    Notes:
+        each pixel of the returned matrix will be the sum of an xlen-times-ylen
+            block in the original matrix.
     """
     cdef Py_ssize_t i,i1,j,j1
     cdef Py_ssize_t Nx,Ny

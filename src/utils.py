@@ -229,7 +229,7 @@ def common(a,b):
     Output:
         a list with the elements common for a and b
     """
-    c=[x for x in a if a in b]
+    c=[x for x in a if x in b]
     return c
 def derivative(x,y=None):
     """Approximate the derivative by finite difference
