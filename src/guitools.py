@@ -148,7 +148,12 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
             applies as to marker. Default value is 1.
         gui [optional]: display graphical user interface to show/hide plotted
             lines independently. Default value is False (no gui)
+    
+    Outputs:
+        list of names of found samples, to be fed eg. to legend().
+    
     """
+    legends=[]
     if type(energies)!=types.ListType:
         energies=[energies];
     colors=['blue','green','red','black','magenta'];
@@ -205,6 +210,7 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
                         #              marker=marker[s],color=colors[e])
                         #ax.set_xscale('log')
                         #ax.set_yscale('log')
+                        legends.append(param[k]['Title'])
                         if gui==True:
                             texts.append('%d(%s) @%.2f eV' % (param[k]['FSN'], param[k]['Title'], param[k]['Energy']))
                             handles.append(h[0])
@@ -225,6 +231,7 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
         while len(fig.axes)==3:
             fig.waitforbuttonpress()
             pylab.draw()
+    return legends
 def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1,blacknegative=False,crosshair=True,zscaling='log'):
     """Plots the matrix A in logarithmic coloured plot
     
@@ -590,12 +597,12 @@ def basicfittinggui(data,title='',blocking=False):
             qmax=max(data['q'][indices])
             res=fitfun(data,qmin,qmax,testimage=True)
             listoffits.append({'type':type,'res':res,'time':time.time(),'qmin':qmin,'qmax':qmax})
-            if len(res)==4:
-                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg' % (type,res[0],res[2],res[1],res[3]))
-            elif len(res)==6:
-                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg' % (type,res[0],res[3],res[1],res[4],res[2],res[5]))
-            elif len(res)==8:
-                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg; %lg +/- %lg' % (type,res[0],res[4],res[1],res[5],res[2],res[6],res[3],res[7]))
+#            if len(res)==4:
+#                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg' % (type,res[0],res[2],res[1],res[3]))
+#            elif len(res)==6:
+#                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg' % (type,res[0],res[3],res[1],res[4],res[2],res[5]))
+#            elif len(res)==8:
+#                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg; %lg +/- %lg' % (type,res[0],res[4],res[1],res[5],res[2],res[6],res[3],res[7]))
             pylab.gcf().show()
         but.on_clicked(onclick)
     ax=pylab.axes((leftborder,topborder-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))*len(plots) ))

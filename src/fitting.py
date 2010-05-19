@@ -35,8 +35,13 @@ try:
     import Ifeffit
 except ImportError:
     warnings.warn('Failed to import module <Ifeffit>. You won\'t be able to use functions depending on it (eg. CromerLiberman).')
-    
+
 from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D, Cbin2D
+
+fitting_testimage_rightprop=0.05
+fitting_testimage_topprop=0.05
+fitting_testimage_showwholecurve=True
+
 def CromerLiberman(energy,z,convolution=0,shutup=True):
     """Calculate anomalous scattering factors according to Cromer and Liberman,
     using ifeffit.
@@ -371,7 +376,7 @@ def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
         # display the results
         pylab.axes(ax1)
         pylab.title('Quality of linear fit vs. r0')
-        pylab.xlabel('r0 (%c)' % 197)
+        pylab.xlabel(u'r0 (%c)' % 197)
         pylab.ylabel('Quality')
         pylab.plot(r0s,chi2)
         # this is the index of the best fit.
@@ -386,7 +391,7 @@ def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
         #display the measured and the fitted curves
         pylab.axes(ax2)
         pylab.title('First approximation')
-        pylab.xlabel('q (1/%c)' %197)
+        pylab.xlabel(u'q (1/%c)' %197)
         pylab.ylabel('Intensity')
         pylab.plot(xdata,logIexp,'.',label='Measured')
         pylab.plot(xdata,a*xdata+b,label='Fitted')
@@ -394,7 +399,7 @@ def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
         #display the maxwellian.
         pylab.axes(ax3)
         pylab.title('Maxwellian size distributions')
-        pylab.xlabel('r (%c)' % 197)
+        pylab.xlabel(u'r (%c)' % 197)
         pylab.ylabel('prob. dens.')
         pylab.plot(r0s,utils.maxwellian(n,r0s[bestindex],r0s))
         print "First approximation:"
@@ -417,7 +422,7 @@ def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
         # plot the measured and the fitted curves
         pylab.axes(ax4)
         pylab.title('After LSQ fit')
-        pylab.xlabel('q (1/%c)'%197)
+        pylab.xlabel(u'q (1/%c)'%197)
         pylab.ylabel('Intensity')
         pylab.plot(np.log(qexp**2+3/R0**2),-(n+4)/2.0*np.log(qexp**2+3/R0**2)+K,label='Fitted')
         pylab.plot(np.log(qexp**2+3/R0**2),logIexp,'.',label='Measured')
@@ -461,10 +466,18 @@ def guiniercrosssectionfit(data,qmin=-np.inf,qmax=np.inf,testimage=False,smearin
     y1=np.log(data1['Intensity'])*data1['q']
     Rgcs,Gcs,dRgcs,dGcs=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data1['q']**2,np.log(data1['Intensity'])*data1['q'],'.')
+        if fitting_testimage_showwholecurve:
+            pylab.plot(data['q']**2,np.log(data['Intensity'])*data['q'],'.')
+        else:
+            pylab.plot(data1['q']**2,np.log(data1['Intensity'])*data1['q'],'.')
         pylab.plot(data1['q']**2,Rgcs*data1['q']**2+Gcs,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q\ln I$')
+        a=pylab.axis()
+        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
+                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rgcs*2),1/np.sqrt(-Rgcs)*dRgcs,Gcs,dGcs,np.sqrt(-Rgcs*2)*data1['q'].max()),ha='right',va='top')
+        pylab.title('Guinier cross-section fit')
     return np.sqrt(-Rgcs*2),Gcs,1/np.sqrt(-Rgcs)*dRgcs,dGcs
 def guinierthicknessfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Do a thickness Guinier fit on the dataset.
@@ -487,10 +500,18 @@ def guinierthicknessfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     y1=np.log(data1['Intensity'])*data1['q']**2
     Rgt,Gt,dRgt,dGt=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data1['q']**2,np.log(data1['Intensity'])*data1['q']**2,'.')
+        if fitting_testimage_showwholecurve:
+            pylab.plot(data['q']**2,np.log(data['Intensity'])*data['q']**2,'.')
+        else:    
+            pylab.plot(data1['q']**2,np.log(data1['Intensity'])*data1['q']**2,'.')
         pylab.plot(data1['q']**2,Rgt*data1['q']**2+Gt,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q^2\ln I$')
+        a=pylab.axis()
+        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
+                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rgt),0.5/np.sqrt(-Rgt)*dRgt,Gt,dGt,np.sqrt(-Rgt)*data1['q'].max()),ha='right',va='top')
+        pylab.title('Guinier thickness fit')
     return np.sqrt(-Rgt),Gt,0.5/np.sqrt(-Rgt)*dRgt,dGt
 def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Do a Guinier fit on the dataset.
@@ -513,10 +534,18 @@ def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     y1=np.log(data1['Intensity']);
     Rg,G,dRg,dG=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data1['q']**2,np.log(data1['Intensity']),'.');
+        if fitting_testimage_showwholecurve:
+            pylab.plot(data['q']**2,np.log(data['Intensity']),'.');
+        else:
+            pylab.plot(data1['q']**2,np.log(data1['Intensity']),'.');
         pylab.plot(data1['q']**2,Rg*data1['q']**2+G,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('ln I');
+        a=pylab.axis()
+        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
+                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rg*3),1.5/np.sqrt(-Rg*3)*dRg,G,dG,np.sqrt(-Rg*3)*data1['q'].max()),ha='right',va='top')
+        pylab.title('Guinier fit')
     return np.sqrt(-Rg*3),G,1.5/np.sqrt(-Rg*3)*dRg,dG
 def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Do a Porod fit on the dataset.
@@ -539,10 +568,18 @@ def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     y1=data1['Intensity']*x1;
     a,b,aerr,berr=linfit(x1,y1,err1)
     if testimage:
-        pylab.plot(data1['q']**4,data1['Intensity']*data1['q']**4,'.');
+        if fitting_testimage_showwholecurve:
+            pylab.plot(data['q']**4,data['Intensity']*data['q']**4,'.');
+        else:
+            pylab.plot(data1['q']**4,data1['Intensity']*data1['q']**4,'.');
         pylab.plot(data1['q']**4,a*data1['q']**4+b,'-',color='red');
         pylab.xlabel('$q^4$ (1/%c$^4$)' % 197)
         pylab.ylabel('I$q^4$');
+        a=pylab.axis()
+        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
+                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
+                   'Constant background: %f +/- %f\nPorod coefficient: %f +/- %f' %(a,b,aerr,berr),ha='right',va='top')
+        pylab.title('Porod fit')
     return a,b,aerr,berr
 def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Fit a power-law on the dataset (I=e^b*q^a)
@@ -555,21 +592,33 @@ def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     
     Outputs:
         the exponent
-        ln(prefactor)
+        the prefactor
         the calculated error of the exponent
-        the calculated error of the logarithm of the prefactor
+        the calculated error of the prefactor
     """
     data1=trimq(data,qmin,qmax)
     x1=np.log(data1['q']);
     err1=np.absolute(data1['Error']/data1['Intensity']);
     y1=np.log(data1['Intensity']);
     a,b,aerr,berr=linfit(x1,y1)
+    xp=a
+    dxp=aerr
+    coeff=exp(b)
+    dcoeff=np.absolute(coeff)*berr
     if testimage:
-        pylab.loglog(data1['q'],data1['Intensity'],'.');
+        if fitting_testimage_showwholecurve:
+            pylab.loglog(data['q'],data['Intensity'],'.');
+        else:
+            pylab.loglog(data1['q'],data1['Intensity'],'.');
         pylab.loglog(data1['q'],np.exp(b)*pow(data1['q'],a),'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
-    return a,b,aerr,berr
+        a=pylab.axis()
+        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
+                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
+                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f' %(xp,dxp,coeff,dcoeff),ha='right',va='top')
+        pylab.title('Power-law fit')
+    return xp,coeff,dxp,dcoeff
 def powerfitwithlinearbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Fit a power-law on the dataset (I=B*q^A+C+D*q)
     
@@ -602,10 +651,21 @@ def powerfitwithlinearbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     Dinit=1
     res=scipy.optimize.leastsq(costfunc,np.array([Ainit,Binit,Cinit,Dinit]),args=(x1,y1,err1),full_output=1)
     if testimage:
-        pylab.loglog(data1['q'],data1['Intensity'],'.');
+        if fitting_testimage_showwholecurve:
+            pylab.loglog(data['q'],data['Intensity'],'.');
+        else:
+            pylab.loglog(data1['q'],data1['Intensity'],'.');
         pylab.loglog(data1['q'],res[0][1]*pow(data1['q'],res[0][0])+res[0][2]+data1['q']*res[0][3],'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
+        a=pylab.axis()
+        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
+                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
+                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f\nLinear term: %f +/- %f' %(res[0][0],np.sqrt(res[1][0][0]),\
+                                                                                                                        res[0][1],np.sqrt(res[1][1][1]),\
+                                                                                                                        res[0][2],np.sqrt(res[1][2][2]),
+                                                                                                                        res[0][3],np.sqrt(res[1][3][3])),ha='right',va='top')
+        pylab.title('Power-law fit with linear background')
     return res[0][0],res[0][1],res[0][2],res[0][3],np.sqrt(res[1][0][0]),np.sqrt(res[1][1][1]),np.sqrt(res[1][2][2]),np.sqrt(res[1][3][3])    
 def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """Fit a power-law on the dataset (I=B*q^A+C)
@@ -636,10 +696,20 @@ def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     Binit=1#(y1[0]-Cinit)/x1[0]**Ainit
     res=scipy.optimize.leastsq(costfunc,np.array([Ainit,Binit,Cinit]),args=(x1,y1,err1),full_output=1)
     if testimage:
-        pylab.loglog(data1['q'],data1['Intensity'],'.');
+        if fitting_testimage_showwholecurve:
+            pylab.loglog(data['q'],data['Intensity'],'.');
+        else:
+            pylab.loglog(data1['q'],data1['Intensity'],'.');
         pylab.loglog(data1['q'],res[0][1]*pow(data1['q'],res[0][0])+res[0][2],'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
+        a=pylab.axis()
+        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
+                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
+                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f' %(res[0][0],np.sqrt(res[1][0][0]),\
+                                                                                                                        res[0][1],np.sqrt(res[1][1][1]),\
+                                                                                                                        res[0][2],np.sqrt(res[1][2][2])),ha='right',va='top')
+        pylab.title('Power-law fit with constant background')
     return res[0][0],res[0][1],res[0][2],np.sqrt(res[1][0][0]),np.sqrt(res[1][1][1]),np.sqrt(res[1][2][2])    
 def unifiedfit(data,B,G,Rg,P,qmin=-np.inf,qmax=np.inf,maxiter=1000):
     """Do a unified fit on the dataset, in the sense of G. Beaucage

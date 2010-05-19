@@ -819,6 +819,8 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
         fileend=filename[string.rfind(filename,'.'):]
     if (files is not None) and (type(files)!=types.ListType):
         files=[files];
+    if fileend.upper()=='.HEADER':
+        fileend='.TIF'
     if fileend.upper()=='.TIF' or fileend.upper()=='.TIFF': # pilatus300k mode
         filebegin=filename[:string.rfind(filename,'.')]
         if files is None:
@@ -886,6 +888,7 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
         print 'FSN\tTime\tEnergy\tDist\tPos\tTransm\tSum/Tot %\tT (C)\tTitle\t\t\tDate'
     elif showtitles=='Pilatus300k':
         print 'FSN\tTime\tEnergy\tDist\tPos\tTransm\tTitle\t\t\tDate'
+        fileend='.tif'
     else:
         pass #do not print header
     for i in files:

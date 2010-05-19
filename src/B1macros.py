@@ -1778,12 +1778,13 @@ def rebin(data,qrange):
         tmp['Error']=np.interp(qrange,d['q'],d['Error'])
         data2.append(tmp)
     return data2;
-def scalewaxs(fsns,mask2d):
+def scalewaxs(fsns,mask2d,dirs):
     """Scale waxs curves to saxs files
     
     Inputs:
         fsns: fsn range
         mask2d: mask for the 2d scattering matrices. Zero is masked, nonzero is non-masked.
+        dirs: list of directories to be forwarded to IO routines
         
     Outputs:
         waxsscaled%d.dat files are saved
@@ -1796,10 +1797,10 @@ def scalewaxs(fsns,mask2d):
     if type(fsns)!=types.ListType:
         fsns=[fsns]
     for fsn in fsns:
-        A,Aerr,param=B1io.read2dintfile(fsn)
+        A,Aerr,param=B1io.read2dintfile(fsn,dirs=dirs)
         if len(A)<1:
             continue
-        waxsdata=B1io.readwaxscor(fsn)
+        waxsdata=B1io.readwaxscor(fsn,dirs=dirs)
         if len(waxsdata)<1:
             continue
         D=utils2d.calculateDmatrix(mask2d,param[0]['PixelSize'],param[0]['BeamPosX'],
