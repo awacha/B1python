@@ -182,7 +182,7 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
             if len(energyapp)==1:
                 energyreal[index]=euncalib+energytheor[0]-energyapp[0];
             else:
-                energyreal[index]=utils.energycalibration(energyapp,energytheor,euncalib)
+                energyreal[index]=fitting.energycalibration(energyapp,energytheor,euncalib)
             print 'Energy calibration: %f -> %f' %(euncalib,energyreal[index]);
     
     dist=utils.unique(dist);
@@ -1292,7 +1292,7 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
             print "Corrected sample-detector distance for fsn %d (ref. after)." % header[k]['FSN']
         else:
             header[k]['Dist']=header[k]['Dist']-distminus-detshift
-        header[k]['EnergyCalibrated']=utils.energycalibration(energymeas,energycalib,header[k]['Energy'])
+        header[k]['EnergyCalibrated']=fitting.energycalibration(energymeas,energycalib,header[k]['Energy'])
         print "Calibrated energy for FSN %d (%s): %f -> %f" %(header[k]['FSN'],header[k]['Title'],header[k]['Energy'],header[k]['EnergyCalibrated'])
         header[k]['XPixel']=pixelsize
         header[k]['YPixel']=pixelsize
@@ -1985,6 +1985,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
                 w=None
                 Isum=None
                 Esum=None
+                fsns_found=[]
                 for p in edsparams:
                     filename='%s%d.dat' % (filetype,p['FSN'])
                     intdata=B1io.readintfile(filename,dirs=dirs)
@@ -2003,6 +2004,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
                             continue
                         Isum=Isum+intdata['Intensity']/(intdata['Error']**2)
                         w=w+1/(intdata['Error']**2)
+                    fsns_found.append(p['FSN'])
                     counter=counter+1
                 if counter>0:
                     Esum=1/w
@@ -2010,8 +2012,23 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
                     Isum=Isum/w
                     Isum[np.isnan(Isum)]=0
                     B1io.writeintfile(q,Isum,Esum,edsparams[0],filetype='summed')
+                    try:
+                        sumlog=open('summed%d.log' % edsparams[0]['FSN'],'wt+')
+                        sumlog.write('FSNs: ')
+                        for i in [p['FSN'] for p in edsparams]:
+                            sumlog.write('%d ' %i)
+                        sumlog.write('\n')
+                        sumlog.write('Sample name: %s\n' % edsparams[0]['Title'])
+                        sumlog.write('Calibrated energy: %f \n' % edsparams[0]['EnergyCalibrated'])
+                        sumlog.write('Temperature: %f \n' % edsparams[0]['Temperature'])
+                        sumlog.write('Sample-to-detector distance (mm): %f\n' % edsparams[0]['Dist'])
+                        sumlog.close()
+                    except IOError,details:
+                        print "Cannot save logfile summed%d.log." % edsparams[0]['FSN']
+                        raise
                 else:
                     print 'No files were found for summing.'
+            fsns_found=[]
             waxscounter=0
             qwaxs=None
             Iwaxs=None
@@ -2022,6 +2039,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
                 waxsdata=B1io.readintfile(waxsfilename,dirs=dirs)
                 if len(waxsdata)<1:
                     continue
+                fsns_found.append(p['FSN'])
                 if waxscounter==0:
                     qwaxs=waxsdata['q']
                     Iwaxs=waxsdata['Intensity']/(waxsdata['Error']**2)
@@ -2042,5 +2060,159 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
                 Iwaxs=Iwaxs/wwaxs
                 Iwaxs[np.isnan(Iwaxs)]=0
                 B1io.writeintfile(qwaxs,Iwaxs,Ewaxs,esparams[0],filetype='waxssummed')
+                try:
+                    sumlog=open('summedwaxs%d.log' % edsparams[0]['FSN'],'wt+')
+                    sumlog.write('FSNs: ')
+                    for i in [p['FSN'] for p in edsparams]:
+                        sumlog.write('%d ' %i)
+                    sumlog.write('\n')
+                    sumlog.write('Sample name: %s\n' % edsparams[0]['Title'])
+                    sumlog.write('Calibrated energy: %f \n' % edsparams[0]['EnergyCalibrated'])
+                    sumlog.write('Temperature: %f \n' % edsparams[0]['Temperature'])
+                    sumlog.close()
+                except IOError,details:
+                    print "Cannot save logfile summed%d.log." % edsparams[0]['FSN']
+                    raise
             else:
                 print 'No waxs file was found'
+
+def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=None,ignorescalingerror=False,qtolerance=0.05):
+    """Unite summed scattering results.
+    
+    Inputs:
+        fsns: range of file sequence numbers (list)
+        distmaskdict: a distance-to-mask dictionary. Eg. if you measured at
+            two sample-to-detector distances (say 935 and 3535 mm), and the
+            corresponding masks reside in numpy arrays maskshort and masklong,
+            then you should construct distmaskdict={935:maskshort,3535:masklong}.
+            Notice that the distance should be the correct distance.
+        sample (default: None): the sample name to be processed. If None, all
+            samples found in the FSN range will be treated.
+        qmin, qmax: limiting values of the common q-range. If None, autodetect
+            from the mask.
+        qsep: separating q-value. The resulting (united) curve will have its
+            points before this value from the long geometry, after this value
+            from the short geometry. If None, all points are used, short and
+            long geometry are combed together.
+        dirs: the dirs parameter, to be forwarded to I/O routines (like
+            readlogfile).
+        ignorescalingerror: if the error of the scaling factor should be
+            neglected.
+        qtolerance: when integrating scattering images onto the common q-range,
+            bins where the relative distance of the averaged q-value and the
+            desired one is larger than this value, are neglected.
+    
+    Outputs: none, files are saved.
+    
+    Notes: the function finds the common q-range among measurements at different
+        sample-to-detector distance. Re-integrates 2D scattering images onto
+        that q-range, summarizes them, calculates the scaling factor and passes
+        the original summed intensities (read from summed*.dat) to each other
+        using this factor.
+    """
+    # read summed logfiles
+    paramsum=B1io.readlogfile(fsns,norm='summed',dirs=dirs)
+    # read summed data. Note, that datasumparam contains log structures read
+    # from intnorm*.log files, thus corresponding to the first measurement of
+    # which the summarized data was made.
+    datasum,datasumparam=B1io.readintnorm(fsns,'summed',dirs=dirs)
+    # defaults to all samplenames.
+    if sample is None:
+        sample=utils.unique([p['Title'] for p in paramsum]) #find all sample names.
+    if type(sample)==type(''):
+        sample=[sample]
+    for title in sample:    #for every sample:
+        #find the distances
+        dists=utils.unique([p['Dist'] for p in paramsum if p['Title']==title])
+        if len(dists)<2: #less than two distances: no point of uniting!
+            print "Measurements at only one distance exist from sample %s. What do you want to unite?" % title
+            continue
+        if len(dists)>2: # more than two distances: difficult, not implemented.
+            print "Measurenemts at more than two distances exist from sample %s. This is currently not supported. Sorry." % title
+            continue
+        d1=min(dists)
+        d2=max(dists)
+        # find the parameter structure corresponding to d1 and d2.
+        ps1=[p for p in paramsum if ((p['Title']==title) and (p['Dist']==d1))]
+        if len(ps1)>1:
+            print "WARNING! More than one summed files exist of sample %s, distance %s. FSNs:" % (title,d1,repr([min(p['FSNs']) for p in ps1]))
+        ps2=[p for p in paramsum if p['Title']==title and p['Dist']==d2]
+        if len(ps2)>1:
+            print "WARNING! More than one summed files exist of sample %s, distance %s. FSNs:" % (title,d2,repr([min(p['FSNs']) for p in ps2]))
+        ps1=ps1[0]
+        ps2=ps2[0]
+        #read intnorm logfiles corresponding to the two distances.
+        param1=B1io.readlogfile(min(ps1['FSNs']),dirs=dirs)[0]
+        param2=B1io.readlogfile(min(ps2['FSNs']),dirs=dirs)[0]
+        try: # find the corresponding masks
+            mask1=distmaskdict[d1]
+            mask2=distmaskdict[d2]
+        except TypeError:
+            print "distmaskdict parameter is not a dictionary!"
+            return
+        except KeyError,details:
+            print "No mask defined in distmaskdict for distance %f." % details
+            return
+        #find the q-ranges for each distance.
+        q1min,q1max,Nq1=utils2d.qrangefrommask(mask1,ps1['EnergyCalibrated'],ps1['Dist'],param1['PixelSize'],param1['BeamPosX'],param1['BeamPosY'])
+        q2min,q2max,Nq2=utils2d.qrangefrommask(mask2,ps2['EnergyCalibrated'],ps2['Dist'],param2['PixelSize'],param2['BeamPosX'],param2['BeamPosY'])
+        if qmin is None:
+            qmin=q1min #auto-determination
+        if qmax is None:
+            qmax=q2max #auto-determination
+        if (qmax<=qmin):
+            print "No common qrange! Skipping."
+            continue
+        qrange=np.linspace(qmin,qmax,100) #the desired values of q.
+        q1=None;        I1=None;        E1=None;        N=0
+        for f in ps1['FSNs']:
+            A,Aerr,p=B1io.read2dintfile(f,dirs=dirs)
+            q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask1).astype(np.uint8),qrange,returnavgq=True)
+            if q1 is None:
+                q1=q0;  I1=I0;  E1=E0**2
+            else:
+                q1+=q0; I1+=I0; E1+=E0**2
+            N+=1
+        #make averages from the sums.
+        E1=np.sqrt(E1)/N
+        I1=(I1)/N
+        q1=q1/N
+        
+        q2=None;        I2=None;        E2=None;        N=0
+        for f in ps2['FSNs']:
+            A,Aerr,p=B1io.read2dintfile(f,dirs=dirs)
+            q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask2).astype(np.uint8),qrange,returnavgq=True)
+            if q2 is None:
+                q2=q0;  I2=I0;  E2=E0**2
+            else:
+                q2+=q0; I2+=I0; E2+=E0**2
+            N+=1
+        #make averages from the sums.
+        E2=np.sqrt(E2)/N
+        I2=I2/N
+        q2=q2/N
+        #find the valid q-bins, where the difference
+        qgood=(np.absolute((q1-qrange)/qrange)<qtolerance) & (np.absolute((q2-qrange)/qrange)<qtolerance)
+        print "Number of good q-bins (averaged q is near original q):",qgood.sum(),"from ",len(qrange)
+        q2=q2[qgood];   I2=I2[qgood];   E2=E2[qgood];
+        q1=q1[qgood];   I1=I1[qgood];   E1=E1[qgood]
+        mult,errmult=utils.multfactor(q2,I2,E2,I1,E1)
+        print "Multiplication factor: %f +/- %f" % (mult,errmult)
+        data1=[d for (d,p) in zip(datasum,datasumparam) if p['FSN']==min(ps1['FSNs'])][0]
+        data2=[d for (d,p) in zip(datasum,datasumparam) if p['FSN']==min(ps2['FSNs'])][0]
+        I1=data1['Intensity']
+        E1=data1['Error']
+        q1=data1['q']
+        I2=data2['Intensity']
+        E2=data2['Error']
+        q2=data2['q']
+        if ignorescalingerror:
+            errmult=0
+        if qsep is not None:
+            datashort={'q':q1[q1>=qsep],'Intensity':I1[q1>=qsep]*mult,'Error':np.sqrt((E1[q1>=qsep]*mult)**2+(I1[q1>=qsep]*errmult)**2)}
+            datalong={'q':q2[q2<=qsep],'Intensity':I2[q2<=qsep],'Error':E2[q2<=qsep]}
+        else:
+            datashort={'q':q1,'Intensity':I1*mult,'Error':np.sqrt((E1*mult)**2+(I1*errmult)**2)}
+            datalong={'q':q2,'Intensity':I2,'Error':E2}
+        datacomb=utils.combinesasdicts(datashort,datalong)
+        B1io.write1dsasdict(datacomb,'united%d.dat' % min(min(ps1['FSNs']),min(ps2['FSNs'])))

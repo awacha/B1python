@@ -38,8 +38,8 @@ except ImportError:
 
 from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D, Cbin2D
 
-fitting_testimage_rightprop=0.05
-fitting_testimage_topprop=0.05
+fitting_testimage_horizpos=0.95
+fitting_testimage_vertpos=0.95
 fitting_testimage_showwholecurve=True
 
 def CromerLiberman(energy,z,convolution=0,shutup=True):
@@ -474,9 +474,9 @@ def guiniercrosssectionfit(data,qmin=-np.inf,qmax=np.inf,testimage=False,smearin
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q\ln I$')
         a=pylab.axis()
-        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
-                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
-                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rgcs*2),1/np.sqrt(-Rgcs)*dRgcs,Gcs,dGcs,np.sqrt(-Rgcs*2)*data1['q'].max()),ha='right',va='top')
+        pylab.text(fitting_testimage_horizpos,\
+                   fitting_testimage_vertpos,
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rgcs*2),1/np.sqrt(-Rgcs)*dRgcs,Gcs,dGcs,np.sqrt(-Rgcs*2)*data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Guinier cross-section fit')
     return np.sqrt(-Rgcs*2),Gcs,1/np.sqrt(-Rgcs)*dRgcs,dGcs
 def guinierthicknessfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -508,9 +508,9 @@ def guinierthicknessfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q^2\ln I$')
         a=pylab.axis()
-        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
-                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
-                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rgt),0.5/np.sqrt(-Rgt)*dRgt,Gt,dGt,np.sqrt(-Rgt)*data1['q'].max()),ha='right',va='top')
+        pylab.text(fitting_testimage_horizpos,\
+                   fitting_testimage_vertpos,
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rgt),0.5/np.sqrt(-Rgt)*dRgt,Gt,dGt,np.sqrt(-Rgt)*data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Guinier thickness fit')
     return np.sqrt(-Rgt),Gt,0.5/np.sqrt(-Rgt)*dRgt,dGt
 def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -542,9 +542,9 @@ def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('ln I');
         a=pylab.axis()
-        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
-                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
-                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rg*3),1.5/np.sqrt(-Rg*3)*dRg,G,dG,np.sqrt(-Rg*3)*data1['q'].max()),ha='right',va='top')
+        pylab.text(fitting_testimage_horizpos,\
+                   fitting_testimage_vertpos,
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rg*3),1.5/np.sqrt(-Rg*3)*dRg,G,dG,np.sqrt(-Rg*3)*data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes())
         pylab.title('Guinier fit')
     return np.sqrt(-Rg*3),G,1.5/np.sqrt(-Rg*3)*dRg,dG
 def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -576,9 +576,9 @@ def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.xlabel('$q^4$ (1/%c$^4$)' % 197)
         pylab.ylabel('I$q^4$');
         a=pylab.axis()
-        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
-                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
-                   'Constant background: %f +/- %f\nPorod coefficient: %f +/- %f' %(a,b,aerr,berr),ha='right',va='top')
+        pylab.text(fitting_testimage_horizpos,\
+                   fitting_testimage_vertpos,
+                   'Constant background: %f +/- %f\nPorod coefficient: %f +/- %f' %(a,b,aerr,berr),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Porod fit')
     return a,b,aerr,berr
 def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -603,7 +603,7 @@ def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     a,b,aerr,berr=linfit(x1,y1)
     xp=a
     dxp=aerr
-    coeff=exp(b)
+    coeff=np.exp(b)
     dcoeff=np.absolute(coeff)*berr
     if testimage:
         if fitting_testimage_showwholecurve:
@@ -614,9 +614,9 @@ def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
         a=pylab.axis()
-        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
-                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
-                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f' %(xp,dxp,coeff,dcoeff),ha='right',va='top')
+        pylab.text(fitting_testimage_horizpos,\
+                   fitting_testimage_vertpos,
+                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f' %(xp,dxp,coeff,dcoeff),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Power-law fit')
     return xp,coeff,dxp,dcoeff
 def powerfitwithlinearbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -659,12 +659,12 @@ def powerfitwithlinearbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
         a=pylab.axis()
-        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
-                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
+        pylab.text(fitting_testimage_horizpos,\
+                   fitting_testimage_vertpos,
                    'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f\nLinear term: %f +/- %f' %(res[0][0],np.sqrt(res[1][0][0]),\
                                                                                                                         res[0][1],np.sqrt(res[1][1][1]),\
                                                                                                                         res[0][2],np.sqrt(res[1][2][2]),
-                                                                                                                        res[0][3],np.sqrt(res[1][3][3])),ha='right',va='top')
+                                                                                                                        res[0][3],np.sqrt(res[1][3][3])),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Power-law fit with linear background')
     return res[0][0],res[0][1],res[0][2],res[0][3],np.sqrt(res[1][0][0]),np.sqrt(res[1][1][1]),np.sqrt(res[1][2][2]),np.sqrt(res[1][3][3])    
 def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -704,11 +704,11 @@ def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
         a=pylab.axis()
-        pylab.text(a[1]-(a[1]-a[0])*fitting_testimage_rightprop,\
-                   a[3]-(a[3]-a[2])*fitting_testimage_topprop,
+        pylab.text(fitting_testimage_horizpos,\
+                   fitting_testimage_vertpos,
                    'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f' %(res[0][0],np.sqrt(res[1][0][0]),\
                                                                                                                         res[0][1],np.sqrt(res[1][1][1]),\
-                                                                                                                        res[0][2],np.sqrt(res[1][2][2])),ha='right',va='top')
+                                                                                                                        res[0][2],np.sqrt(res[1][2][2])),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Power-law fit with constant background')
     return res[0][0],res[0][1],res[0][2],np.sqrt(res[1][0][0]),np.sqrt(res[1][1][1]),np.sqrt(res[1][2][2])    
 def unifiedfit(data,B,G,Rg,P,qmin=-np.inf,qmax=np.inf,maxiter=1000):
@@ -874,10 +874,51 @@ def propfit(xdata,ydata,errdata=None):
         Sx=np.sum(xdata)
         Sxy=np.sum(xdata*ydata)
         Sxx=np.sum(xdata*xdata)
-    print "Sx:",Sx
-    print "Sxy:",Sxy
-    print "Sxx:",Sxx
-    a=Sxy/Sx
+    #print "Sx:",Sx
+    #print "Sxy:",Sxy
+    #print "Sxx:",Sxx
+    a=Sxy/Sxx
     aerr=np.sqrt(Sxx)/Sx;
     return a,aerr
     
+def energycalibration(energymeas,energycalib,energy1):
+    """Do energy calibration.
+    
+    Inputs:
+        energymeas: vector of measured (apparent) energies
+        energycalib: vector of theoretical energies corresponding to the measured ones
+        energy1: vector or matrix or a scalar of apparent energies to calibrate.
+        
+    Output:
+        the calibrated energy/energies, in the same form as energy1 was supplied
+        
+    Note:
+        to do backward-calibration (theoretical -> apparent), swap energymeas
+        and energycalib on the parameter list.
+    """
+    if type(energymeas)!=type(energycalib):
+        raise ValueError,"Parameters energymeas and energycalib should be of the same type!"
+    try:
+        if len(energymeas)!=len(energycalib):
+            raise ValueError, "The same number of apparent and true energy values should be given for energy calibration!"
+    except TypeError:
+        # len() is not defined: energymeas or energycalib is not a list
+        energymeas=[energymeas]
+        energycalib=[energycalib]
+    except:
+        raise
+    if len(energymeas)==1: # in this case, only do a shift.
+        a=1
+        aerr=0
+        b=energycalib[0]-energymeas[0]
+        berr=0
+    else: # if more energy values are given, do a linear fit.
+        a,b,aerr,berr=linfit(energymeas,energycalib)
+    if type(energy1)==np.ndarray:
+        return a*energy1+b
+    elif type(energy1)==type([]):
+        return [a*e+b for e in energy1]
+    elif type(energy1)==type(()):
+        return tuple([a*e+b for e in energy1])
+    else:
+        return a*energy1+b

@@ -33,7 +33,6 @@ import zipfile
 import string
 import scipy.io
 import utils
-import B1macros
 import re
 
 def normintBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qphirange=None,center_override=None,inttype='radial',int_aux=None,save_with_extension=None,noplot=False):
@@ -137,7 +136,7 @@ def normintBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenc
             print 'Processing sample %u/%u (%s, %s)' %(sample,seqlen,dat[index]['C']['Frame'],dat[index]['C']['Sample'])
             dist[index]=(duncalib*step2cm+doffset)*10
             print 'Sample-detector distance: %f + %f = %f' % (duncalib,doffset,dist[index])
-            energyreal[index]=utils.energycalibration(energyapp,energytheor,euncalib)
+            energyreal[index]=fitting.energycalibration(energyapp,energytheor,euncalib)
             print 'Energy calibration: %f -> %f' %(euncalib,energyreal[index]);
     
     dist=utils.unique(dist);
@@ -754,7 +753,7 @@ def readheader(filename,fsn=None,fileend=None,dirs=[]):
             except IOError:
                 pass #continue with the next directory
         if not filefound:
-            print 'readheader: Cannot find file %s.' % name
+            print 'readheader: Cannot find file %s in given directories.' % name
     return headers
 def read2dB1data(filename,files=None,fileend=None,dirs=[]):
     """Read 2D measurement files, along with their header data
@@ -976,7 +975,7 @@ def read2dintfile(fsns,dirs=[],norm=True):
                     data=read2dfromstream(z)
                     z.close()
                 except IOError:
-                    print 'Cannot find file %s (also tried .zip and .gz)' % filename
+#                    print 'Cannot find file %s (also tried .zip and .gz)' % filename
                     return None
         return data
     # the core of read2dintfile
@@ -1207,7 +1206,8 @@ def readlogfile(fsn,dirs=[],norm=True):
             give a single value or a list
         dirs [optional]: a list of directories to try
         norm: if a normalized file is to be loaded (intnorm*.log). If
-            False, intarb*.log will be loaded instead.
+            False, intarb*.log will be loaded instead. Or, you can give a
+            string. In that case, '%s%d.log' %(norm, <FSN>) will be loaded.
             
     Output:
         a list of dictionaries corresponding to the header files. This
@@ -1235,6 +1235,7 @@ def readlogfile(fsn,dirs=[],norm=True):
                         'Glassy carbon thickness (cm)':'Thicknessref1',
                         'Energy (eV)':'Energy',
                         'Calibrated energy (eV)':'EnergyCalibrated',
+                        'Calibrated energy':'EnergyCalibrated',
                         'Beam x y for integration':('BeamPosX','BeamPosY'),
                         'Normalisation factor (to absolute units)':'NormFactor',
                         'Relative error of normalisation factor (percentage)':'NormFactorRelativeError',
@@ -1246,11 +1247,13 @@ def readlogfile(fsn,dirs=[],norm=True):
                         'Sample rotation around y axis':'RotYsample'
                         }
     #this dict. contains the string parameters
-    logfile_dict_str={'Sample title':'Title'}
+    logfile_dict_str={'Sample title':'Title',
+                      'Sample name':'Title'}
     #this dict. contains the bool parameters
     logfile_dict_bool={'Injection between Empty beam and sample measurements?':'InjectionEB',
                        'Injection between Glassy carbon and sample measurements?':'InjectionGC'
                        }
+    logfile_dict_list={'FSNs':'FSNs'}
     #some helper functions
     def getname(linestr):
         return string.strip(linestr[:string.find(linestr,':')]);
@@ -1273,6 +1276,11 @@ def readlogfile(fsn,dirs=[],norm=True):
         else:
             return None
     #this is the beginning of readlogfile().
+    if type(norm)==type(True):
+        if norm:
+            norm='intnorm'
+        else:
+            norm='intarb'
     if type(dirs)==type(''):
         dirs=[dirs]
     if len(dirs)==0:
@@ -1283,11 +1291,10 @@ def readlogfile(fsn,dirs=[],norm=True):
         fsn=[fsn];
     params=[]; #initially empty
     for f in fsn:
+        filefound=False
         for d in dirs:
-            if norm:
-                filename='%s%sintnorm%d.log' % (d,os.sep,f) #the name of the file
-            else:
-                filename='%s%sintarb%d.log' % (d,os.sep,f) #the name of the file
+            filebasename='%s%d.log' % (norm,f) #the name of the file
+            filename='%s%s%s' %(d,os.sep,filebasename)
             try:
                 param={};
                 fid=open(filename,'r'); #try to open. If this fails, an exception is raised
@@ -1309,13 +1316,27 @@ def readlogfile(fsn,dirs=[],norm=True):
                     for k in logfile_dict_bool.keys():
                         if name==k:
                             param[logfile_dict_bool[k]]=getvaluebool(line);
+                    for k in logfile_dict_list.keys():
+                        if name==k:
+                            spam=getvaluestr(line).split()
+                            shrubbery=[]
+                            for x in spam:
+                                try:
+                                    shrubbery.append(float(x))
+                                except:
+                                    shrubbery.append(x)
+                            param[logfile_dict_list[k]]=shrubbery
                 param['Title']=string.replace(param['Title'],' ','_');
                 param['Title']=string.replace(param['Title'],'-','_');
                 params.append(param);
+                filefound=True
                 del lines;
                 break # file was already found, do not try in another directory
             except IOError, detail:
-                print 'Cannot find file %s.' % filename
+                #print 'Cannot find file %s.' % filename
+                pass
+        if not filefound:
+            print 'Cannot find file %s in any of the given directories.' % filebasename
     return params;
 def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
                  thickGC,injectionGC,injectionEB,pixelsize,mode='Pilatus300k',norm=True):
@@ -1406,6 +1427,7 @@ def readwaxscor(fsns,dirs=[]):
         dirs=['.']
     waxsdata=[];
     for fsn in fsns:
+        filefound=False
         for d in dirs:
             try:
                 filename='%s%swaxs_%05d.cor' % (d,os.sep,fsn)
@@ -1413,9 +1435,13 @@ def readwaxscor(fsns,dirs=[]):
                 if tmp.shape[1]==3:
                     tmp1={'q':tmp[:,0],'Intensity':tmp[:,1],'Error':tmp[:,2]}
                 waxsdata.append(tmp1)
+                filefound=True
                 break # file was found, do not try in further directories
             except IOError:
-                print '%s not found. Skipping it.' % filename
+                pass
+                #print '%s not found. Skipping it.' % filename
+        if not filefound:
+            print 'File waxs_%05d.cor was not found. Skipping.' % fsn
     return waxsdata
 def readenergyfio(filename,files,fileend,dirs=[]):
     """Read abt_*.fio files.
@@ -1441,6 +1467,7 @@ def readenergyfio(filename,files,fileend,dirs=[]):
     energies=[]
     muds=[]
     for f in files:
+        filefound=False
         for d in dirs:
             mud=[];
             energy=[];
@@ -1461,9 +1488,12 @@ def readenergyfio(filename,files,fileend,dirs=[]):
                             pass
                 muds.append(mud)
                 energies.append(energy)
+                filefound=True
                 break #file found, do not try further directories
             except IOError:
-                print 'Cannot find file %s.' % fname
+                pass
+        if not filefound:
+            print 'Cannot find file %s%05d%S.' % (filename,f,fileend)
     return (energies,samples,muds)
 def readf1f2(filename):
     """Load fprime files created by Hephaestus
@@ -1625,7 +1655,7 @@ def readxanes(filebegin,files,fileend,energymeas,energycalib,dirs=[]):
         energy,sample,mud=readenergyfio(filebegin,f,fileend,dirs)
         if len(energy)>0:
             d={}
-            d['Energy']=utils.energycalibration(energymeas,energycalib,pylab.array(energy[0]))
+            d['Energy']=fitting.energycalibration(energymeas,energycalib,pylab.array(energy[0]))
             d['Mud']=pylab.array(mud[0])
             d['Title']=sample[0]
             d['scan']=f
@@ -1685,14 +1715,14 @@ def readabt(filename):
     columns=[];
     a=f.readline(); rows=rows+1;
     while a[:4]==' Col':
-        columns.append(a.split('  ')[0][17:]);
+        columns.append(a.split()[2][10:]);
         a=f.readline(); rows=rows+1;
         #print a
     #print a[:4]
     f.seek(-len(a),1)
     rows=rows-1;
     #print rows
-    matrix=pylab.loadtxt(f)
+    matrix=np.loadtxt(f)
     f.close()
     return {'title':title,'mode':mode,'columns':columns,'data':matrix}
 def savespheres(spheres,filename):

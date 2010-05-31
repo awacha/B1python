@@ -1049,7 +1049,7 @@ def plotasa(asadata):
     pylab.legend(loc='best')
     pylab.suptitle(asadata['params']['Title'])
 
-def fitperiodicity(data,ns):
+def fitperiodicity(data,ns,mode='Lorentz'):
     """Determine periodicity from q values of Bragg-peaks
 
     Inputs:
@@ -1057,6 +1057,8 @@ def fitperiodicity(data,ns):
             1) a 1D scattering dictionary
             2) a list (list, tuple, np.ndarray) of q values
         ns: a list of diffraction orders (n-s)
+        mode: type of fit. See the corresponding parameter of findpeak() for
+            details.
 
     Outputs: d0, dd
         d0: the mean value for d
@@ -1076,7 +1078,7 @@ def fitperiodicity(data,ns):
         qs=[]
         dqs=[]
         for n in ns:
-            q,dq=findpeak(data['q'],data['Intensity'],prompt='Zoom to peak %d and press ENTER' % n,scaling='log',return_error=True)
+            q,dq=findpeak(data['q'],data['Intensity'],prompt='Zoom to peak %d and press ENTER' % n,scaling='log',return_error=True,mode=mode)
             qs.append(q)
             dqs.append(dq)
             print "determined peak",n,"to be",q,"+/-",dq
