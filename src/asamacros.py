@@ -16,9 +16,12 @@ import fitting
 import matplotlib.widgets
 import guitools
 import time
+import ConfigParser
 from c_asamacros import smearingmatrix, trapezoidshapefunction
 
-def directdesmear(data,smoothing,params,title=''):
+
+
+def directdesmear(data,smoothing,params,title='',returnerror=False):
     """Desmear the scattering data according to the direct desmearing
     algorithm by Singh, Ghosh and Shannon
     
@@ -58,14 +61,17 @@ def directdesmear(data,smoothing,params,title=''):
             matrix: if this is supplied, all but pixelmin and pixelmax are
                 disregarded.
         title: display this title over the graph
+        returnerror: defaults to False. If true, desmerror is returned.
                 
-    Outputs: (pixels,desmeared,smoothed,mat,params,smoothing)
+    Outputs: (pixels,desmeared,smoothed,mat,params,smoothing,[desmerror])
         pixels: the pixel coordinates for the resulting curves
         desmeared: the desmeared curve
         smoothed: the smoothed curve
         mat: the desmearing matrix
         params: the desmearing parameters
         smoothing: smoothing parameter
+        desmerror: absolute error of the desmeared curve (returned only if
+            returnerror was True)
     """
     #default values
     dparams={'pixelmin':-np.inf,'pixelmax':np.inf,
@@ -88,17 +94,23 @@ def directdesmear(data,smoothing,params,title=''):
         params['matrix']=A
     #x coordinates in pixels
     pixels=np.arange(len(data))
-    def smooth_and_desmear(pixels,data,params,smoothing,smmode):
+    def smooth_and_desmear(pixels,data,params,smoothing,smmode,returnerror):
         # smoothing the dataset. Errors of the data are sqrt(data), weight will be therefore 1/data
         indices=(pixels<=params['pixelmax']) & (pixels>=params['pixelmin'])
         data=data[indices]
         pixels=pixels[indices]
         data1=fitting.smoothcurve(pixels,data,smoothing,smmode,extrapolate='Linear')
-        ret=(pixels,np.linalg.linalg.solve(params['matrix'],data1.reshape(len(data1),1)),
-             data1,params['matrix'],params,smoothing)
+        desmeared=np.linalg.linalg.solve(params['matrix'],data1.reshape(len(data1),1))
+        if returnerror:
+            desmerror=np.sqrt(np.linalg.linalg.solve(params['matrix']**2,data1.reshape(len(data1),1)))
+            ret=(pixels,desmeared,
+                 data1,params['matrix'],params,smoothing,desmerror)
+        else:
+            ret=(pixels,desmeared,
+                 data1,params['matrix'],params,smoothing)
         return ret
     if type(smoothing)!=type({}):
-        res=smooth_and_desmear(pixels,data,params,smoothing,'spline')
+        res=smooth_and_desmear(pixels,data,params,smoothing,'spline',returnerror)
         return res
     else:
         f=pylab.figure()
@@ -129,7 +141,7 @@ def directdesmear(data,smoothing,params,title=''):
                 sm=sl.val
             else:
                 sm=np.exp(sl.val)
-            [x1,y1,ysm,A,par,sm]=smooth_and_desmear(x,y,p,sm,smmode)
+            [x1,y1,ysm,A,par,sm]=smooth_and_desmear(x,y,p,sm,smmode,returnerror=False)
             a=ax.axis()
             ax.cla()
             ax.semilogy(x,y,'.',label='Original')
@@ -141,7 +153,7 @@ def directdesmear(data,smoothing,params,title=''):
             pylab.gcf().show()
             pylab.draw()
         sl.on_changed(sliderfun)
-        [x1,y1,ysm,A,par,sm]=smooth_and_desmear(pixels,data,params,smoothing['val'],smoothing['smoothmode'])
+        [x1,y1,ysm,A,par,sm]=smooth_and_desmear(pixels,data,params,smoothing['val'],smoothing['smoothmode'],returnerror=False)
         ax.semilogy(pixels,data,'.',label='Original')
         ax.semilogy(x1,ysm,'-',label='Smoothed (%lg)'%smoothing['val'])
         ax.semilogy(x1,y1,'-',label='Desmeared')
@@ -158,7 +170,7 @@ def directdesmear(data,smoothing,params,title=''):
         else:
             raise ValueError('Invalid value for smoothingmode: %s',
                              smoothing['mode'])
-        res=smooth_and_desmear(pixels,data,params,sm,smoothing['smoothmode'])
+        res=smooth_and_desmear(pixels,data,params,sm,smoothing['smoothmode'],returnerror)
         return res        
 def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68,returnq=True):
     """Find q-range from AgSt (or AgBeh) measurements.
@@ -199,11 +211,31 @@ def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68,retur
     LperH,xcent,LperHerr,xcenterr=fitting.linfit(x,pcoord)
     print 'pixelsize/dist:',1/LperH,'+/-',LperHerr/LperH**2
     print 'beam position:',xcent,'+/-',xcenterr
-    b=(np.array(xdata)-xcent)/LperH
     if returnq:
-        return 4*np.pi*np.sqrt(0.5*(b**2+1-np.sqrt(b**2+1))/(b**2+1))/wavelength
+        return calcqrangefrom1d(xdata,xcent,LperH,1,wavelength)
     else:
         return 1/LperH,xcent,LperHerr/LperH**2,xcenterr
+def calcqrangefrom1D(pixels,beampos,dist,pixelsize,wavelength):
+    """Calculate q-range from 1D geometry parameters.
+    
+    Inputs:
+        pixels: list of pixel coordinates (eg. [0,1,2,3,4,5...])
+        beampos: beam position, in pixel coordinates
+        dist: sample-detector distance
+        pixelsize: pixel size (in the same units as dist)
+        wavelength: X-ray wavelength
+        
+    Outputs:
+        q-range in a numpy array.
+    
+    Remarks:
+        Although dist and pixelsize both appear as parameters, only their ratio
+        is used in this program. The returned q-range is calculated correctly
+        (ie. taking the flatness of the detector in account)
+    """
+    b=(np.array(pixels)-beampos)/(dist/pixelsize)
+    return 4*np.pi*np.sqrt(0.5*(b**2+1-np.sqrt(b**2+1))/(b**2+1))/wavelength
+
 def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*np.pi*np.array([0.21739,0.25641,0.27027]),returnq=True):
     """Find q-range from Tripalmitine measurements.
     

@@ -467,7 +467,7 @@ def qrangefrommask(mask,energy,distance,res,bcx,bcy,fullyunmasked=False):
     else:
         qmin1=q0[np.nonzero(I0>0)[0][0]] # find the first unmasked q-value
         qmax1=q0[np.nonzero(I0>0)[0][-1]] # find the last unmasked q-value
-        print "qrangefrommask: old method - new method: qmin: ",qmin-qmin1,"; qmax:",qmax-qmax1
+#        print "qrangefrommask: old method - new method: qmin: ",qmin-qmin1,"; qmax:",qmax-qmax1
 
     
     return qmin1,qmax1,Nq

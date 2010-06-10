@@ -18,6 +18,25 @@ import types
 import scipy.special
 _pausemode=True
 
+def multsasdict(data,mult,errmult=0):
+    """Multiply a SAS dict by a scalar, possibly with error propagation
+    
+    Inputs:
+        data: SAS dictionary
+        mult: scalar factor
+        errmult: error of scalar factor
+    
+    Outputs:
+        a dictionary, multiplied by the scalar factor. Fields 'Intensity' and
+        'Error' are treated, other ones are copied.
+    """
+    newdict={}
+    for i in data.keys():
+        newdict[i]=data[i]
+    newdict['Error']=np.sqrt((newdict['Intensity']*errmult)**2+(newdict['Error']*mult)**2)
+    newdict['Intensity']*=mult
+    return newdict
+
 def sortsasdict(data,*args):
     """Sorts 1D SAS dicts.
     

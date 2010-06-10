@@ -36,7 +36,7 @@ def smoothabt(muddict,smoothing):
             'Mud':sm,
             'Title':("%s_smooth%lf" % (muddict['Title'],smoothing)),
             'scan':muddict['scan']}
-def execchooch(mud,element,edge,choochexecutable='/opt/chooch/chooch/bin/chooch',resolution=None):
+def execchooch(mud,element,edge,choochexecutable='/opt/chooch/bin/chooch',resolution=None):
     """Execute CHOOCH
     
     Inputs:

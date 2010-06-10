@@ -31,10 +31,6 @@ cdef double *ctrapezoidshapefunction(double lengthbase,double lengthtop, double 
             T[i]=0
     return T
 
-def test(a):
-    print "a: ",a
-    return "Hello world!"
-
 cdef inline double mymax(double a, double b):
     if a>b:
         return a

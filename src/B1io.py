@@ -556,12 +556,13 @@ def bdf_read(filename):
             bdf['CT'][t_list[j]]=t_value[j]
     fid.close()
     return bdf
-def readasa(basename):
+def readasa(basename,dirs=[]):
     """Load SAXS/WAXS measurement files from ASA *.INF, *.P00 and *.E00 files.
     
     Input:
         basename: the basename (without extension) of the files
-    
+        dirs: list of directories (or just a single directory) to search files
+            in. P00, INF and E00 should reside in the same directory.
     Output:
         An ASA dictionary of the following fields:
             position: the counts for each pixel (numpy array)
@@ -585,35 +586,49 @@ def readasa(basename):
                 Livetime: live time in seconds
             pixels: the pixel numbers.
     """
-    try:
-        p00=np.loadtxt('%s.P00' % basename)
-    except IOError:
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
+    for d in dirs:
         try:
-            p00=np.loadtxt('%s.p00' % basename)
-        except:
-            raise IOError('Cannot find %s.p00, neither %s.P00.' % (basename,basename))
-    if p00 is not None:
-        p00=p00[1:] # cut the leading -1
-    try:
-        e00=np.loadtxt('%s.E00' % basename)
-    except IOError:
-        try:
-            e00=pylab.loadtxt('%s.e00' % basename)
-        except:
-            e00=None
-    if e00 is not None:
-        e00=e00[1:] # cut the leading -1
-    try:
-        inffile=open('%s.inf' % basename)
-    except IOError:
-        try:
-            inffile=open('%s.Inf' % basename)
+            p00=np.loadtxt(os.path.join(d,'%s.P00' % basename))
         except IOError:
             try:
-                inffile=open('%s.INF' % basename)
+                p00=np.loadtxt(os.path.join(d,'%s.p00' % basename))
             except:
-                inffile=None
-                params=None
+                p00=None
+        if p00 is not None:
+            p00=p00[1:] # cut the leading -1
+        try:
+            e00=np.loadtxt(os.path.join(d,'%s.E00' % basename))
+        except IOError:
+            try:
+                e00=pylab.loadtxt(os.path.join(d,'%s.e00' % basename))
+            except:
+                e00=None
+        if e00 is not None:
+            e00=e00[1:] # cut the leading -1
+        try:
+            inffile=open(os.path.join(d,'%s.inf' % basename))
+        except IOError:
+            try:
+                inffile=open(os.path.join(d,'%s.Inf' % basename))
+            except IOError:
+                try:
+                    inffile=open(os.path.join(d,'%s.INF' % basename))
+                except:
+                    inffile=None
+                    params=None
+        if (p00 is not None) and (e00 is not None) and (inffile is not None):
+            break
+        else:
+            p00=None
+            e00=None
+            inffile=None
+    if (p00 is None) or (e00 is None) or (inffile is None):
+        print "Cannot find every file (*.P00, *.INF, *.E00) for sample %s in any directory" %basename
+        return None
     if inffile is not None:
         params={}
         l=inffile.readlines()
@@ -1021,14 +1036,16 @@ def read2dintfile(fsns,dirs=[],norm=True):
                 except TypeError: # if mat file was found but scipy.io.loadmat was unable to read it
                     print "Malformed MAT file! Skipping."
                     continue # try from another directory
-            tmp2=readlogfile(fsn,d) # read the logfile
-            if (tmp is not None) and (tmp1 is not None) and (tmp2 is not None): # if all of int,err and log is read successfully
+            if (tmp is not None) and (tmp1 is not None): # if all of int,err and log is read successfully
+                filefound=True
+#                print 'Files corresponding to fsn %d were found.' % fsn
+                break # file was found, do not try to load it again from another directory
+        if filefound:
+            tmp2=readlogfile(fsn,dirs=dirs)[0]
+            if len(tmp2)>0:
                 int2d.append(tmp)
                 err2d.append(tmp1)
-                params.append(tmp2[0])
-                filefound=True
-                print 'Files corresponding to fsn %d were found.' % fsn
-                break # file was found, do not try to load it again from another directory
+                params.append(tmp2)                
         if not filefound:
             print "read2dintfile: Cannot find file(s ) for FSN %d" % fsn
     return int2d,err2d,params # return the lists
@@ -1183,11 +1200,7 @@ def readintnorm(fsns, filetype='intnorm',dirs=[]):
             if len(tmp)>0:
                 currdata=tmp
                 break # file was already found, do not try in another directory
-        for d in dirs:
-            tmp2=readlogfile(fsn,d)
-            if len(tmp2)>0:
-                currlog=tmp2
-                break # file was already found, do not try in another directory
+        currlog=readlogfile(fsn,dirs)
         if len(currdata)>0 and len(currlog)>0:
             data.append(currdata);
             param.append(currlog[0]);
@@ -1681,6 +1694,8 @@ def readabt(filename):
             'mode': 'Energy' or 'Motor'
             'columns': the description of the columns in 'data'
             'data': the data found in the file, in a matrix.
+            'dataset': a structured array a la numpy, containing the same data
+                as in 'data', but in another representation.
     """
     try:
         f=open(filename,'rt');
@@ -1723,8 +1738,9 @@ def readabt(filename):
     rows=rows-1;
     #print rows
     matrix=np.loadtxt(f)
+    data=np.array([tuple(a) for a in matrix.tolist()], dtype=zip(columns,[np.double]*len(columns)))
     f.close()
-    return {'title':title,'mode':mode,'columns':columns,'data':matrix}
+    return {'title':title,'mode':mode,'columns':columns,'data':matrix,'dataset':data}
 def savespheres(spheres,filename):
     """Save sphere structure in a file.
     

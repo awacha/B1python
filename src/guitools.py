@@ -896,6 +896,7 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
         if prompt is None:
             prompt='Please zoom to the peak you want to select, then press ENTER'
         pylab.title(prompt)
+        pylab.draw()
         pylab.gcf().show()
         print(prompt)
         while (pylab.waitforbuttonpress() is not True):
