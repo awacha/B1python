@@ -471,3 +471,33 @@ def qrangefrommask(mask,energy,distance,res,bcx,bcy,fullyunmasked=False):
 
     
     return qmin1,qmax1,Nq
+def calculate2dfrom1d(q,I,Nx,Ny,bcx,bcy,dist,energy,pixelsize,noise=False):
+    """Create a 2D scattering image from a scattering curve.
+    
+    Inputs:
+        q: q-values
+        I: intensities
+        Nx: number of rows
+        Ny: number of columns
+        bcx: beam center row coordinate (counting from 1)
+        bcy: beam center column coordinate (counting from 1)
+        dist: sample-detector distance
+        energy: photon energy
+        pixelsize: size of a pixel
+        noise: True if you want to add noise (re-sample the scattering image
+            from a Poisson distribution). False if not. Or give a number for
+            relative error.
+    
+    Outputs:
+        the scattering image itself.
+    """
+    A=np.zeros((Nx,Ny))
+    D=calculateDmatrix(A,pixelsize,bcx,bcy)
+    q1=4*np.pi*np.sin(0.5*np.arctan(D/dist))*energy/HC
+    A=np.interp(q1,q,I,left=0,right=0)
+    if noise:
+        if type(noise)==type(True):
+            A=np.random.poisson(A)
+        else:
+            A=A*(1+(np.random.random(A.shape)*2-1)*noise)
+    return A

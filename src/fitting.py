@@ -922,3 +922,28 @@ def energycalibration(energymeas,energycalib,energy1):
         return tuple([a*e+b for e in energy1])
     else:
         return a*energy1+b
+def fitradialelectrondensity(ns,qs,Is,sigma,numz):
+    """Calculate radial electron density profile from Bragg peaks
+    
+    Inputs:
+        ns: list of peak orders (ie. [1,2,3,4])
+        qs: list of q-values (peak positions)
+        Is: list of peak intensities
+        sigma: list of phase factors (+/- 1) for each peak
+        numz: number of points in the result
+    
+    Outputs: z,rho
+        z: coordinate
+        rho: radial electron density profile
+    """
+    qs=np.array(qs)
+    Is=np.array(Is)
+    ns=np.array(ns)
+    sigma=np.array(sigma)
+    a,aerr=propfit(ns,qs,None)
+    d=2*np.pi/a
+    z=np.linspace(-0.5*d,0.5*d,numz)
+    sumfactor=np.sqrt(ns**2*Is).sum()
+    iz=np.outer(ns,z)
+    rho=(np.cos(2*np.pi/d*np.outer(ns,z))*np.outer(sigma*np.sqrt(ns**2*Is),np.ones(z.shape))).sum(0)/(d*sumfactor)
+    return z,rho

@@ -17,7 +17,7 @@ ext_modules = [Extension("B1python.c_asamacros", ["src/c_asamacros.pyx"]),
                Extension("B1python.distdist",["src/distdist.pyx"]),
                ]
 
-setup(name='B1python',version='0.3', author='Andras Wacha',
+setup(name='B1python',version='0.4', author='Andras Wacha',
       author_email='awacha@gmail.com',url='http://github.com/awacha/B1python',
       description='Python macros for (A)SAXS evaluation',
       packages=['B1python'],
