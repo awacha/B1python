@@ -1,4 +1,4 @@
-import numpy as np
+cimport numpy as np
 cimport numpy as np
 from stdlib cimport *
 
@@ -15,11 +15,12 @@ cdef extern from "math.h":
     double INFINITY
     double ceil(double)
     double fmod(double,double)
+    double fabs(double)
     int isfinite(double)
 
 cdef double HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
-cdef gaussian(double x0, double sigma, double x):
+cdef inline double gaussian(double x0, double sigma, double x):
     return 1/sqrt(2*M_PI*sigma*sigma)*exp(-(x-x0)**2/(2*sigma**2))
     
 def polartransform(np.ndarray[np.double_t, ndim=2] data not None,
@@ -588,3 +589,35 @@ def azimintqC(np.ndarray[np.double_t, ndim=2] data not None,
             return theta,I,E,A,maskout
         else:
             return theta,I,E,A
+
+def bin2D(np.ndarray[np.double_t, ndim=2] M, Py_ssize_t xlen, Py_ssize_t ylen):
+    """def Cbin2D(np.ndarray[np.double_t, ndim=2] M, Py_ssize_t xlen, Py_ssize_t ylen):
+    
+    Binning of a 2D matrix.
+    
+    Inputs:
+        M: the matrix as a numpy array of type double
+        xlen: this many pixels in the x (row) direction will be added up
+        ylen: this many pixels in the y (column) direction will be added up.
+    
+    Output: the binned matrix
+    
+    Notes:
+        each pixel of the returned matrix will be the sum of an xlen-times-ylen
+            block in the original matrix.
+    """
+    cdef Py_ssize_t i,i1,j,j1
+    cdef Py_ssize_t Nx,Ny
+    cdef np.ndarray[np.double_t,ndim=2] N
+    
+    Nx=M.shape[0]/xlen
+    Ny=M.shape[1]/ylen
+    
+    N=np.zeros((Nx,Ny),np.double)
+    for i from 0<=i<Nx:
+        print "i==",i
+        for i1 from 0<=i1<xlen:
+            for j from 0<=j<Ny:
+                for j1 from 0<=j1<ylen:
+                    N[i,j]+=M[i*xlen+i1,j*ylen+j1]
+    return N/(xlen*ylen)

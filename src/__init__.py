@@ -1,4 +1,4 @@
-__all__=["B1io","utils","B1macros","utils2d","guitools","fitting","xanes","asamacros","asaxseval","unstable","distdist"]
+__all__=["B1io","utils","B1macros","utils2d","guitools","fitting","xanes","asamacros","asaxseval","unstable","distdist","saxssim"]
 for _i in __all__:
   exec('from %s import *' % _i)
 _all1=dir()

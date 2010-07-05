@@ -36,8 +36,6 @@ try:
 except ImportError:
     warnings.warn('Failed to import module <Ifeffit>. You won\'t be able to use functions depending on it (eg. CromerLiberman).')
 
-from c_fitting import Ctheorspheres, Ctheorspheregas, Ctheorsphere2D, Cbin2D
-
 fitting_testimage_horizpos=0.95
 fitting_testimage_vertpos=0.95
 fitting_testimage_showwholecurve=True

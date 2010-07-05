@@ -15,7 +15,7 @@ import pylab
 import numpy as np
 import scipy.optimize
 import types
-from c_utils2d import polartransform, radintC,imageintC,azimintpixC, azimintqC
+from c_utils2d import polartransform, radintC,imageintC,azimintpixC, azimintqC, bin2D
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
 def findbeam_gravity(data,mask):

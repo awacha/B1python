@@ -15,6 +15,7 @@ ext_modules = [Extension("B1python.c_asamacros", ["src/c_asamacros.pyx"]),
                Extension("B1python.c_xanes",["src/c_xanes.pyx"]),
                Extension("B1python.c_unstable",["src/c_unstable.pyx"]),
                Extension("B1python.distdist",["src/distdist.pyx"]),
+               Extension("B1python.c_saxssim",["src/c_saxssim.pyx"])
                ]
 
 setup(name='B1python',version='0.4', author='Andras Wacha',
