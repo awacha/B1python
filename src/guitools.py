@@ -1050,7 +1050,7 @@ def plotasa(asadata):
     pylab.legend(loc='best')
     pylab.suptitle(asadata['params']['Title'])
 
-def fitperiodicity(data,ns,mode='Lorentz'):
+def fitperiodicity(data,ns,mode='Lorentz',scaling='log'):
     """Determine periodicity from q values of Bragg-peaks
 
     Inputs:
@@ -1060,6 +1060,7 @@ def fitperiodicity(data,ns,mode='Lorentz'):
         ns: a list of diffraction orders (n-s)
         mode: type of fit. See the corresponding parameter of findpeak() for
             details.
+        scaling: linear ('lin') or logarithmic ('log') scale on the ordinate
 
     Outputs: d0, dd
         d0: the mean value for d
@@ -1079,7 +1080,7 @@ def fitperiodicity(data,ns,mode='Lorentz'):
         qs=[]
         dqs=[]
         for n in ns:
-            q,dq=findpeak(data['q'],data['Intensity'],prompt='Zoom to peak %d and press ENTER' % n,scaling='log',return_error=True,mode=mode)
+            q,dq=findpeak(data['q'],data['Intensity'],prompt='Zoom to peak %d and press ENTER' % n,scaling=scaling,return_error=True,mode=mode,)
             qs.append(q)
             dqs.append(dq)
             print "determined peak",n,"to be",q,"+/-",dq

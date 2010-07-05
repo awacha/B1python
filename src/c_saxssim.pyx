@@ -5,6 +5,14 @@ import warnings
 
 HC=12398.419
 
+ctypedef struct Coordtype:
+    double x
+    double y
+    double z
+
+cdef extern from "stdlib.h":
+    Py_ssize_t RAND_MAX
+    Py_ssize_t rand()
 
 cdef extern from "math.h":
     double sin(double)
@@ -12,6 +20,7 @@ cdef extern from "math.h":
     double sqrt(double)
     double fabs(double)
     double M_PI
+    double exp(double)
 
 cdef inline double fellipsoid(double qx, double qy, double qz, double a, double b, double c):
     """Scattering factor of an ellipsoid
@@ -72,12 +81,12 @@ cdef inline double fsphere(double q, double R):
 def theorsaxs2D(np.ndarray[np.double_t, ndim=2] data not None, double dist,
               double wavelength, Py_ssize_t Nx, Py_ssize_t Ny,
               double pixelsizex, double pixelsizey, double dx=0, double dy=0,
-              bint headerout=False, Py_ssize_t FSN=0, Title=''):
+              bint headerout=False, Py_ssize_t FSN=0, Title='',verbose=True):
     """theorsaxs2D(np.ndarray[np.double_t, ndim=2] data not None,
                    double dist, double wavelength, Py_ssize_t Nx,
                    Py_ssize_t Ny, double pixelsizex, double pixelsizey,
                    double dx=0,double dy=0,bint headerout=False,
-                   Py_ssize_t FSN=0,Title=''):
+                   Py_ssize_t FSN=0,Title='',verbose=True):
     
     Calculate theoretical scattering of a sphere/cylinder composite structure
     in a virtual transmission SAXS setup.
@@ -103,6 +112,7 @@ def theorsaxs2D(np.ndarray[np.double_t, ndim=2] data not None, double dist,
             beam center, distance, wavelength etc.)
         FSN: File Sequence Number to write in header.
         Title: Sample title to write in header.
+        verbose: True if you want to have messages printed out after each column
 
     Output:
         a 2D numpy array containing the scattering image. The row coordinate is
@@ -204,7 +214,8 @@ def theorsaxs2D(np.ndarray[np.double_t, ndim=2] data not None, double dist,
             for l from 0<=l<numcylinders:
                 I+=fcylinder(qx,qy,qz,cvx[l],cvy[l],cvz[l],cL[l],cR[l])**2*(crho[l]**2)
             output[j,i]=I
-        print "column",i,"/",Nx,"done"
+        if verbose:
+            print "column",i,"/",Nx,"done"
     free(rho); free(R); free(z); free(y); free(x);
     if numcylinders>0:
         free(crho); free(cR); free(cz); free(cy); free(cx); free(cvx); free(cvy); free(cvz); free(cL);
@@ -438,93 +449,113 @@ def maxdistance(np.ndarray[np.double_t, ndim=2] data not None):
                 max2=j
     return sqrt(maxdistance2)
 
-## def grf_saxs2D(np.ndarray[np.double_t, ndim=2] data not None, double sigma,
-               ## double dist, double wavelength, Py_ssize_t Nx, Py_ssize_t Ny,
-               ## double pixelsizex, double pixelsizey, double dx=0, double dy=0,
-               ## bint headerout=False, Py_ssize_t FSN=0, Title=''):
-    ## """grf_saxs2D(np.ndarray[np.double_t, ndim=2] data not None, double sigma,
-                  ## double dist, double wavelength, Py_ssize_t Nx,
-                  ## Py_ssize_t Ny, double pixelsizex, double pixelsizey,
-                  ## double dx=0,double dy=0,bint headerout=False,
-                  ## Py_ssize_t FSN=0,Title=''):
-    
-    ## Calculate theoretical scattering of a Gaussian Random Field in a virtual
-        ## transmission SAXS setup.
-    
-    ## Inputs:
-        ## data: numpy array representing the Gaussian Random Field. Each row
-            ## corresponds to a wave. The columns are interpreted as amplitude,
-            ## x, y, z components of the wavenumber-vector, and phase. Superfluous
-            ## columns are disregarded quietly. x is horizontal, y is vertical.
-            ## z points towards the detector.
-        ## sigma: correlation length
-        ## dist: sample-to-detector distance, usually in mm.
-        ## wavelength: wavelength of the radiation used, usually in Angstroems
-        ## Nx, Ny: the width and height of the virtual 2D detector, in pixels.
-        ## pixelsizex, pixelsizey: the horizontal and vertical pixel size, usually
-            ## expressed in millimetres (the same as dist)
-        ## dx, dy: horizontal and vertical displacement of the detector. If these
-            ## are 0, the beam falls at the centre. Of the same dimension as dist
-            ## and pixelsize.
-        ## headerout: True if a header structure is to be returned (with beam
-            ## beam center, distance, wavelength etc.)
-        ## FSN: File Sequence Number to write in header.
-        ## Title: Sample title to write in header.
+cdef inline Coordtype unidirC():
+    cdef Coordtype ret
+    cdef double phi
+    cdef double rho
+    phi=rand()/<double>RAND_MAX*2*M_PI
+    ret.z=rand()/<double>RAND_MAX*2-1
+    rho=sqrt(1-(ret.z)**2)
+    ret.x=rho*cos(phi)
+    ret.y=rho*sin(phi)
+    return ret
 
-    ## Output:
-        ## a 2D numpy array containing the scattering image. The row coordinate is
-        ## the vertical coordinate (rows are horizontal).
+def unidir(double len=1):
+    cdef double x
+    cdef double y
+    cdef double z
+    cdef Coordtype ret
+    ret=unidirC()
+    return (ret.x*len,ret.y*len,ret.z*len)
 
-    ## """
-    ## cdef np.ndarray[np.double_t, ndim=2] output
-    ## cdef Py_ssize_t i,j,k,l
-    ## cdef Py_ssize_t Nwaves
-    ## cdef double tmp,I
-    ## cdef double qx,qy,qz,q
-    ## cdef double sx,sy,sz
+def grf_saxs2D(np.ndarray[np.double_t, ndim=2] data not None, double sigma,
+               double dist, double wavelength, Py_ssize_t Nx, Py_ssize_t Ny,
+               double pixelsizex, double pixelsizey, double dx=0, double dy=0,
+               bint headerout=False, Py_ssize_t FSN=0, Title='', verbose=True):
+    """grf_saxs2D(np.ndarray[np.double_t, ndim=2] data not None, double sigma,
+                  double dist, double wavelength, Py_ssize_t Nx,
+                  Py_ssize_t Ny, double pixelsizex, double pixelsizey,
+                  double dx=0,double dy=0,bint headerout=False,
+                  Py_ssize_t FSN=0,Title='',verbose=True):
     
-    ## if data.shape[1]<5:
-        ## raise ValueError('the number of columns in the input matrix should be at least 5.')
-    ## Nwaves=data.shape[0]
+    Calculate theoretical scattering of a Gaussian Random Field in a virtual
+        transmission SAXS setup.
     
-    ## for i from 0<=i<Nx:
-        ## for j from 0<=j<Ny:
-            ## sx=((i-Nx/2.0)*pixelsizex+dx)
-            ## sy=((j-Ny/2.0)*pixelsizey+dy)
-            ## sz=dist
-            ## tmp=sqrt(sx**2+sy**2+sz**2)
-            ## if tmp==0:
-                ## qx=0
-                ## qy=0
-                ## qz=0
-            ## else:
-                ## qx=sx/tmp*2*M_PI/wavelength
-                ## qy=sy/tmp*2*M_PI/wavelength
-                ## qz=(sz/tmp-1)*2*M_PI/wavelength
-            ## q=sqrt(qx**2+qy**2+qz**2)
-            ## I=0
-            ## for k from 0<=k<numspheres:
-                ## I+=fsphere(q,R[k])**2*(rho[k]**2)
-                ## for l from k<l<numspheres:
-                    ## tmp=(x[k]-x[l])*qx+(y[k]-y[l])*qy+(z[k]-z[l])*qz
-                    ## I+=fsphere(q,R[k])*fsphere(q,R[l])*2*rho[k]*rho[l]*cos(tmp)
-                ## for l from 0<=l<numcylinders:
-                    ## tmp=(x[k]-cx[l])*qx+(y[k]-cy[l])*qy+(z[k]-cz[l])*qz
-                    ## I+=fsphere(q,R[k])*fcylinder(qx,qy,qz,cvx[l],cvy[l],cvz[l],cL[l],cR[l])*2*rho[k]*crho[l]*cos(tmp)
-            ## for l from 0<=l<numcylinders:
-                ## I+=fcylinder(qx,qy,qz,cvx[l],cvy[l],cvz[l],cL[l],cR[l])**2*(crho[l]**2)
-            ## output[j,i]=I
-        ## print "column",i,"/",Nx,"done"
-    ## free(rho); free(R); free(z); free(y); free(x);
-    ## if numcylinders>0:
-        ## free(crho); free(cR); free(cz); free(cy); free(cx); free(cvx); free(cvy); free(cvz); free(cL);
-    ## if headerout:
-        ## return output,{'BeamPosX':(0.5*Ny+1)-dy/pixelsizey,\
-                       ## 'BeamPosY':(0.5*Nx+1)-dx/pixelsizex,'Dist':dist,\
-                       ## 'EnergyCalibrated':HC/wavelength,'PixelSizeX':pixelsizex,\
-                       ## 'PixelSizeY':pixelsizey,\
-                       ## 'PixelSize':sqrt(pixelsizex*pixelsizex+pixelsizey*pixelsizey),\
-                       ## 'FSN':FSN,'Title':Title}
-    ## else:
-        ## return output
+    Inputs:
+        data: numpy array representing the Gaussian Random Field. Each row
+            corresponds to a wave. The columns are interpreted as amplitude,
+            x, y, z components of the wavenumber-vector, and phase. Superfluous
+            columns are disregarded quietly. x is horizontal, y is vertical.
+            z points towards the detector.
+        sigma: correlation length
+        dist: sample-to-detector distance, usually in mm.
+        wavelength: wavelength of the radiation used, usually in Angstroems
+        Nx, Ny: the width and height of the virtual 2D detector, in pixels.
+        pixelsizex, pixelsizey: the horizontal and vertical pixel size, usually
+            expressed in millimetres (the same as dist)
+        dx, dy: horizontal and vertical displacement of the detector. If these
+            are 0, the beam falls at the centre. Of the same dimension as dist
+            and pixelsize.
+        headerout: True if a header structure is to be returned (with beam
+            beam center, distance, wavelength etc.)
+        FSN: File Sequence Number to write in header.
+        Title: Sample title to write in header.
+        verbose: True if you want to print messages after each column.
+    Output:
+        a 2D numpy array containing the scattering image. The row coordinate is
+        the vertical coordinate (rows are horizontal).
+
+    """
+    cdef np.ndarray[np.double_t, ndim=2] output
+    cdef Py_ssize_t i,j,k,l
+    cdef Py_ssize_t Nwaves
+    cdef double tmp
+    cdef double qx,qy,qz,q
+    cdef double sx,sy,sz
+    cdef double I1,I2
+    cdef double kq,sinphi,cosphi,sigma2
+    cdef double qpluskexponent
+    
+    if data.shape[1]<5:
+        raise ValueError('the number of columns in the input matrix should be at least 5.')
+    Nwaves=data.shape[0]
+    output=np.zeros((Ny,Nx),np.double)
+    
+    sigma2=sigma*sigma
+    for i from 0<=i<Nx:
+        for j from 0<=j<Ny:
+            sx=((i-Nx/2.0)*pixelsizex+dx)
+            sy=((j-Ny/2.0)*pixelsizey+dy)
+            sz=dist
+            tmp=sqrt(sx**2+sy**2+sz**2)
+            if tmp==0:
+                qx=0
+                qy=0
+                qz=0
+            else:
+                qx=sx/tmp*2*M_PI/wavelength
+                qy=sy/tmp*2*M_PI/wavelength
+                qz=(sz/tmp-1)*2*M_PI/wavelength
+            #q=sqrt(qx**2+qy**2+qz**2)
+            I1=0
+            I2=0
+            for k from 0<=k<Nwaves:
+                sinphi=sin(data[k,4])
+                cosphi=cos(data[k,4])
+                kq=data[k,1]*qx+data[k,2]*qy+data[k,3]*qz
+                qpluskexponent=exp(-sigma2/2*((qx+data[k,1])**2+(qy+data[k,2])**2+(qz+data[k,3])**2))
+                I1+=data[k,0]*sinphi*(exp(2*kq*sigma2)+1)*qpluskexponent
+                I2+=data[k,0]*cosphi*(exp(2*kq*sigma2)-1)*qpluskexponent
+            output[j,i]=I1**2+I2**2
+        if verbose:
+            print "column",i,"/",Nx,"done"
+    if headerout:
+        return output,{'BeamPosX':(0.5*Ny+1)-dy/pixelsizey,\
+                       'BeamPosY':(0.5*Nx+1)-dx/pixelsizex,'Dist':dist,\
+                       'EnergyCalibrated':HC/wavelength,'PixelSizeX':pixelsizex,\
+                       'PixelSizeY':pixelsizey,\
+                       'PixelSize':sqrt(pixelsizex*pixelsizex+pixelsizey*pixelsizey),\
+                       'FSN':FSN,'Title':Title}
+    else:
+        return output
     
