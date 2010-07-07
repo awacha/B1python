@@ -2128,7 +2128,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
             else:
                 print 'No waxs file was found'
 
-def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=None,ignorescalingerror=False,qtolerance=0.05,ignorewaxs=False,qsepw=None):
+def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=[],ignorescalingerror=False,qtolerance=0.05,ignorewaxs=False,qsepw=None):
     """Unite summed scattering results.
     
     Inputs:
@@ -2194,6 +2194,7 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=N
                 continue
             d1=min(dists) #shortest distance
             d2=max(dists) #longest distance
+            print "Two distances: %f and %f." % (d1,d2)
             # NOTE that if onlyone is True (measurements at only one distance were found), carry on as if nothing happened,
             # and correct things at the end. Ugly hack, I know. AW.
             
@@ -2208,6 +2209,7 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=N
                 print "WARNING! More than one summed files exist of sample %s, distance %f, energy %f. FSNs: %s" % (title,d2,ener,repr([min(p['FSNs']) for p in ps2]))
             ps2=ps2[0]
             ds2=[d for (d,p) in zip(datasum,datasumparam) if p['FSN']==min(ps2['FSNs'])][0] # the summed dataset corresponding to the longest geometry
+            print "Uniting two summed files: FSNs %d and %d"%(min(ps1['FSNs']),min(ps2['FSNs']))
             if not ignorewaxs:
                 psw=[p for p in paramsumw if p['Title']==title] # skip distance check, as the position of the WAXS detector is fixed
                 if len(psw)>1:
@@ -2324,15 +2326,19 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=N
                 print "Multiplication factor (WAXS -> short): %f +/- %f" % (multwaxs2short,errmultwaxs2short)
                 if qsepw is None:
                     qsepw=qrangew.min()
+            else:
+                qsepw=np.inf
             datalong=fitting.trimq(utils.multsasdict(ds2,multlong2short,errmultlong2short),qmax=qsep)
             datashort=fitting.trimq(ds1,qmin=qsep,qmax=qsepw)
             if onlyone:
                 tocombine=[datashort]
             else:
                 tocombine=[datalong,datashort]
-            if not ignorewaxs and not waxs_notfound:
+            if (not ignorewaxs) and (not waxs_notfound):
                 datawaxs=fitting.trimq(utils.multsasdict(dataw,multwaxs2short,errmultwaxs2short),qmin=qsepw)
                 tocombine.append(datawaxs)
             tocombine=tuple(tocombine)
             datacomb=utils.combinesasdicts(*tocombine)
-            B1io.write1dsasdict(datacomb,'united%d.dat' % min(min(ps1['FSNs']),min(ps2['FSNs'])))
+            unifsn=min(min(ps1['FSNs']),min(ps2['FSNs']))
+            B1io.write1dsasdict(datacomb,'united%d.dat' % unifsn)
+            print "File saved with FSN:",unifsn

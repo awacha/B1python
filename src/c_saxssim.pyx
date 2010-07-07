@@ -558,4 +558,58 @@ def grf_saxs2D(np.ndarray[np.double_t, ndim=2] data not None, double sigma,
                        'FSN':FSN,'Title':Title}
     else:
         return output
+def grf_realize(np.ndarray[np.double_t, ndim=2] grf not None,
+                double x0, double y0, double z0,
+                double x1, double y1, double z1,
+                Py_ssize_t Nx, Py_ssize_t Ny, Py_ssize_t Nz):
+    """def grf_realize(np.ndarray[np.double_t, ndim=2] grf not None,
+                double x0, double y0, double z0,
+                double x1, double y1, double z1,
+                Py_ssize_t Nx, Py_ssize_t Ny, Py_ssize_t Nz):
+    
+    Evaluate a Gaussian Random Field on a 3D lattice
+    
+    Inputs:
+        grf: grf array. Each row corresponds to a wave. The columns are
+            interpreted as amplitude, wavevector_x, wavevector_y, wavevector_z,
+            phi.
+        x0, y0, z0: coordinates of a corner of the box
+        x1, y1, z1: coordinates of the opposite corner of the box
+        Nx, Ny, Nz: number of voxels in each direction
+        
+    Output:
+        the GRF matrix
+    """
+    cdef Py_ssize_t i,j,k,l,Nwaves
+    cdef np.ndarray[np.double_t, ndim=3] output
+    cdef double xstep, ystep, zstep
+    cdef double *kx, *ky, *kz, *A, *phi
+    cdef double tmp
+    output=np.zeros((Nx,Ny,Nz),np.double)
+    Nwaves=grf.shape[0]
+    kx=<double*>malloc(Nwaves*sizeof(double))
+    ky=<double*>malloc(Nwaves*sizeof(double))
+    kz=<double*>malloc(Nwaves*sizeof(double))
+    A=<double*>malloc(Nwaves*sizeof(double))
+    phi=<double*>malloc(Nwaves*sizeof(double))
+    
+    for l from 0<=l<Nwaves:
+        kx[l]=grf[l,1]
+        ky[l]=grf[l,2]
+        kz[l]=grf[l,3]
+        A[l]=grf[l,0]
+        phi[l]=grf[l,4]
+    
+    xstep=(x1-x0)/Nx
+    ystep=(y1-y0)/Ny
+    zstep=(z1-z0)/Nz
+    for i from 0<=i<Nx:
+        for j from 0<=j<Ny:
+            for k from 0<=k<Nz:
+                tmp=0
+                for l from 0<=l<Nwaves:
+                    tmp+=A[l]*sin(kx[l]*(x0+xstep*i)+ky[l]*(y0+ystep*j)+kz[l]*(z0+zstep*k)+phi[l])
+                output[i,j,k]=tmp
+    free(A); free(kx); free(ky); free(kz); free(phi)
+    return output
     

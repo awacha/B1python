@@ -474,7 +474,7 @@ def guiniercrosssectionfit(data,qmin=-np.inf,qmax=np.inf,testimage=False,smearin
         a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
-                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rgcs*2),1/np.sqrt(-Rgcs)*dRgcs,Gcs,dGcs,np.sqrt(-Rgcs*2)*data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f\n%f<=q<=%f' %(np.sqrt(-Rgcs*2),1/np.sqrt(-Rgcs)*dRgcs,Gcs,dGcs,np.sqrt(-Rgcs*2)*data1['q'].max(),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Guinier cross-section fit')
     return np.sqrt(-Rgcs*2),Gcs,1/np.sqrt(-Rgcs)*dRgcs,dGcs
 def guinierthicknessfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -508,7 +508,7 @@ def guinierthicknessfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
-                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rgt),0.5/np.sqrt(-Rgt)*dRgt,Gt,dGt,np.sqrt(-Rgt)*data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f\n%f<=q<=%f' %(np.sqrt(-Rgt),0.5/np.sqrt(-Rgt)*dRgt,Gt,dGt,np.sqrt(-Rgt)*data1['q'].max(),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Guinier thickness fit')
     return np.sqrt(-Rgt),Gt,0.5/np.sqrt(-Rgt)*dRgt,dGt
 def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -542,7 +542,7 @@ def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
-                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f' %(np.sqrt(-Rg*3),1.5/np.sqrt(-Rg*3)*dRg,G,dG,np.sqrt(-Rg*3)*data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes())
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f\n%f<=q<=%f' %(np.sqrt(-Rg*3),1.5/np.sqrt(-Rg*3)*dRg,G,dG,np.sqrt(-Rg*3)*data1['q'].max(),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes())
         pylab.title('Guinier fit')
     return np.sqrt(-Rg*3),G,1.5/np.sqrt(-Rg*3)*dRg,dG
 def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -576,7 +576,7 @@ def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
-                   'Constant background: %f +/- %f\nPorod coefficient: %f +/- %f' %(a,b,aerr,berr),ha='right',va='top',transform=pylab.gca().transAxes)
+                   'Constant background: %f +/- %f\nPorod coefficient: %f +/- %f\n%f<=q<=%f' %(a,b,aerr,berr,data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Porod fit')
     return a,b,aerr,berr
 def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -614,7 +614,7 @@ def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
-                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f' %(xp,dxp,coeff,dcoeff),ha='right',va='top',transform=pylab.gca().transAxes)
+                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f\n%f<=q<=%f' %(xp,dxp,coeff,dcoeff,data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Power-law fit')
     return xp,coeff,dxp,dcoeff
 def powerfitwithlinearbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -659,10 +659,10 @@ def powerfitwithlinearbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
-                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f\nLinear term: %f +/- %f' %(res[0][0],np.sqrt(res[1][0][0]),\
+                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f\nLinear term: %f +/- %f\n%f<=q<=%f' %(res[0][0],np.sqrt(res[1][0][0]),\
                                                                                                                         res[0][1],np.sqrt(res[1][1][1]),\
                                                                                                                         res[0][2],np.sqrt(res[1][2][2]),
-                                                                                                                        res[0][3],np.sqrt(res[1][3][3])),ha='right',va='top',transform=pylab.gca().transAxes)
+                                                                                                                        res[0][3],np.sqrt(res[1][3][3]),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Power-law fit with linear background')
     return res[0][0],res[0][1],res[0][2],res[0][3],np.sqrt(res[1][0][0]),np.sqrt(res[1][1][1]),np.sqrt(res[1][2][2]),np.sqrt(res[1][3][3])    
 def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
@@ -704,9 +704,9 @@ def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
-                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f' %(res[0][0],np.sqrt(res[1][0][0]),\
+                   'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f\n%f<=q<=%f' %(res[0][0],np.sqrt(res[1][0][0]),\
                                                                                                                         res[0][1],np.sqrt(res[1][1][1]),\
-                                                                                                                        res[0][2],np.sqrt(res[1][2][2])),ha='right',va='top',transform=pylab.gca().transAxes)
+                                                                                                                        res[0][2],np.sqrt(res[1][2][2]),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Power-law fit with constant background')
     return res[0][0],res[0][1],res[0][2],np.sqrt(res[1][0][0]),np.sqrt(res[1][1][1]),np.sqrt(res[1][2][2])    
 def unifiedfit(data,B,G,Rg,P,qmin=-np.inf,qmax=np.inf,maxiter=1000):

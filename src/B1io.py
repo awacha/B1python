@@ -1166,12 +1166,13 @@ def write1dsasdict(data, filename):
     for i in range(len(data['q'])):
         fid.write('%e %e %e\n' % (data['q'][i],data['Intensity'][i],data['Error'][i]))
     fid.close();
-def readintnorm(fsns, filetype='intnorm',dirs=[]):
+def readintnorm(fsns, filetype='intnorm',logfiletype='intnorm',dirs=[]):
     """Read intnorm*.dat files along with their headers
     
     Inputs:
         fsns: one or more fsn-s.
         filetype: prefix of the filename
+        logfiletype: prefix of the log filename
         dirs [optional]: a list of directories to try
         
     Outputs:
@@ -1200,7 +1201,7 @@ def readintnorm(fsns, filetype='intnorm',dirs=[]):
             if len(tmp)>0:
                 currdata=tmp
                 break # file was already found, do not try in another directory
-        currlog=readlogfile(fsn,dirs)
+        currlog=readlogfile(fsn,dirs,norm=logfiletype)
         if len(currdata)>0 and len(currlog)>0:
             data.append(currdata);
             param.append(currlog[0]);
