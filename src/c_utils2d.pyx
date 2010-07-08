@@ -404,7 +404,7 @@ def azimintpixC(np.ndarray[np.double_t, ndim=2] data not None,
  
 def imageintC(np.ndarray[np.double_t,ndim=2] data not None,
               orig,
-              np.ndarray[np.double_t,ndim=2] mask not None,
+              np.ndarray[np.uint8_t,ndim=2] mask not None,
               fi=None, dfi=None):
     """Perform radial averaging on the image.
     

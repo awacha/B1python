@@ -1952,7 +1952,11 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 del ints
                 del errs
                 del areas
-def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=[],plot=False):
+def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
+            dirs=[],plot=False,
+            classifyfunc=lambda plist:classify_params_fields(plist,'Title','Energy','Dist'),
+            classifyfunc_waxs=lambda plist:classify_params_fields(plist,'Title','Energy'),
+            errorpropagation='weight'):
     """Summarize scattering data.
     
     Inputs:
@@ -1965,170 +1969,125 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',dirs=
         dirs: directories for searching input files.
         plot: True if you want to plot summarized images. False if not. 'stepbystep'
             if you want to pause() after each curve
+        classifyfunc: function to classify log structures. Default is grouping
+            according to Title, Energy and Dist. 
+        classifyfunc_waxs: the same as classifyfunc, but it is used for WAXS
+            data. Default is grouping according to Title and Energy only.
+        errorpropagation: 'weight' or 'standard'. If 'weight' (default), intensity
+            points are normalized by their squared error. If 'standard', each
+            curve is taken with the same weight in account.
     """
-    if type(fsns)!=types.ListType:
-        fsns=[fsns]
+    if not hasattr(fsns,'__getitem__'): # if fsns cannot be indexed
+        fsns=[fsns] # make a list of one
     params=B1io.readlogfile(fsns,dirs=dirs)
-    if samples is None:
-        samples=utils.unique([p['Title'] for p in params])
-    if type(samples)!=types.ListType:
-        samples=[samples]
-    for s in samples:
-        print 'Summing measurements for sample %s' % s
-        sparams=[p for p in params if p['Title']==s]
-        energies=utils.unique([p['Energy'] for p in sparams],lambda a,b:abs(a-b)<2)
-        for e in energies:
-            print 'Processing energy %f for sample %s' % (e,s)
-            esparams=[p for p in sparams if abs(p['Energy']-e)<2]
-            dists=utils.unique([p['Dist'] for p in esparams])
-            for d in dists:
-                print 'Processing distance %f for energy %f for sample %s'% (d,e,s)
-                edsparams=[p for p in esparams if p['Dist']==d]
-                print 'FSNs:',repr([p['FSN'] for p in edsparams])
-                counter=0
-                q=None
-                w=None
-                Isum=None
-                Esum=None
-                fsns_found=[]
-                if plot:
-                    pylab.clf()
-                    pylab.xlabel(u'q (1/%c)' % 197)
-                    pylab.ylabel('Intensity (1/cm)')
-                    pylab.title('Sample %s, energy %f, distance %f' % (s,e,d))
-                for p in edsparams:
-                    filename='%s%d.dat' % (filetype,p['FSN'])
-                    intdata=B1io.readintfile(filename,dirs=dirs)
-                    if len(intdata)<1:
-                        continue
-                    if counter==0:
-                        q=intdata['q']
-                        w=1/(intdata['Error']**2)
-                        Isum=intdata['Intensity']/(intdata['Error']**2)
-                    else:
-                        if q.size!=intdata['q'].size:
-                            print 'q-range of file %s differs from the others read before. Skipping.' % filename
-                            continue
-                        if np.sum(q-intdata['q'])!=0:
-                            print 'q-range of file %s differs from the others read before. Skipping.' % filename
-                            continue
-                        Isum=Isum+intdata['Intensity']/(intdata['Error']**2)
-                        w=w+1/(intdata['Error']**2)
-                    if plot:
-                        pylab.loglog(intdata['q'],intdata['Intensity'],'.-',label='FSN #%d, T=%f' %(p['FSN'],p['Transm']))
-                        print "FSN: %d, Transm: %f" %(p['FSN'],p['Transm'])
-                        try:
-                            if plot.upper()=='STEPBYSTEP':
-                                pylab.legend(loc='best')
-                                utils.pause()
-                        except:
-                            pass
-                    fsns_found.append(p['FSN'])
-                    counter=counter+1
-                if counter>0:
-                    Esum=1/w
-                    Esum[np.isnan(Esum)]=0
-                    Isum=Isum/w
-                    Isum[np.isnan(Isum)]=0
-                    if plot:
-                        pylab.loglog(q,Isum,'o-',label='Sum')
-                        pylab.legend(loc='best')
-                        pylab.draw()
-                        pylab.gcf().show()
-                        pylab.savefig('summing_%s_%d_%.1f.pdf' % (s,d,e),format='pdf',dpi=300)
-                        utils.pause()
-                    B1io.writeintfile(q,Isum,Esum,edsparams[0],filetype='summed')
-                    try:
-                        sumlog=open('summed%d.log' % edsparams[0]['FSN'],'wt+')
-                        sumlog.write('FSNs: ')
-                        for i in [p['FSN'] for p in edsparams]:
-                            sumlog.write('%d ' %i)
-                        sumlog.write('\n')
-                        sumlog.write('Sample name: %s\n' % edsparams[0]['Title'])
-                        sumlog.write('Calibrated energy: %f \n' % edsparams[0]['EnergyCalibrated'])
-                        sumlog.write('Temperature: %f \n' % edsparams[0]['Temperature'])
-                        sumlog.write('Sample-to-detector distance (mm): %f\n' % edsparams[0]['Dist'])
-                        sumlog.write('Energy (eV): %f\n' % edsparams[0]['Energy'])
-                        sumlog.close()
-                    except IOError,details:
-                        print "Cannot save logfile summed%d.log." % edsparams[0]['FSN']
-                        raise
-                else:
-                    print 'No files were found for summing.'
+    if samples is not None:
+        if type(samples)==type(''): # if it is a string
+            samples=[samples] # make a list of one
+    # a for loop for small- and wide-angle scattering. First iteration will be SAXS, second WAXS
+    for ftype,clfunc,waxsprefix in zip([filetype, waxsfiletype],[classifyfunc,classifyfunc_waxs],['','waxs']):
+        pclass=clfunc(params) # classify the parameters with the classification function
+        nclass=0 # reset class index
+        for plist in pclass: # for each param in the class
+            if samples is not None: # reduce the set of files to be evaluated to the samples requested.
+                plist=[p for p in plist if p['Title'] in samples]
+            nclass+=1 # increase class counter
+            classfsns=repr([p1['FSN'] for p1 in plist]) # fsns in the class
+            print 'Class',nclass,', FSNs:',classfsns
+            print 'Sample name (first element of class):',plist[0]['Title']
+            print 'Distance (first element of class):',plist[0]['Dist']
+            print 'Energy (first element of class):',plist[0]['Energy']
+            counter=0 # this counts the summed results.
+            q=None
+            w=None
+            Isum=None
+            Esum=None
             fsns_found=[]
-            waxscounter=0
-            qwaxs=None
-            Iwaxs=None
-            wwaxs=None
-            print 'Processing waxs files for energy %f for sample %s' % (e,s)
-            print 'FSNs:',repr([p['FSN'] for p in esparams])
-            if plot:
+            if plot: # initialize plot.
                 pylab.clf()
                 pylab.xlabel(u'q (1/%c)' % 197)
                 pylab.ylabel('Intensity (1/cm)')
-                pylab.title('Sample %s, energy %f, WAXS' % (s,e))
-            for p in esparams:
-                try:
-                    waxsfilename=waxsfiletype % p['FSN']
-                except TypeError:
-                    waxsfilename='%s%d.dat' % (waxsfiletype,p['FSN'])
-                waxsdata=B1io.readintfile(waxsfilename,dirs=dirs)
-                if len(waxsdata)<1:
+                pylab.title('Class %d, FSNs: %s' % (nclass,classfsns))
+            for p in plist: # for each param dictionary
+                # read file
+                filename='%s%d.dat' % (ftype,p['FSN'])
+                intdata=B1io.readintfile(filename,dirs=dirs)
+                if len(intdata)<1:
                     continue
-                fsns_found.append(p['FSN'])
-                if waxscounter==0:
-                    qwaxs=waxsdata['q']
-                    Iwaxs=waxsdata['Intensity']/(waxsdata['Error']**2)
-                    wwaxs=1/(waxsdata['Error']**2)
+                if counter==0:
+                    q=intdata['q']
+                    if errorpropagation=='weight':
+                        w=1/(intdata['Error']**2)
+                    else:
+                        w=1
+                        Esum=intdata['Error']**2
+                    Isum=intdata['Intensity']*w
                 else:
-                    if qwaxs.size!=waxsdata['q'].size:
-                        print 'q-range of file %s differs from the others read before. Skipping.' % waxsfilename
+                    if q.size!=intdata['q'].size:
+                        print 'q-range of file %s differs from the others read before. Skipping.' % filename
                         continue
-                    if np.sum(qwaxs-waxsdata['q'])!=0:
-                        print 'q-range of file %s differs from the others read before. Skipping.' % waxsfilename
+                    if np.sum(q-intdata['q'])!=0:
+                        print 'q-range of file %s differs from the others read before. Skipping.' % filename
                         continue
-                    Iwaxs=Iwaxs+waxsdata['Intensity']/(waxsdata['Error']**2)
-                    wwaxs=wwaxs+1/(waxsdata['Error']**2)
+                    if errorpropagation=='weight':
+                        w1=1/(intdata['Error']**2)
+                    else:
+                        w1=1
+                        Esum+=intdata['Error']**2
+                    Isum=Isum+intdata['Intensity']*w1
+                    w=w+w1
                 if plot:
-                    pylab.loglog(waxsdata['q'],waxsdata['Intensity'],'.-',label='FSN #%d, T=%f' %(p['FSN'],p['Transm']))
+                    pylab.loglog(intdata['q'],intdata['Intensity'],'.-',label='FSN #%d, T=%f' %(p['FSN'],p['Transm']))
+                    print "FSN: %d, Transm: %f" %(p['FSN'],p['Transm'])
                     try:
                         if plot.upper()=='STEPBYSTEP':
                             pylab.legend(loc='best')
                             utils.pause()
                     except:
                         pass
-                waxscounter=waxscounter+1
-            if waxscounter>0:
-                Ewaxs=1/wwaxs
-                Ewaxs[np.isnan(Ewaxs)]=0
-                Iwaxs=Iwaxs/wwaxs
-                Iwaxs[np.isnan(Iwaxs)]=0
+                fsns_found.append(p['FSN'])
+                counter=counter+1
+            if counter>0:
+                if errorpropagation=='weight':
+                    Esum=1/w
+                else:
+                    Esum=np.sqrt(Esum)/w
+                Esum[np.isnan(Esum)]=0
+                Isum=Isum/w
+                Isum[np.isnan(Isum)]=0
                 if plot:
-                    pylab.loglog(qwaxs,Iwaxs,'o-',label='Sum')
+                    pylab.loglog(q,Isum,'o-',label='Sum')
                     pylab.legend(loc='best')
                     pylab.draw()
                     pylab.gcf().show()
-                    pylab.savefig('summing_%s_WAXS_%.1f.pdf' % (s,e),format='pdf',dpi=300)
+                    pylab.savefig('summing%s_class%d.pdf' % (waxsprefix,nclass),format='pdf',dpi=300)
                     utils.pause()
-                B1io.writeintfile(qwaxs,Iwaxs,Ewaxs,esparams[0],filetype='summedwaxs')
+                
+                B1io.writeintfile(q,Isum,Esum,plist[0],filetype='summed%s'%waxsprefix)
                 try:
-                    sumlog=open('summedwaxs%d.log' % esparams[0]['FSN'],'wt+')
+                    sumlog=open('summed%s%d.log' % (waxsprefix,plist[0]['FSN']),'wt+')
+                    sumlog.write('FSN: %d\n' % plist[0]['FSN'])
                     sumlog.write('FSNs: ')
-                    for i in [p['FSN'] for p in esparams]:
+                    for i in [p['FSN'] for p in plist]:
                         sumlog.write('%d ' %i)
                     sumlog.write('\n')
-                    sumlog.write('Sample name: %s\n' % esparams[0]['Title'])
-                    sumlog.write('Calibrated energy: %f \n' % esparams[0]['EnergyCalibrated'])
-                    sumlog.write('Temperature: %f \n' % esparams[0]['Temperature'])
-                    sumlog.write('Energy (eV): %f\n' % esparams[0]['Energy'])
+                    sumlog.write('Sample name: %s\n' % plist[0]['Title'])
+                    sumlog.write('Calibrated energy: %f \n' % plist[0]['EnergyCalibrated'])
+                    sumlog.write('Temperature: %f \n' % plist[0]['Temperature'])
+                    sumlog.write('Sample-to-detector distance (mm): %f\n' % plist[0]['Dist'])
+                    sumlog.write('Energy (eV): %f\n' % plist[0]['Energy'])
                     sumlog.close()
                 except IOError,details:
-                    print "Cannot save logfile summedwaxs%d.log." % esparams[0]['FSN']
+                    print "Cannot save logfile summed%s%d.log." % (waxsprefix,plist[0]['FSN'])
                     raise
             else:
-                print 'No waxs file was found'
+                print 'No %sfiles were found for summing.' % waxsprefix
 
-def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=[],ignorescalingerror=False,qtolerance=0.05,ignorewaxs=False,qsepw=None):
+
+def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
+              dirs=[],ignorescalingerror=False,qtolerance=0.05,
+              ignorewaxs=False,qsepw=None,
+              classifyfunc=lambda plist:classify_params_fields(plist,'Title','Energy'),
+              classifyfunc_waxs=lambda plist:classify_params_fields(plist,'Title','Energy')):
     """Unite summed scattering results.
     
     Inputs:
@@ -2155,6 +2114,10 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=[
             desired one is larger than this value, are neglected.
         ignorewaxs: True if you would prefer to skip WAXS files.
         qsepw: like qsep, but for short geometry-WAXS passing.
+        classifyfunc: classification function (see eg. classify_params_field).
+            Default is to classify measurements with respect to Title and Energy.
+        classifyfunc_waxs: classification function for WAXS curves. Defaults
+            to classification with respect to Title and Energy.
     
     Outputs: none, files are saved.
     
@@ -2166,96 +2129,164 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=[
     """
     # read logfiles produced during summarization
     paramsum=B1io.readlogfile(fsns,norm='summed',dirs=dirs)
-    paramsumw=B1io.readlogfile(fsns,norm='summedwaxs',dirs=dirs)
+    if not ignorewaxs:
+        paramsumw=B1io.readlogfile(fsns,norm='summedwaxs',dirs=dirs)
+        if len(paramsumw)<1:
+            print "Cannot load summedwaxs*.log files, skipping WAXS!"
+            ignorewaxs=True
     # read summed data. Note, that datasumparam contains log structures read
     # from intnorm*.log files, thus corresponding to the first measurement of
     # which the summarized data was made.
     datasum,datasumparam=B1io.readintnorm(fsns,'summed',dirs=dirs)
-    datasumw,datasumparamw=B1io.readintnorm(fsns,'summedwaxs',dirs=dirs)
+    if not ignorewaxs:
+        datasumw,datasumparamw=B1io.readintnorm(fsns,'summedwaxs',dirs=dirs)
     # argument <sample> defaults to all samplenames.
-    if sample is None:
-        sample=utils.unique([p['Title'] for p in paramsum]) #find all sample names.
-    if type(sample)==type(''): #workaround if a string was given. This makes the next for loop possible
-        sample=[sample]
-    for title in sample:    #for every sample:
-        print "Uniting measurements for sample %s" %title
+    if sample is not None:
+        if type(sample)==type(''): #workaround if a string was given. This makes the next for loop possible
+            sample=[sample]
+    pclass=classifyfunc(paramsum)
+    print "Number of classes:",len(pclass)
+    if not ignorewaxs:
+        pclassw=classifyfunc_waxs(paramsumw)
+        print "Number of WAXS classes:",len(pclassw)
+    nclass=0
+    for plist in pclass:    #for every class
+        nclass +=1
+        print "Uniting measurements for class", nclass
+        print "Sample name (first member of class):",plist[0]['Title']
+        print "Energy (first member of class):",plist[0]['Energy']
+        classfsns=[p['FSNs'] for p in plist]
+        print "FSNs:",repr(classfsns)
         #find the distances
-        energies=utils.unique([p['Energy'] for p in paramsum if p['Title']==title])
-        for ener in energies:
-            waxs_notfound=False
-            onlyone=False
-            print "Uniting: Processing energy %f for sample %s" % (ener,title)
-            dists=utils.unique([p['Dist'] for p in paramsum if ((p['Title']==title) and (p['Energy']==ener))])
-            if len(dists)<2: #less than two distances: no point of uniting!
-                print "Measurements at only one distance exist from sample %s. What do you want to unite?" % title
-                onlyone=True
-            if len(dists)>2: # more than two distances: difficult, not implemented.
-                print "Measurenemts at more than two distances exist from sample %s. This is currently not supported. Sorry." % title
+        dists=utils.unique([p['Dist'] for p in plist])
+        onlyone=False
+        if len(dists)<2: #less than two distances: no point of uniting!
+            print "Measurements at only one distance exist from class %d. What do you want to unite?" % nclass
+            onlyone=True
+        if len(dists)>2: # more than two distances: difficult, not implemented.
+            print "Measurenemts at more than two distances exist from sample %d. This is currently not supported. Sorry." % nclass
+            continue
+        d1=min(dists) #shortest distance
+        d2=max(dists) #longest distance
+        print "Two distances: %f and %f." % (d1,d2)
+        # NOTE that if onlyone is True (measurements at only one distance were found), carry on as if nothing happened,
+        # and correct things at the end. Ugly hack, I know. AW.
+        
+        # find the parameter structure corresponding to d1 and d2 and WAXS measurement
+        ps1=[p for p in plist if (p['Dist']==d1)]
+        if len(ps1)>1:
+            print "WARNING! More than one summed files exist of class %d, distance %f. FSNs: %s" % (nclass,d1,repr([min(p['FSNs']) for p in ps1]))
+        ps1=ps1[0]
+        # the summed dataset corresponding to the shortest geometry
+        ds1,param1=[(d,p) for (d,p) in zip(datasum,datasumparam) if p['FSN']==ps1['FSN']][0]
+        ps2=[p for p in plist if (p['Dist']==d2)]
+        if len(ps2)>1:
+            print "WARNING! More than one summed files exist of class %d, distance %f. FSNs: %s" % (nclass,d2,repr([min(p['FSNs']) for p in ps2]))
+        ps2=ps2[0]
+        # the summed dataset corresponding to the longest geometry
+        ds2,param2=[(d,p) for (d,p) in zip(datasum,datasumparam) if p['FSN']==ps2['FSN']][0] 
+        print "Uniting two summed files: FSNs %d and %d"%(ps1['FSN'],ps2['FSN'])
+        if not ignorewaxs:
+            print pclassw
+            utils.pause()
+            psw=[]
+            for pl in pclassw:
+                for p in pl:
+                    if (ps1['FSN'] in p['FSNs']) or (ps2['FSN'] in p['FSNs']):
+                        psw.append(p)
+            if len(psw)>1:
+                print """WARNING! More than one summed waxs files exist of class %d.
+                         First FSNs from short and large distance: %d and %d.
+                         This can be caused by an incorrect summation. FSNs: %s""" %(nclass,ps1['FSN'],ps2['FSN'],repr([min(p['FSNs']) for p in psw]))
+            if len(psw)<1:
+                print "No class found among WAXS measurements, where FSN %d and FSN %d is present." % (ps1['FSN'],ps2['FSN'])
+                waxs_notfound=True
+            else:
+                psw=psw[0]
+                dw,paramw=[(d,p) for (d,p) in zip(datasumw,datasumparamw) if p['FSN']==min(psw['FSNs'])][0] # the summed WAXS dataset
+                print "Uniting summed waxs file "
+                waxs_notfound=False
+        #read intnorm logfiles corresponding to the two distances.
+        try: # find the corresponding masks
+            mask1=distmaskdict[d1]
+            mask2=distmaskdict[d2]
+        except TypeError:
+            print "distmaskdict parameter is not a dictionary! STOPPING"
+            return
+        except KeyError,details:
+            print "No mask defined in distmaskdict for distance %f. STOPPING" % details
+            return
+        #find the q-ranges for each distance.
+        q1min,q1max,Nq1=utils2d.qrangefrommask(mask1,ps1['EnergyCalibrated'],ps1['Dist'],param1['PixelSize'],param1['BeamPosX'],param1['BeamPosY'])
+        q2min,q2max,Nq2=utils2d.qrangefrommask(mask2,ps2['EnergyCalibrated'],ps2['Dist'],param2['PixelSize'],param2['BeamPosX'],param2['BeamPosY'])
+        if not ignorewaxs and not waxs_notfound:
+            dataw=utils.sanitizeint(B1io.readintfile('summedwaxs%d.dat' % paramw['FSN']))
+            qw=dataw['q']
+            Iw=dataw['Intensity']
+            Ew=dataw['Error']
+        if qmin is None:
+            qmin=q1min #auto-determination
+        if qmax is None:
+            qmax=q2max #auto-determination
+        if (qmax<=qmin):
+            print "No common qrange! Skipping."
+            continue
+        qrange=np.linspace(qmin,qmax,100) #the common q-range between short and long geometry
+        #now re-integrate every measurement, taken at short geometry, to the common q-range
+        q1=None;        I1=None;        E1=None;        N=0
+        for f in ps1['FSNs']:
+            A,Aerr,p=B1io.read2dintfile(f,dirs=dirs)
+            q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask1).astype(np.uint8),qrange,returnavgq=True)
+            if q1 is None:
+                q1=q0;  I1=I0;  E1=E0**2
+            else:
+                q1+=q0; I1+=I0; E1+=E0**2
+            N+=1
+        #make averages from the sums.
+        E1=np.sqrt(E1)/N
+        I1=(I1)/N
+        q1=q1/N
+        #do the same re-integration for long geometry
+        q2=None;        I2=None;        E2=None;        N=0
+        for f in ps2['FSNs']:
+            A,Aerr,p=B1io.read2dintfile(f,dirs=dirs)
+            q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask2).astype(np.uint8),qrange,returnavgq=True)
+            if q2 is None:
+                q2=q0;  I2=I0;  E2=E0**2
+            else:
+                q2+=q0; I2+=I0; E2+=E0**2
+            N+=1
+        #make averages from the sums.
+        E2=np.sqrt(E2)/N
+        I2=I2/N
+        q2=q2/N
+        #find the valid q-bins, where the absolute relative difference of the average and the expected q-value is less than qtolerance
+        qgood=(np.absolute((q1-qrange)/qrange)<qtolerance) & (np.absolute((q2-qrange)/qrange)<qtolerance)
+        print "Number of good q-bins (averaged q is near original q):",qgood.sum(),"from ",len(qrange)
+        q2=q2[qgood];   I2=I2[qgood];   E2=E2[qgood];
+        q1=q1[qgood];   I1=I1[qgood];   E1=E1[qgood]
+        multlong2short,errmultlong2short=utils.multfactor(q1,I1,E1,I2,E2)
+        print "Multiplication factor (long -> short): %f +/- %f" % (multlong2short,errmultlong2short)
+        del q1,q2,I1,I2,E1,E2,N
+        
+        if ignorescalingerror:
+            errmultlong2short=0
+            print "Ignoring error of multiplication factor, by preference of the user!"
+        if qsep is None:
+            qsep=0.5*(ds1['q'].min()+ds2['q'].max())
+
+        if not ignorewaxs and not waxs_notfound:
+            #normalize WAXS data as well.
+            #calculate common q-range
+            qrangew=qw[qw<ds1['q'].max()]
+            if len(qrangew)<2:
+                print "Not enough common q-range between the WAXS data and the shortest distance! Skipping!"
                 continue
-            d1=min(dists) #shortest distance
-            d2=max(dists) #longest distance
-            print "Two distances: %f and %f." % (d1,d2)
-            # NOTE that if onlyone is True (measurements at only one distance were found), carry on as if nothing happened,
-            # and correct things at the end. Ugly hack, I know. AW.
-            
-            # find the parameter structure corresponding to d1 and d2 and WAXS measurement
-            ps1=[p for p in paramsum if ((p['Title']==title) and (p['Dist']==d1) and (p['Energy']==ener))]
-            if len(ps1)>1:
-                print "WARNING! More than one summed files exist of sample %s, distance %f, energy %f. FSNs: %s" % (title,d1,ener,repr([min(p['FSNs']) for p in ps1]))
-            ps1=ps1[0]
-            ds1=[d for (d,p) in zip(datasum,datasumparam) if p['FSN']==min(ps1['FSNs'])][0] # the summed dataset corresponding to the shortest geometry
-            ps2=[p for p in paramsum if ((p['Title']==title) and (p['Dist']==d2) and (p['Energy']==ener))]
-            if len(ps2)>1:
-                print "WARNING! More than one summed files exist of sample %s, distance %f, energy %f. FSNs: %s" % (title,d2,ener,repr([min(p['FSNs']) for p in ps2]))
-            ps2=ps2[0]
-            ds2=[d for (d,p) in zip(datasum,datasumparam) if p['FSN']==min(ps2['FSNs'])][0] # the summed dataset corresponding to the longest geometry
-            print "Uniting two summed files: FSNs %d and %d"%(min(ps1['FSNs']),min(ps2['FSNs']))
-            if not ignorewaxs:
-                psw=[p for p in paramsumw if p['Title']==title] # skip distance check, as the position of the WAXS detector is fixed
-                if len(psw)>1:
-                    print "WARNING! More than one summed files exist of sample %s, energy %f, WAXS measurement. (This can be caused by an incorrect summation.) FSNs: %s" %(title,ener,repr([min(p['FSNs']) for p in psw]))
-                if len(psw)<1:
-                    print "WAXS measurements not found for sample %s, energy %f" % (title,ener)
-                    waxs_notfound=True
-                else:
-                    psw=psw[0]
-                    dw=[d for (d,p) in zip(datasumw,datasumparamw) if p['FSN']==min(psw['FSNs'])][0] # the summed WAXS dataset
-            #read intnorm logfiles corresponding to the two distances.
-            param1=B1io.readlogfile(min(ps1['FSNs']),dirs=dirs)[0]
-            param2=B1io.readlogfile(min(ps2['FSNs']),dirs=dirs)[0]
-            if not ignorewaxs and not waxs_notfound:
-                paramw=B1io.readlogfile(min(psw['FSNs']),dirs=dirs)[0]
-#                print "paramw loaded: ",repr(paramw)
-            try: # find the corresponding masks
-                mask1=distmaskdict[d1]
-                mask2=distmaskdict[d2]
-            except TypeError:
-                print "distmaskdict parameter is not a dictionary!"
-                return
-            except KeyError,details:
-                print "No mask defined in distmaskdict for distance %f." % details
-                return
-            #find the q-ranges for each distance.
-            q1min,q1max,Nq1=utils2d.qrangefrommask(mask1,ps1['EnergyCalibrated'],ps1['Dist'],param1['PixelSize'],param1['BeamPosX'],param1['BeamPosY'])
-            q2min,q2max,Nq2=utils2d.qrangefrommask(mask2,ps2['EnergyCalibrated'],ps2['Dist'],param2['PixelSize'],param2['BeamPosX'],param2['BeamPosY'])
-            if not ignorewaxs and not waxs_notfound:
-                dataw=utils.sanitizeint(B1io.readintfile('summedwaxs%d.dat' % paramw['FSN']))
-                qw=dataw['q']
-                Iw=dataw['Intensity']
-                Ew=dataw['Error']
-            if qmin is None:
-                qmin=q1min #auto-determination
-            if qmax is None:
-                qmax=q2max #auto-determination
-            if (qmax<=qmin):
-                print "No common qrange! Skipping."
-                continue
-            qrange=np.linspace(qmin,qmax,100) #the common q-range between short and long geometry
-            #now re-integrate every measurement, taken at short geometry, to the common q-range
+            #re-integrate short distance once again, but on the common q-range between SAXS and WAXS
             q1=None;        I1=None;        E1=None;        N=0
             for f in ps1['FSNs']:
                 A,Aerr,p=B1io.read2dintfile(f,dirs=dirs)
-                q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask1).astype(np.uint8),qrange,returnavgq=True)
+                q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask2).astype(np.uint8),qrangew,returnavgq=True)
                 if q1 is None:
                     q1=q0;  I1=I0;  E1=E0**2
                 else:
@@ -2263,82 +2294,78 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,dirs=[
                 N+=1
             #make averages from the sums.
             E1=np.sqrt(E1)/N
-            I1=(I1)/N
+            I1=I1/N
             q1=q1/N
-            #do the same re-integration for long geometry
-            q2=None;        I2=None;        E2=None;        N=0
-            for f in ps2['FSNs']:
-                A,Aerr,p=B1io.read2dintfile(f,dirs=dirs)
-                q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask2).astype(np.uint8),qrange,returnavgq=True)
-                if q2 is None:
-                    q2=q0;  I2=I0;  E2=E0**2
-                else:
-                    q2+=q0; I2+=I0; E2+=E0**2
-                N+=1
-            #make averages from the sums.
-            E2=np.sqrt(E2)/N
-            I2=I2/N
-            q2=q2/N
-            #find the valid q-bins, where the absolute relative difference of the average and the expected q-value is less than qtolerance
-            qgood=(np.absolute((q1-qrange)/qrange)<qtolerance) & (np.absolute((q2-qrange)/qrange)<qtolerance)
-            print "Number of good q-bins (averaged q is near original q):",qgood.sum(),"from ",len(qrange)
-            q2=q2[qgood];   I2=I2[qgood];   E2=E2[qgood];
-            q1=q1[qgood];   I1=I1[qgood];   E1=E1[qgood]
-            multlong2short,errmultlong2short=utils.multfactor(q1,I1,E1,I2,E2)
-            print "Multiplication factor (long -> short): %f +/- %f" % (multlong2short,errmultlong2short)
-            del q1,q2,I1,I2,E1,E2,N
-            
+            #find the valid q-bins, where the difference
+            qgood=(np.absolute((q1-qrangew)/qrangew)<qtolerance)
+            print "Number of good q-bins (averaged q is near original q):",qgood.sum(),"from ",len(qrangew)
+            q1=q1[qgood];   I1=I1[qgood];   E1=E1[qgood];
+            qw=qw[qw<=qrangew.max()]; Iw=Iw[qw<=qrangew.max()]; Ew=Ew[qw<=qrangew.max()];
+            multwaxs2short,errmultwaxs2short=utils.multfactor(q1,I1,E1,Iw,Ew)
             if ignorescalingerror:
-                errmultlong2short=0
-                print "Ignoring error of multiplication factor, by preference of the user!"
-            if qsep is None:
-                qsep=ds1['q'].min()
+                errmultwaxs2short=0
+            print "Multiplication factor (WAXS -> short): %f +/- %f" % (multwaxs2short,errmultwaxs2short)
+            if qsepw is None:
+                qsepw=qrangew.min()
+        else:
+            qsepw=np.inf
+        datalong=fitting.trimq(utils.multsasdict(ds2,multlong2short,errmultlong2short),qmax=qsep)
+        datashort=fitting.trimq(ds1,qmin=qsep,qmax=qsepw)
+        if onlyone:
+            tocombine=[datashort]
+        else:
+            tocombine=[datalong,datashort]
+        if (not ignorewaxs) and (not waxs_notfound):
+            datawaxs=fitting.trimq(utils.multsasdict(dataw,multwaxs2short,errmultwaxs2short),qmin=qsepw)
+            tocombine.append(datawaxs)
+        tocombine=tuple(tocombine)
+        datacomb=utils.combinesasdicts(*tocombine)
+        unifsn=min(min(ps1['FSNs']),min(ps2['FSNs']))
+        B1io.write1dsasdict(datacomb,'united%d.dat' % unifsn)
+        print "File saved with FSN:",unifsn
+def classify_params_fields(params, *args):
+    """Classify parameter structures according to field names.
     
-            if not ignorewaxs and not waxs_notfound:
-                #normalize WAXS data as well.
-                #calculate common q-range
-                qrangew=qw[qw<ds1['q'].max()]
-                if len(qrangew)<2:
-                    print "Not enough common q-range between the WAXS data and the shortest distance! Skipping!"
-                    continue
-                #re-integrate short distance once again, but on the common q-range between SAXS and WAXS
-                q1=None;        I1=None;        E1=None;        N=0
-                for f in ps1['FSNs']:
-                    A,Aerr,p=B1io.read2dintfile(f,dirs=dirs)
-                    q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask2).astype(np.uint8),qrangew,returnavgq=True)
-                    if q1 is None:
-                        q1=q0;  I1=I0;  E1=E0**2
-                    else:
-                        q1+=q0; I1+=I0; E1+=E0**2
-                    N+=1
-                #make averages from the sums.
-                E1=np.sqrt(E1)/N
-                I1=I1/N
-                q1=q1/N
-                #find the valid q-bins, where the difference
-                qgood=(np.absolute((q1-qrangew)/qrangew)<qtolerance)
-                print "Number of good q-bins (averaged q is near original q):",qgood.sum(),"from ",len(qrangew)
-                q1=q1[qgood];   I1=I1[qgood];   E1=E1[qgood];
-                qw=qw[qw<=qrangew.max()]; Iw=Iw[qw<=qrangew.max()]; Ew=Ew[qw<=qrangew.max()];
-                multwaxs2short,errmultwaxs2short=utils.multfactor(q1,I1,E1,Iw,Ew)
-                if ignorescalingerror:
-                    errmultwaxs2short=0
-                print "Multiplication factor (WAXS -> short): %f +/- %f" % (multwaxs2short,errmultwaxs2short)
-                if qsepw is None:
-                    qsepw=qrangew.min()
-            else:
-                qsepw=np.inf
-            datalong=fitting.trimq(utils.multsasdict(ds2,multlong2short,errmultlong2short),qmax=qsep)
-            datashort=fitting.trimq(ds1,qmin=qsep,qmax=qsepw)
-            if onlyone:
-                tocombine=[datashort]
-            else:
-                tocombine=[datalong,datashort]
-            if (not ignorewaxs) and (not waxs_notfound):
-                datawaxs=fitting.trimq(utils.multsasdict(dataw,multwaxs2short,errmultwaxs2short),qmin=qsepw)
-                tocombine.append(datawaxs)
-            tocombine=tuple(tocombine)
-            datacomb=utils.combinesasdicts(*tocombine)
-            unifsn=min(min(ps1['FSNs']),min(ps2['FSNs']))
-            B1io.write1dsasdict(datacomb,'united%d.dat' % unifsn)
-            print "File saved with FSN:",unifsn
+    Inputs:
+        params: list of parameter dictionaries
+        variable arguments: either strings or functions (callables).
+            strings: They should be keys available in all of the parameter
+                structures found in params. Distinction will be made regarding
+                these.
+            callables: they should accept param structures and return something
+                (string, value or as you like). Distinction will be made on the
+                returned value.
+    
+    Output:
+        A list of lists of parameter structures
+        
+    Example:
+        a typical use scenario is to read logfiles from a range of FSNs. Usually
+        one wants to summarize measurements made from the same sample, using
+        the same energy and at the same sample-to-detector distance. In this
+        case, classify_params_fields can be useful:
+        
+        classify_params_fields(params,'Title','Energy','Dist')
+        
+        will result in a list of lists. Each sublist will contain parameter
+        dictionaries with the same 'Title', 'Energy' and 'Dist' fields.
+    """
+    if len(args)<1: # fallback, if no field names were given
+        return [params]
+    list=[]
+    #classify according to the first argument
+    if hasattr(args[0],'__call__'): # if it is callable, use args[0](p) for classification
+        valuespresent=utils.unique([args[0](p) for p in params])
+        for val in valuespresent:
+            list.append([p for p in params if args[0](p)==val])
+    else: # if it is not callable, assume it is a string, treat it as a key
+        valuespresent=utils.unique([p[args[0]] for p in params])
+        for val in valuespresent:
+            list.append([p for p in params if p[args[0]]==val])
+    # now list contains sub-lists, containing parameters grouped according to
+    # the first field in *args. Let's group these further, by calling ourselves
+    # with a reduced set as args
+    toplist=[]
+    for l in list:
+        toplist.extend(classify_params_fields(l,*(args[1:])))
+    return toplist

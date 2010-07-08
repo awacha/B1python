@@ -1166,7 +1166,7 @@ def write1dsasdict(data, filename):
     for i in range(len(data['q'])):
         fid.write('%e %e %e\n' % (data['q'][i],data['Intensity'][i],data['Error'][i]))
     fid.close();
-def readintnorm(fsns, filetype='intnorm',logfiletype='intnorm',dirs=[]):
+def readintnorm(fsns, filetype='intnorm',dirs=[],logfiletype='intnorm'):
     """Read intnorm*.dat files along with their headers
     
     Inputs:

@@ -352,13 +352,13 @@ def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
         for j from 0<=j<lensphere:
             factor1=rho[j]*fsphere(q,R[j])
             I[i]=factor1**2
-            for k from 1<=k<i:
+            for k from j<k<lensphere:
                 d=sqrt((x[j]-x[k])**2+(y[j]-y[k])**2+(z[j]-z[k])**2)
-                if (d==0):
+                if (d*q==0):
                     factor=1
                 else:
                     factor=sin(d*q)/(d*q)
-                I[i]+=rho[k]*fsphere(q,R[k])*factor1*factor
+                I[i]+=rho[k]*fsphere(q,R[k])*factor1*factor*2
     Intensity=np.zeros(lenq,dtype=np.double)
     for i from 0<=i<lenq:
         Intensity[i]=I[i]

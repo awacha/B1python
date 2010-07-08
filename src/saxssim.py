@@ -126,7 +126,7 @@ def spheres2povray(file,spheredata,targetx=0,targety=0,targetz=0,
     for i in range(spheredata.shape[0]):
         if spheredata[i,5]<=0:
             file.write("  sphere {\n")
-            file.write("    <%f, %f, %f>, %f\n" % spheredata[i,0:5])
+            file.write("    <%f, %f, %f>, %f\n" % (spheredata[i,0],spheredata[i,1],spheredata[i,2],spheredata[i,3]))
             file.write("    texture {\n")
             file.write("      pigment { color Blue }\n")
             file.write("    }\n")
