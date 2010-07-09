@@ -66,7 +66,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             np.ndarray[np.uint8_t, ndim=2] mask not None,
             np.ndarray[np.double_t, ndim=1] q=None,
             bint shutup=True, bint returnavgq=False, phi0=None, dphi=None,
-            returnmask=False, double fuzzy_FWHM=0, bint symmetric_sector=False):
+            returnmask=False, double fuzzy_FWHM=0, bint symmetric_sector=False,
+            bint sliceorsector=False):
     """
     def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             np.ndarray[np.double_t,ndim=2] dataerr not None,
@@ -75,7 +76,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             np.ndarray[np.uint8_t, ndim=2] mask not None,
             np.ndarray[np.double_t, ndim=1] q=None,
             bint shutup=True, bint returnavgq=False, phi0=None, dphi=None,
-            returnmask=False, double fuzzy_FWHM=0, bint symmetric_sector=False):
+            returnmask=False, double fuzzy_FWHM=0, bint symmetric_sector=False,
+            bint sliceorsector=False):
 
         Do radial integration on 2D scattering images. Now this takes the
         functional determinant dq/dr into account.
@@ -104,7 +106,9 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         phi0: starting angle if sector integration is requested. Expressed
             in radians. Set it to None if simple radial averaging is needed.
         dphi: arc angle if sector integration is requested. Expressed in
-            radians. Set it to None if simple radial averaging is needed.
+            radians. OR, if sliceorsector is True, this is the width of the
+            slice, in pixels. Set it to None if simple radial averaging is
+            needed.
         returnmask: True if the effective mask matrix is to be returned
             (0 for pixels taken into account, 1 for all the others).
         fuzzy_FWHM: FWHM for the Gauss weighing function for fuzzy integration
@@ -114,6 +118,9 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             into account as well on sector integration. Ie. pixels falling into
             sectors of width dphi, and starting at phi0 and pi+phi0, respectively,
             will be accounted for.
+        sliceorsector: True if slice, False if sector integration is preferred.
+            In the former case, dphi is interpreted as the width of the slice,
+            in pixel units.
     Outputs: four ndarrays.
         the q vector
         the intensity vector
@@ -143,6 +150,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     cdef np.ndarray[np.uint8_t,ndim=2] maskout
     cdef double g,w1
     cdef double symmetric_sector_periodicity
+    cdef double sinphi0,cosphi0
    
     if type(res)!=type([]) and type(res)!=type(()) and type(res)!=np.ndarray:
         res=[res,res];
@@ -168,9 +176,22 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         sectorint=1
     else:
         phi0a=0
-        dphia=3*M_PI
+        if sliceorsector:
+            raise NotImplementedError, "Slice integration was requested but parameter dphi (slice width in q) was requested."
+        else:
+            dphia=3*M_PI
         sectorint=0
-
+    if sliceorsector:
+        sinphi0=sin(phi0a)
+        cosphi0=cos(phi0a)
+        # the equation of the line of the slice is x*sin(phi0)-y*cos(phi0)==0.
+        # this is the normalized equation, ie. sin(phi0)**2+(-cos(phi0))**2=1,
+        # therefore the signed distance of the point x,y from this line is
+        # simply x*sin(phi0)-y*cos(phi0). We will use this to determine if a
+        # point falls into this slice or not.
+    else:
+        sinphi0=0
+        cosphi0=0
     if symmetric_sector:
         symmetric_sector_periodicity=1
     else:
@@ -246,9 +267,13 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             x=((ix-bcx)*xres)
             y=((iy-bcy)*yres)
             if sectorint:
-                phi=atan2(y,x)
-                if fmod(phi-phi0a+M_PI*10,symmetric_sector_periodicity*M_PI)>dphia:
-                    continue
+                if sliceorsector:
+                    if fabs(sinphi0*(ix-bcx)-cosphi0*(iy-bcy))>dphia:
+                        continue
+                else:
+                    phi=atan2(y,x)
+                    if fmod(phi-phi0a+M_PI*10,symmetric_sector_periodicity*M_PI)>dphia:
+                        continue
             rho=sqrt(x*x+y*y)/distance
             q1=4*M_PI*sin(0.5*atan(rho))*energy/HC
             if q1<q[0]:
@@ -621,3 +646,4 @@ def bin2D(np.ndarray[np.double_t, ndim=2] M, Py_ssize_t xlen, Py_ssize_t ylen):
                 for j1 from 0<=j1<ylen:
                     N[i,j]+=M[i*xlen+i1,j*ylen+j1]
     return N/(xlen*ylen)
+ 

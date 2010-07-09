@@ -542,7 +542,7 @@ def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
-                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f\n%f<=q<=%f' %(np.sqrt(-Rg*3),1.5/np.sqrt(-Rg*3)*dRg,G,dG,np.sqrt(-Rg*3)*data1['q'].max(),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes())
+                   'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f\n%f<=q<=%f' %(np.sqrt(-Rg*3),1.5/np.sqrt(-Rg*3)*dRg,G,dG,np.sqrt(-Rg*3)*data1['q'].max(),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
         pylab.title('Guinier fit')
     return np.sqrt(-Rg*3),G,1.5/np.sqrt(-Rg*3)*dRg,dG
 def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
