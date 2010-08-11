@@ -148,7 +148,6 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
             applies as to marker. Default value is 1.
         gui [optional]: display graphical user interface to show/hide plotted
             lines independently. Default value is False (no gui)
-    
     Outputs:
         list of names of found samples, to be fed eg. to legend().
     

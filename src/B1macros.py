@@ -452,36 +452,36 @@ def reintegrateBessy(fsn,filenameformat,mask,thicknesses,referencethickness,refe
                 utils.pause()
                 pylab.clf();
     
-def addfsns(fileprefix,fsns,fileend,fieldinheader=None,valueoffield=None,dirs=[]):
-    """
-    """
-    data,header=B1io.read2dB1data(fileprefix,fsns,fileend,dirs=dirs)
+#~ def addfsns(fileprefix,fsns,fileend,fieldinheader=None,valueoffield=None,dirs=[]):
+    #~ """
+    #~ """
+    #~ data,header=B1io.read2dB1data(fileprefix,fsns,fileend,dirs=dirs)
     
-    dataout=None
-    headerout=[]
-    summed=[]
-    for k in range(len(header)):
-        h=header[k]
-        if (abs(h['Energy']-header[0]['Energy'])<0.5) and \
-            (h['Dist']==header[0]['Dist']) and \
-            (h['Title']==header[0]['Title']):
-                if(h['rot1']!=header[0]['rot1']) or  (h['rot2']!=header[0]['rot2']):
-                    print "Warning! Rotation of sample in FSN %d (%s) is different from FSN %d (%s)." % (h['FSN'],h['Title'],header[0]['FSN'],header[0]['Title'])
-                    shrubbery=raw_input('Do you still want to add the data? (y/n)   ')
-                    if shrubbery.strip().upper()[0]!='Y':
-                        return
-                if(h['PosRef']!=header[0]['PosRef']):
-                    print "Warning! Position of reference sample in FSN %d (%s) is different from FSN %d (%s)." % (h['FSN'],h['Title'],header[0]['FSN'],header[0]['Title'])
-                    shrubbery=raw_input('Do you still want to add the data? (y/n)   ')
-                    if shrubbery.strip().upper()[0]!='Y':
-                        return
-                if dataout is None:
-                    dataout=data[k].copy()
-                else:
-                    dataout=dataout+data[k]
-                headerout.append(h)
-                summed.append(h['FSN'])
-    return dataout,headerout,summed
+    #~ dataout=None
+    #~ headerout=[]
+    #~ summed=[]
+    #~ for k in range(len(header)):
+        #~ h=header[k]
+        #~ if (abs(h['Energy']-header[0]['Energy'])<0.5) and \
+            #~ (h['Dist']==header[0]['Dist']) and \
+            #~ (h['Title']==header[0]['Title']):
+                #~ if(h['rot1']!=header[0]['rot1']) or  (h['rot2']!=header[0]['rot2']):
+                    #~ print "Warning! Rotation of sample in FSN %d (%s) is different from FSN %d (%s)." % (h['FSN'],h['Title'],header[0]['FSN'],header[0]['Title'])
+                    #~ shrubbery=raw_input('Do you still want to add the data? (y/n)   ')
+                    #~ if shrubbery.strip().upper()[0]!='Y':
+                        #~ return
+                #~ if(h['PosRef']!=header[0]['PosRef']):
+                    #~ print "Warning! Position of reference sample in FSN %d (%s) is different from FSN %d (%s)." % (h['FSN'],h['Title'],header[0]['FSN'],header[0]['Title'])
+                    #~ shrubbery=raw_input('Do you still want to add the data? (y/n)   ')
+                    #~ if shrubbery.strip().upper()[0]!='Y':
+                        #~ return
+                #~ if dataout is None:
+                    #~ dataout=data[k].copy()
+                #~ else:
+                    #~ dataout=dataout+data[k]
+                #~ headerout.append(h)
+                #~ summed.append(h['FSN'])
+    #~ return dataout,headerout,summed
 def makesensitivity2(fsnrange,energypre,energypost,title,fsnDC,energymeas,energycalib,energyfluorescence,origx,origy,mask=None,savefile=None):
     """Create matrix for detector sensitivity correction
     
@@ -1771,11 +1771,10 @@ def rebin(data,qrange):
     counter=0;
     for d in data:
         #print counter
-        counter=counter+1
         tmp={};
         tmp['q']=qrange
-        tmp['Intensity']=np.interp(qrange,d['q'],d['Intensity'])
-        tmp['Error']=np.interp(qrange,d['q'],d['Error'])
+        for k in d.keys():
+            tmp[k]=np.interp(qrange,d['q'],d[k])
         data2.append(tmp)
     return data2;
 def scalewaxs(fsns,mask2d,dirs):
@@ -1954,8 +1953,8 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 del areas
 def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
             dirs=[],plot=False,
-            classifyfunc=lambda plist:classify_params_fields(plist,'Title','Energy','Dist'),
-            classifyfunc_waxs=lambda plist:classify_params_fields(plist,'Title','Energy'),
+            classifyfunc=lambda plist:utils.classify_params_fields(plist,'Title','Energy','Dist'),
+            classifyfunc_waxs=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
             errorpropagation='weight'):
     """Summarize scattering data.
     
@@ -2086,8 +2085,9 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
 def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
               dirs=[],ignorescalingerror=False,qtolerance=0.05,
               ignorewaxs=False,qsepw=None,
-              classifyfunc=lambda plist:classify_params_fields(plist,'Title','Energy'),
-              classifyfunc_waxs=lambda plist:classify_params_fields(plist,'Title','Energy')):
+              classifyfunc=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
+              classifyfunc_waxs=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
+              filetype='summed',logfiletype='summed',waxsfiletype='summedwaxs',waxslogfiletype='summedwaxs'):
     """Unite summed scattering results.
     
     Inputs:
@@ -2118,6 +2118,8 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             Default is to classify measurements with respect to Title and Energy.
         classifyfunc_waxs: classification function for WAXS curves. Defaults
             to classification with respect to Title and Energy.
+        filetype: file type for saxs measurements (default: 'summed')
+        waxsfiletype: file type for waxs measurements (default: 'summedwaxs')
     
     Outputs: none, files are saved.
     
@@ -2128,18 +2130,18 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         using this factor.
     """
     # read logfiles produced during summarization
-    paramsum=B1io.readlogfile(fsns,norm='summed',dirs=dirs)
+    paramsum=B1io.readlogfile(fsns,norm=logfiletype,dirs=dirs)
     if not ignorewaxs:
-        paramsumw=B1io.readlogfile(fsns,norm='summedwaxs',dirs=dirs)
+        paramsumw=B1io.readlogfile(fsns,norm=waxslogfiletype,dirs=dirs)
         if len(paramsumw)<1:
-            print "Cannot load summedwaxs*.log files, skipping WAXS!"
+            print "Cannot load %s*.log files, skipping WAXS!" % waxsfiletype
             ignorewaxs=True
     # read summed data. Note, that datasumparam contains log structures read
     # from intnorm*.log files, thus corresponding to the first measurement of
     # which the summarized data was made.
-    datasum,datasumparam=B1io.readintnorm(fsns,'summed',dirs=dirs)
+    datasum,datasumparam=B1io.readintnorm(fsns,filetype,dirs=dirs)
     if not ignorewaxs:
-        datasumw,datasumparamw=B1io.readintnorm(fsns,'summedwaxs',dirs=dirs)
+        datasumw,datasumparamw=B1io.readintnorm(fsns,waxsfiletype,dirs=dirs)
     # argument <sample> defaults to all samplenames.
     if sample is not None:
         if type(sample)==type(''): #workaround if a string was given. This makes the next for loop possible
@@ -2187,8 +2189,8 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         ds2,param2=[(d,p) for (d,p) in zip(datasum,datasumparam) if p['FSN']==ps2['FSN']][0] 
         print "Uniting two summed files: FSNs %d and %d"%(ps1['FSN'],ps2['FSN'])
         if not ignorewaxs:
-            print pclassw
-            utils.pause()
+            #print pclassw
+            #utils.pause()
             psw=[]
             for pl in pclassw:
                 for p in pl:
@@ -2220,7 +2222,7 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         q1min,q1max,Nq1=utils2d.qrangefrommask(mask1,ps1['EnergyCalibrated'],ps1['Dist'],param1['PixelSize'],param1['BeamPosX'],param1['BeamPosY'])
         q2min,q2max,Nq2=utils2d.qrangefrommask(mask2,ps2['EnergyCalibrated'],ps2['Dist'],param2['PixelSize'],param2['BeamPosX'],param2['BeamPosY'])
         if not ignorewaxs and not waxs_notfound:
-            dataw=utils.sanitizeint(B1io.readintfile('summedwaxs%d.dat' % paramw['FSN']))
+            dataw=utils.sanitizeint(B1io.readintfile('%s%d.dat' % (waxsfiletype,paramw['FSN'])))
             qw=dataw['q']
             Iw=dataw['Intensity']
             Ew=dataw['Error']
@@ -2273,7 +2275,10 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             errmultlong2short=0
             print "Ignoring error of multiplication factor, by preference of the user!"
         if qsep is None:
-            qsep=0.5*(ds1['q'].min()+ds2['q'].max())
+            if onlyone:
+                qsep=-np.inf
+            else:
+                qsep=0.5*(ds1['q'].min()+ds2['q'].max())
 
         if not ignorewaxs and not waxs_notfound:
             #normalize WAXS data as well.
@@ -2323,49 +2328,3 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         unifsn=min(min(ps1['FSNs']),min(ps2['FSNs']))
         B1io.write1dsasdict(datacomb,'united%d.dat' % unifsn)
         print "File saved with FSN:",unifsn
-def classify_params_fields(params, *args):
-    """Classify parameter structures according to field names.
-    
-    Inputs:
-        params: list of parameter dictionaries
-        variable arguments: either strings or functions (callables).
-            strings: They should be keys available in all of the parameter
-                structures found in params. Distinction will be made regarding
-                these.
-            callables: they should accept param structures and return something
-                (string, value or as you like). Distinction will be made on the
-                returned value.
-    
-    Output:
-        A list of lists of parameter structures
-        
-    Example:
-        a typical use scenario is to read logfiles from a range of FSNs. Usually
-        one wants to summarize measurements made from the same sample, using
-        the same energy and at the same sample-to-detector distance. In this
-        case, classify_params_fields can be useful:
-        
-        classify_params_fields(params,'Title','Energy','Dist')
-        
-        will result in a list of lists. Each sublist will contain parameter
-        dictionaries with the same 'Title', 'Energy' and 'Dist' fields.
-    """
-    if len(args)<1: # fallback, if no field names were given
-        return [params]
-    list=[]
-    #classify according to the first argument
-    if hasattr(args[0],'__call__'): # if it is callable, use args[0](p) for classification
-        valuespresent=utils.unique([args[0](p) for p in params])
-        for val in valuespresent:
-            list.append([p for p in params if args[0](p)==val])
-    else: # if it is not callable, assume it is a string, treat it as a key
-        valuespresent=utils.unique([p[args[0]] for p in params])
-        for val in valuespresent:
-            list.append([p for p in params if p[args[0]]==val])
-    # now list contains sub-lists, containing parameters grouped according to
-    # the first field in *args. Let's group these further, by calling ourselves
-    # with a reduced set as args
-    toplist=[]
-    for l in list:
-        toplist.extend(classify_params_fields(l,*(args[1:])))
-    return toplist

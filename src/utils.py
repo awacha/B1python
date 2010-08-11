@@ -399,3 +399,65 @@ def inv_error(A,DA):
     B=np.inv(A);
     return np.sqrt(np.dot(np.dot(B**2,DA**2),B**2))
     
+def multiple(list,comparefun=(lambda a,b:(a==b))):
+    """Select elements occurring more than one times in the list
+    
+    Inputs:
+        list: list
+        comparefun: comparing function. By default the '==' operator is used.
+    
+    Outputs:
+        a list with the non-unique elements (each only once)
+    """
+    newlist=[]
+    ul=unique(list,comparefun=comparefun)
+    for u in ul:
+        if len([l for l in list if comparefun(l,u)])>1:
+            newlist.append(u)
+    return newlist
+def classify_params_fields(params, *args):
+    """Classify parameter structures according to field names.
+    
+    Inputs:
+        params: list of parameter dictionaries
+        variable arguments: either strings or functions (callables).
+            strings: They should be keys available in all of the parameter
+                structures found in params. Distinction will be made regarding
+                these.
+            callables: they should accept param structures and return something
+                (string, value or as you like). Distinction will be made on the
+                returned value.
+    
+    Output:
+        A list of lists of parameter structures
+        
+    Example:
+        a typical use scenario is to read logfiles from a range of FSNs. Usually
+        one wants to summarize measurements made from the same sample, using
+        the same energy and at the same sample-to-detector distance. In this
+        case, classify_params_fields can be useful:
+        
+        classify_params_fields(params,'Title','Energy','Dist')
+        
+        will result in a list of lists. Each sublist will contain parameter
+        dictionaries with the same 'Title', 'Energy' and 'Dist' fields.
+    """
+    if len(args)<1: # fallback, if no field names were given
+        return [params]
+    list=[]
+    #classify according to the first argument
+    if hasattr(args[0],'__call__'): # if it is callable, use args[0](p) for classification
+        valuespresent=unique([args[0](p) for p in params])
+        for val in valuespresent:
+            list.append([p for p in params if args[0](p)==val])
+    else: # if it is not callable, assume it is a string, treat it as a key
+        valuespresent=unique([p[args[0]] for p in params])
+        for val in valuespresent:
+            list.append([p for p in params if p[args[0]]==val])
+    # now list contains sub-lists, containing parameters grouped according to
+    # the first field in *args. Let's group these further, by calling ourselves
+    # with a reduced set as args
+    toplist=[]
+    for l in list:
+        toplist.extend(classify_params_fields(l,*(args[1:])))
+    return toplist

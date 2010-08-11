@@ -31,6 +31,7 @@ import scipy.interpolate
 import matplotlib.widgets
 import utils
 import types
+from c_fitting import *
 try:
     import Ifeffit
 except ImportError:

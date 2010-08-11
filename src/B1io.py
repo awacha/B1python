@@ -631,7 +631,11 @@ def readasa(basename,dirs=[]):
         return None
     if inffile is not None:
         params={}
-        l=inffile.readlines()
+        l1=inffile.readlines()
+        l=[]
+        for line in l1:
+            if len(line.strip())>0:
+                l.append(line)
         def getdate(str):
             try:
                 month=int(str.split()[0].split('-')[0])
