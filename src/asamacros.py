@@ -212,7 +212,7 @@ def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68,retur
     print 'pixelsize/dist:',1/LperH,'+/-',LperHerr/LperH**2
     print 'beam position:',xcent,'+/-',xcenterr
     if returnq:
-        return calcqrangefrom1d(xdata,xcent,LperH,1,wavelength)
+        return calcqrangefrom1D(xdata,xcent,LperH,1,wavelength)
     else:
         return 1/LperH,xcent,LperHerr/LperH**2,xcenterr
 def calcqrangefrom1D(pixels,beampos,dist,pixelsize,wavelength):
