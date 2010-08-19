@@ -940,7 +940,8 @@ def read2dintfile(fsns,dirs=[],norm=True):
         fsns: one or more fsn-s in a list
         dirs: list of directories to try
         norm: True if int2dnorm*.mat file is to be loaded, False if
-            int2darb*.mat is preferred
+            int2darb*.mat is preferred. You can even supply the file prefix
+            as a string.
         
     Output:
         a list of 2d intensity matrices
@@ -955,6 +956,8 @@ def read2dintfile(fsns,dirs=[],norm=True):
         still no luck, int2dnorm<FSN>.dat.gz and err2dnorm<FSN>.dat.gz is
         opened. If this fails as well, the given FSN is skipped. If no files
         have been loaded, empty lists are returned.
+        If the shape of the loaded error matrix is not equal to that of the
+        intensity, the error matrix is overridden with a zero matrix.
     """
     def read2dfromstream(stream):
         """Read 2d ascii data from stream.
@@ -1014,21 +1017,24 @@ def read2dintfile(fsns,dirs=[],norm=True):
         filefound=False
         for d in dirs:
             try: # first try to load the npz file. This is the most effective way.
-                if norm:
-                    tmp0=np.load('%s%sint2dnorm%d.npz' % (d,os.sep,fsn))
+                if type(norm)==type(''):
+                    fileprefixnorm=norm
+                elif norm:
+                    fileprefixnorm='int2dnorm'
                 else:
-                    tmp0=np.load('%s%sint2darb%d.npz' % (d,os.sep,fsn))
+                    fileprefixnorm='int2darb'
+                tmp0=np.load(os.path.join(d,'%s%d.npz' % (fileprefixnorm,fsn)))
                 tmp=tmp0['Intensity']
                 tmp1=tmp0['Error']
             except IOError:
                 try: # first try to load the mat file. This is the second effective way.
-                    if norm:
-                        tmp0=scipy.io.loadmat('%s%sint2dnorm%d.mat' % (d,os.sep,fsn))
-                    else:
-                        tmp0=scipy.io.loadmat('%s%sint2darb%d.mat' % (d,os.sep,fsn))
+                    tmp0=scipy.io.loadmat(os.path.join(d,'%s%d.mat' % (fileprefixnorm,fsn)))
                     tmp=tmp0['Intensity']
                     tmp1=tmp0['Error']
                 except IOError: # if mat file is not found, try the ascii files
+                    if type(norm)==type(''):
+                        warnings.warn(SyntaxWarning('Loading 2D ascii files when parameter <norm> for read2dintfile() is a string.'))
+                        continue # try from another directory
                     if norm:
     #                    print 'Cannot find file int2dnorm%d.mat: trying to read int2dnorm%d.dat(.gz|.zip) and err2dnorm%d.dat(.gz|.zip)' %(fsn,fsn,fsn)
                         tmp=read2dascii('%s%sint2dnorm%d.dat' % (d,os.sep,fsn));
@@ -1048,6 +1054,8 @@ def read2dintfile(fsns,dirs=[],norm=True):
             tmp2=readlogfile(fsn,dirs=dirs)[0]
             if len(tmp2)>0:
                 int2d.append(tmp)
+                if tmp1.shape!=tmp.shape:    # test if the shapes of intensity and error matrices are the same. If not, let the error matrix be a zero matrix of the same size as the intensity.
+                    tmp1=np.zeros(tmp.shape)
                 err2d.append(tmp1)
                 params.append(tmp2)                
         if not filefound:
@@ -1058,15 +1066,20 @@ def write2dintfile(A,Aerr,params,norm=True,filetype='npz'):
     
     Inputs:
         A: the intensity matrix
-        Aerr: the error matrix
+        Aerr: the error matrix (can be None, if no error matrix is to be saved)
         params: the parameter dictionary
         norm: if int2dnorm files are to be saved. If it is false, int2darb files
-            are saved (arb = arbitrary units, ie. not absolute intensity)
+            are saved (arb = arbitrary units, ie. not absolute intensity). If a string,
+            save it to <norm>%d.<filetype>.
         filetype: 'npz' or 'mat'
     int2dnorm<FSN>.[mat or npz] is written. The parameter structure is not
         saved, since it should be saved already in intnorm<FSN>.log
     """
-    if norm:
+    if Aerr is None:
+        Aerr=np.zeros((1,1))
+    if type(norm)==type(''):
+        fileprefix='%s%d' % (norm,params['FSN'])
+    elif norm:
         fileprefix='int2dnorm%d' % params['FSN']
     else:
         fileprefix='int2darb%d' % params['FSN']

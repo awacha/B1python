@@ -2000,6 +2000,10 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
             w=None
             Isum=None
             Esum=None
+            I2Dsum=None
+            E2Dsum=None
+            counter2D=0
+            w2D=None
             fsns_found=[]
             if plot: # initialize plot.
                 pylab.clf()
@@ -2034,6 +2038,28 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
                         Esum+=intdata['Error']**2
                     Isum=Isum+intdata['Intensity']*w1
                     w=w+w1
+                if waxsprefix=='': # ONLY IN SAXS MODE:
+                    # load 2D data
+                    int2d,err2d,temp=B1io.read2dintfile(p['FSN'],dirs=dirs)
+                    if len(int2d)<1:
+                        print "Cannot load 2D intensity file for FSN %d, skipping." % p['FSN']
+                    else:
+                        if counter2D==0:
+                            if errorpropagation=='weight':
+                                w2d=1/(err2d[0]**2)
+                            else:
+                                w2d=1
+                                E2Dsum=err2d[0]**2
+                            I2Dsum=int2d[0]*w2d
+                        else:
+                            if errorpropagation=='weight':
+                                w1=1/(err2d[0]**2)
+                            else:
+                                w1=1
+                                E2Dsum+=err2d[0]**2
+                            I2Dsum+=int2d[0]*w1
+                            w2d+=w1
+                        counter2D+=1
                 if plot:
                     pylab.loglog(intdata['q'],intdata['Intensity'],'.-',label='FSN #%d, T=%f' %(p['FSN'],p['Transm']))
                     print "FSN: %d, Transm: %f" %(p['FSN'],p['Transm'])
@@ -2045,6 +2071,16 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
                         pass
                 fsns_found.append(p['FSN'])
                 counter=counter+1
+            if waxsprefix=='':
+                if counter2D>0:
+                    if errorpropagation=='weight':
+                        E2Dsum=1/w2D
+                    else:
+                        E2Dsum=np.sqrt(E2Dsum)/w
+                    I2Dsum=I2Dsum/w
+                    E2Dsum[np.isnan(E2Dsum)]=0
+                    I2Dsum[np.isnan(I2Dsum)]=0
+                    B1io.write2dintfile(I2Dsum,E2Dsum,plist[0],norm='summed2d')
             if counter>0:
                 if errorpropagation=='weight':
                     Esum=1/w
