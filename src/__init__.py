@@ -5,3 +5,7 @@ _all1=dir()
 #print all
 __all__=[_a for _a in _all1 if _a[0:2]!='__']
 #print __all__
+
+VERSION=0.4.2
+pass
+#comment
