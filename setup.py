@@ -4,22 +4,25 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
-VERSION='0.4.2'
+VERSION='0.4.3'
 
-print ""
-print "+----------------------------------------%s------------+" % ('-'*len(VERSION))
-print "| UPDATING VERSION IN src/__init__.py to %s !!!!!!!!!! |" % VERSION
-print "+----------------------------------------%s------------+" % ('-'*len(VERSION))
-print ""
-f=open('src/__init__.py','rt')
-lines=f.readlines()
-f.close()
-f1=open('src/__init__.py','w+t')
-for l in lines:
-    if l.strip().startswith('VERSION'):
-        l='VERSION=%s\n' % VERSION
-    f1.write(l)
-f1.close() 
+try:
+    f=open('src/__init__.py','rt')
+    lines=f.readlines()
+    f.close()
+    f1=open('src/__init__.py','w+t')
+    for l in lines:
+        if l.strip().startswith('VERSION'):
+            l='VERSION="%s"\n' % VERSION
+        f1.write(l)
+    f1.close() 
+    print ""
+    print "+---------------------------------------%s------------+" % ('-'*len(VERSION))
+    print "| UPDATED VERSION IN src/__init__.py to %s !!!!!!!!!! |" % VERSION
+    print "+---------------------------------------%s------------+" % ('-'*len(VERSION))
+    print ""
+except IOError:
+    print "Cannot update VERSION in src/__init__.py"
 
 ext_modules = [Extension("B1python.c_asamacros", ["src/c_asamacros.pyx"]),
                Extension("B1python.c_asaxseval",["src/c_asaxseval.pyx"]),

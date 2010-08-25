@@ -26,13 +26,13 @@ def grf_savevtk(file,grfmatrix,origin=None,spacing=None):
     file.write("created by grf.py by awacha\n")
     file.write("ASCII\n\n")
     file.write("DATASET STRUCTURED_POINTS\n")
-    file.write("DIMENSIONS %lu %lu %lu\n" % grf.shape)
+    file.write("DIMENSIONS %lu %lu %lu\n" % grfmatrix.shape)
     file.write("ORIGIN %lf %lf %lf\n" % tuple(origin))
     file.write("SPACING %lf %lf %lf\n\n" % tuple(spacing))
-    file.write("POINT_DATA %lu\n" % grf.size)
+    file.write("POINT_DATA %lu\n" % grfmatrix.size)
     file.write("SCALARS grfdata float\n")
     file.write("LOOKUP_TABLE default\n")
-    np.savetxt(file,grf.flatten())
+    np.savetxt(file,grfmatrix.flatten())
     if fileopened:
         file.close()
 
