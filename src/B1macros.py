@@ -2003,7 +2003,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
             I2Dsum=None
             E2Dsum=None
             counter2D=0
-            w2D=None
+            w2d=None
             fsns_found=[]
             if plot: # initialize plot.
                 pylab.clf()
@@ -2012,9 +2012,13 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
                 pylab.title('Class %d, FSNs: %s' % (nclass,classfsns))
             for p in plist: # for each param dictionary
                 # read file
-                filename='%s%d.dat' % (ftype,p['FSN'])
+                try:
+                    filename=ftype % p['FSN']
+                except TypeError:
+                    filename='%s%d.dat' % (ftype,p['FSN'])
                 intdata=B1io.readintfile(filename,dirs=dirs)
                 if len(intdata)<1:
+                    print "sumfsns: cannot find file %s, skipping!" % filename
                     continue
                 if counter==0:
                     q=intdata['q']
@@ -2074,10 +2078,10 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
             if waxsprefix=='':
                 if counter2D>0:
                     if errorpropagation=='weight':
-                        E2Dsum=1/w2D
+                        E2Dsum=1/w2d
                     else:
-                        E2Dsum=np.sqrt(E2Dsum)/w
-                    I2Dsum=I2Dsum/w
+                        E2Dsum=np.sqrt(E2Dsum)/w2d
+                    I2Dsum=I2Dsum/w2d
                     E2Dsum[np.isnan(E2Dsum)]=0
                     I2Dsum[np.isnan(I2Dsum)]=0
                     B1io.write2dintfile(I2Dsum,E2Dsum,plist[0],norm='summed2d')
@@ -2170,7 +2174,7 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
     if not ignorewaxs:
         paramsumw=B1io.readlogfile(fsns,norm=waxslogfiletype,dirs=dirs)
         if len(paramsumw)<1:
-            print "Cannot load %s*.log files, skipping WAXS!" % waxsfiletype
+            print "Cannot load %s*.log files, skipping WAXS!" % waxslogfiletype
             ignorewaxs=True
     # read summed data. Note, that datasumparam contains log structures read
     # from intnorm*.log files, thus corresponding to the first measurement of
@@ -2252,7 +2256,7 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             print "distmaskdict parameter is not a dictionary! STOPPING"
             return
         except KeyError,details:
-            print "No mask defined in distmaskdict for distance %f. STOPPING" % details
+            print "No mask defined in distmaskdict for distance %s. STOPPING" % details
             return
         #find the q-ranges for each distance.
         q1min,q1max,Nq1=utils2d.qrangefrommask(mask1,ps1['EnergyCalibrated'],ps1['Dist'],param1['PixelSize'],param1['BeamPosX'],param1['BeamPosY'])

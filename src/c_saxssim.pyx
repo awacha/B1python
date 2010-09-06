@@ -310,13 +310,15 @@ def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
                   np.ndarray[np.double_t, ndim=1] y not None,
                   np.ndarray[np.double_t, ndim=1] z not None,
                   np.ndarray[np.double_t, ndim=1] R not None,
-                  np.ndarray[np.double_t, ndim=1] rho not None):
+                  np.ndarray[np.double_t, ndim=1] rho not None,
+                  azimuthangle=None):
     """def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
                   np.ndarray[np.double_t, ndim=1] x not None,
                   np.ndarray[np.double_t, ndim=1] y not None,
                   np.ndarray[np.double_t, ndim=1] z not None,
                   np.ndarray[np.double_t, ndim=1] R not None,
-                  np.ndarray[np.double_t, ndim=1] rho not None):
+                  np.ndarray[np.double_t, ndim=1] rho not None,
+                  azimuthangle=None):
     
     Calculate the theoretical scattering intensity of the sphere structure
     
@@ -325,17 +327,36 @@ def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
         x, y, z, R, rho: one-dimensional np.ndarrays of the same
             lengths, containing x, y, z coordinates, radii and electron-
             densities of the spheres, respectively.
+        azimuthangle: azimuth angle for q, in radian. The detector plane is the
+            x-z plane. This angle starts from 0=x. Leave it None, if you want the
+            intensity to be averaged over all orientations of q.
             
     Output:
         a vector of the same size that of qrange. It contains the scattering
         intensities.
     """
-    cdef double *I
+    cdef double I
     cdef Py_ssize_t i,j,k
     cdef Py_ssize_t lenq,lensphere
     cdef double q
     cdef double d
     cdef double factor1,factor
+    cdef double cosalpha, sinalpha
+    cdef int fixazimuth
+    cdef double *myx
+    cdef double *myy
+    cdef double *myz
+    cdef double *myR
+    cdef double *myrho
+    
+    if azimuthangle is not None:
+        cosalpha=cos(azimuthangle)
+        sinalpha=sin(azimuthangle)
+        fixazimuth=1
+    else:
+        cosalpha=0
+        sinalpha=0
+        fixazimuth=0
     lenq=len(qrange)
     lensphere=len(x)
     if lensphere!=len(y):
@@ -346,23 +367,56 @@ def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
         raise ValueError('argument x and R should be of the same length!')
     if lensphere!=len(rho):
         raise ValueError('argument x and rho should be of the same length!')
-    I=<double*>malloc(lenq*sizeof(double))
-    for i from 0<=i<lenq:
-        q=qrange[i]
-        for j from 0<=j<lensphere:
-            factor1=rho[j]*fsphere(q,R[j])
-            I[i]=factor1**2
-            for k from j<k<lensphere:
-                d=sqrt((x[j]-x[k])**2+(y[j]-y[k])**2+(z[j]-z[k])**2)
-                if (d*q==0):
-                    factor=1
-                else:
-                    factor=sin(d*q)/(d*q)
-                I[i]+=rho[k]*fsphere(q,R[k])*factor1*factor*2
+    
+    myx=<double*>malloc(lensphere*sizeof(double))
+    myy=<double*>malloc(lensphere*sizeof(double))
+    myz=<double*>malloc(lensphere*sizeof(double))
+    myR=<double*>malloc(lensphere*sizeof(double))
+    myrho=<double*>malloc(lensphere*sizeof(double))
+    
+    for i from 0<=i<lensphere:
+        myx[i]=x[i]
+        myy[i]=y[i]
+        myz[i]=z[i]
+        myR[i]=R[i]
+        myrho[i]=rho[i]
+    
     Intensity=np.zeros(lenq,dtype=np.double)
-    for i from 0<=i<lenq:
-        Intensity[i]=I[i]
-    free(I)
+    if fixazimuth:
+        for i from 0<=i<lenq:
+            I=0
+            q=qrange[i]
+            for j from 0<=j<lensphere:
+                factor1=myrho[j]*fsphere(q,myR[j])
+                I+=factor1**2
+                for k from j<k<lensphere:
+                    d=(myx[j]-myx[k])*cosalpha+(myz[j]-myz[k])*sinalpha
+                    if (d*q==0):
+                        factor=1
+                    else:
+                        factor=cos(d*q)
+                    I+=myrho[k]*fsphere(q,myR[k])*factor1*factor*2
+            Intensity[i]=I
+    else:
+        for i from 0<=i<lenq:
+            q=qrange[i]
+            I=0
+            for j from 0<=j<lensphere:
+                factor1=myrho[j]*fsphere(q,myR[j])
+                I+=factor1**2
+                for k from j<k<lensphere:
+                    d=sqrt((myx[j]-myx[k])**2+(myy[j]-myy[k])**2+(myz[j]-myz[k])**2)
+                    if (d*q==0):
+                        factor=1
+                    else:
+                        factor=sin(d*q)/(d*q)
+                    I+=myrho[k]*fsphere(q,myR[k])*factor1*factor*2
+            Intensity[i]=I
+    free(myrho)
+    free(myx)
+    free(myy)
+    free(myz)
+    free(myR)
     return Intensity            
 
 

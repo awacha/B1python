@@ -18,7 +18,236 @@ import guitools
 import time
 import ConfigParser
 from c_asamacros import smearingmatrix, trapezoidshapefunction
+import xml.dom.minidom
 
+def readxrdml(filename):
+    """Read xrdml files made by the software for Panalytical/Philips X'Pert
+    
+    Input:
+        filename: name of the file
+    
+    Output:
+        a dict of the x-ray diffraction data and much more. Field names should
+            be self-explanatory.
+    """
+    data={}
+    xrdml=xml.dom.minidom.parse(filename)
+    xrdm=xrdml.firstChild
+    if not xrdm.nodeName=='xrdMeasurements':
+        raise ValueError,"First xml tag in file %f is not 'xrdMeasurements'." % filename
+    data['status']=xrdm.attributes['status'].nodeValue
+    comments=[cn for cn in xrdm.childNodes if cn.nodeName=='comment'][0]
+    data['comment']=[cn.firstChild.nodeValue for cn in comments.childNodes if cn.nodeName=='entry']
+    
+    sample=[cn for cn in xrdm.childNodes if cn.nodeName=='sample'][0]
+    data['sample']={}
+    for i in sample.attributes.keys():
+        data['sample'][i]=sample.attributes[i].nodeValue
+    try:
+        data['sample']['id']=[cn.firstChild.nodeValue for cn in sample.childNodes if cn.nodeName=='id'][0]
+    except:
+        data['sample']['id']=''
+    try:
+        data['sample']['name']=[cn.firstChild.nodeValue for cn in sample.childNodes if cn.nodeName=='name'][0]
+    except:
+        data['sample']['name']=''
+    try:
+        data['sample']['preparedBy']=[cn.firstChild.nodeValue for cn in sample.childNodes if cn.nodeName=='preparedBy'][0]
+    except:
+        data['sample']['preparedBy']=''
+    
+    measurements=[cn for cn in xrdm.childNodes if cn.nodeName=='xrdMeasurement']
+    data['measurements']=[]
+    for m in measurements:
+        meas={}
+        for i in m.attributes.keys():
+            meas[i]=m.attributes[i].nodeValue
+        measchilds=[mc for mc in m.childNodes if not mc.nodeName.startswith('#')]
+        comments=[mc for mc in measchilds if mc.nodeName=='comment']
+        usedwavelength=[mc for mc in measchilds if mc.nodeName=='usedWavelength'][0]
+        incidentbeampath=[mc for mc in measchilds if mc.nodeName=='incidentBeamPath'][0]
+        diffractedbeampath=[mc for mc in measchilds if mc.nodeName=='diffractedBeamPath'][0]
+        scans=[mc for mc in measchilds if mc.nodeName=='scan']
+        
+        meas['comments']=[]
+        for cm in comments:
+            meas['comments'].extend([cn.firstChild.nodeValue for cn in cm.childNodes if cn.nodeName=='entry' and cn.firstChild is not None])
+        
+        meas['usedwavelength']={}
+        for i in usedwavelength.attributes.keys():
+            meas['usedwavelength'][i]=usedwavelength.attributes[i].nodeValue
+        for i in [cn for cn in usedwavelength.childNodes if not cn.nodeName.startswith('#')]:
+            try:
+                meas['usedwavelength'][i.nodeName]=float(i.firstChild.nodeValue)
+            except:
+                meas['usedwavelength'][i.nodeName]=i.firstChild.nodeValue
+                
+        meas['incidentbeampath']={}
+        meas['incidentbeampath']['radius']=float(incidentbeampath.getElementsByTagName('radius')[0].firstChild.nodeValue)
+        meas['incidentbeampath']['xRayTube']={}
+        xraytube=incidentbeampath.getElementsByTagName('xRayTube')[0]
+        for i in xraytube.attributes.keys():
+            meas['incidentbeampath']['xRayTube'][i]=xraytube.attributes[i].nodeValue
+        meas['incidentbeampath']['xRayTube']['tension']=xraytube.getElementsByTagName('tension')[0].firstChild.nodeValue
+        meas['incidentbeampath']['xRayTube']['current']=xraytube.getElementsByTagName('current')[0].firstChild.nodeValue
+        meas['incidentbeampath']['xRayTube']['anodeMaterial']=xraytube.getElementsByTagName('anodeMaterial')[0].firstChild.nodeValue
+        meas['incidentbeampath']['xRayTube']['focus']={}
+        xraytubefocus=xraytube.getElementsByTagName('focus')[0]
+        for i in xraytubefocus.attributes.keys():
+            meas['incidentbeampath']['xRayTube']['focus'][i]=xraytubefocus.attributes[i].nodeValue
+        for i in [c for c in xraytubefocus.childNodes if not c.nodeName.startswith('#')]:
+            meas['incidentbeampath']['xRayTube']['focus'][i.nodeName]=i.firstChild.nodeValue
+
+        sollerslit=incidentbeampath.getElementsByTagName('sollerSlit')[0]
+        meas['incidentbeampath']['sollerslit']={}
+        for i in sollerslit.attributes.keys():
+            meas['incidentbeampath']['sollerslit'][i]=sollerslit.attributes[i].nodeValue
+        for i in [c for c in sollerslit.childNodes if not c.nodeName.startswith('#')]:
+            meas['incidentbeampath']['sollerslit'][i.nodeName]=i.firstChild.nodeValue
+
+        mask=incidentbeampath.getElementsByTagName('mask')[0]
+        meas['incidentbeampath']['mask']={}
+        for i in mask.attributes.keys():
+            meas['incidentbeampath']['mask'][i]=mask.attributes[i].nodeValue
+        for i in [c for c in mask.childNodes if not c.nodeName.startswith('#')]:
+            meas['incidentbeampath']['mask'][i.nodeName]=i.firstChild.nodeValue
+
+
+        meas['diffractedbeampath']={}
+        meas['diffractedbeampath']['radius']=float(diffractedbeampath.getElementsByTagName('radius')[0].firstChild.nodeValue)
+        
+        tmp=diffractedbeampath.getElementsByTagName('antiScatterSlit')[0]
+        meas['diffractedbeampath']['antiScatterSlit']={}
+        for i in tmp.attributes.keys():
+            meas['diffractedbeampath']['antiScatterSlit'][i]=tmp.attributes[i].nodeValue
+        for i in [c for c in tmp.childNodes if not c.nodeName.startswith('#')]:
+            meas['diffractedbeampath']['antiScatterSlit'][i.nodeName]=i.firstChild.nodeValue
+
+        tmp=diffractedbeampath.getElementsByTagName('sollerSlit')[0]
+        meas['diffractedbeampath']['sollerSlit']={}
+        for i in tmp.attributes.keys():
+            meas['diffractedbeampath']['sollerSlit'][i]=tmp.attributes[i].nodeValue
+        for i in [c for c in tmp.childNodes if not c.nodeName.startswith('#')]:
+            meas['diffractedbeampath']['sollerSlit'][i.nodeName]=i.firstChild.nodeValue
+
+        tmp=diffractedbeampath.getElementsByTagName('receivingSlit')[0]
+        meas['diffractedbeampath']['receivingSlit']={}
+        for i in tmp.attributes.keys():
+            meas['diffractedbeampath']['receivingSlit'][i]=tmp.attributes[i].nodeValue
+        for i in [c for c in tmp.childNodes if not c.nodeName.startswith('#')]:
+            meas['diffractedbeampath']['receivingSlit'][i.nodeName]=i.firstChild.nodeValue
+        
+        detector=diffractedbeampath.getElementsByTagName('detector')[0]
+        meas['diffractedbeampath']['detector']={}
+        for i in detector.attributes.keys():
+            meas['diffractedbeampath']['detector'][i]=detector.attributes[i].nodeValue
+        for cn in [c for c in detector.childNodes if not c.nodeName.startswith('#')]:
+            meas['diffractedbeampath']['detector'][cn.nodeName]={}
+            for i in cn.attributes.keys():
+                meas['diffractedbeampath']['detector'][cn.nodeName][i]=cn.attributes[i].nodeValue
+            for i in [c for c in cn.childNodes if not c.nodeName.startswith('#')]:
+                meas['diffractedbeampath']['detector'][cn.nodeName][i.nodeName]=i.firstChild.nodeValue
+        
+        meas['twotheta']=None
+        meas['q']=None
+        meas['normintensity']=None
+        meas['scans']=[]
+        counter=0
+        
+        for s in scans:
+            scan={}
+            for i in s.attributes.keys():
+                scan[i]=s.attributes[i].nodeValue
+            header=s.getElementsByTagName('header')[0]
+            scan['startTimeStamp']=header.getElementsByTagName('startTimeStamp')[0].firstChild.nodeValue
+            try:
+                scan['endTimeStamp']=header.getElementsByTagName('endTimeStamp')[0].firstChild.nodeValue
+            except IndexError:
+                scan['endTimeStamp']=None
+            scan['authorname']=header.getElementsByTagName('author')[0].getElementsByTagName('name')[0].firstChild.nodeValue
+            scan['applicationsoftware']=header.getElementsByTagName('source')[0].getElementsByTagName('applicationSoftware')[0].firstChild.nodeValue
+            scan['applicationsoftwareversion']=header.getElementsByTagName('source')[0].getElementsByTagName('applicationSoftware')[0].attributes['version'].nodeValue
+            scan['instrumentcontrolsoftware']=header.getElementsByTagName('source')[0].getElementsByTagName('instrumentControlSoftware')[0].firstChild.nodeValue
+            scan['instrumentcontrolsoftwareversion']=header.getElementsByTagName('source')[0].getElementsByTagName('instrumentControlSoftware')[0].attributes['version'].nodeValue
+            scan['instrumentID']=header.getElementsByTagName('source')[0].getElementsByTagName('instrumentID')[0].firstChild.nodeValue
+            datapoints=s.getElementsByTagName('dataPoints')[0]
+            for pos in [ p for p in datapoints.childNodes if p.nodeName=='positions']:
+                scan[pos.attributes['axis'].nodeValue]={'start':None,'end':None,'common':None}
+                for x in ['start', 'end', 'common']:
+                    try:
+                        xposition=pos.getElementsByTagName('%sPosition'%x)[0]
+                        scan[pos.attributes['axis'].nodeValue][x]=float(xposition.firstChild.nodeValue)
+                    except IndexError:
+                        pass
+            scan['commoncountingtime']=None
+            try:
+                cct=datapoints.getElementsByTagName('commonCountingTime')[0]
+                scan['commoncountingtime']=float(cct.firstChild.nodeValue)
+            except IndexError:
+                pass
+            
+            scan['countingtimes']=None
+            try:
+                ct=datapoints.getElementsByTagName('countingTimes')[0]
+                scan['countingtimes']=np.array([float(x) for x in ct.firstChild.nodeValue.split()])
+                scan['countingtimes_units']=ct.attributes['unit'].nodeValue
+            except IndexError:
+                pass
+                
+            ints=datapoints.getElementsByTagName('intensities')[0]
+            scan['intensities_units']=ints.attributes['unit'].nodeValue
+            scan['intensities']=np.array([float(x) for x in ints.firstChild.nodeValue.split()])
+        
+            try:
+                scanaxiscenter=s.getElementsByTagName('scanAxisCenter')[0]
+                for pos in [ p for p in scanaxiscenter.childNodes if p.nodeName=='position']:
+                    scan[pos.attributes['axis'].nodeValue]['axiscenter']=float(pos.firstChild.nodeValue)
+            except IndexError:
+                pass
+            
+            try:
+                reflection=s.getElementsByTagName('reflection')[0]
+                hkl=reflection.getElementsByTagName('hkl')[0]
+                scan['reflection_hkl']={'h':float(hkl.getElementsByTagName('h')[0].firstChild.nodeValue),
+                                        'k':float(hkl.getElementsByTagName('k')[0].firstChild.nodeValue),
+                                        'l':float(hkl.getElementsByTagName('l')[0].firstChild.nodeValue)}
+            except IndexError:
+                pass
+            scan['Error']=np.sqrt(scan['intensities'])
+            
+            if scan['countingtimes'] is not None:
+                scan['Intensity']=scan['intensities']/scan['countingtimes']
+                scan['Error']/=scan['countingtimes']
+            else:
+                scan['Intensity']=scan['intensities']/scan['commoncountingtime']
+                scan['Error']/=scan['commoncountingtime']
+            
+            if scan['scanAxis']=='2Theta':
+                scan['twotheta']=np.linspace(scan['2Theta']['start'],scan['2Theta']['end'],len(scan['intensities']))
+            elif scan['scanAxis']=='Gonio':
+                scan['twotheta']=np.linspace(scan['2Theta']['start'],scan['2Theta']['end'],len(scan['intensities']))
+            else:
+                raise NotImplementedError, "scanAxis is %s, which cannot yet be handled. Please contact the author of this program!" % scan['scanAxis']
+            
+            wavelength=meas['usedwavelength']['kAlpha1']*(1-meas['usedwavelength']['ratioKAlpha2KAlpha1'])+meas['usedwavelength']['kAlpha2']*(meas['usedwavelength']['ratioKAlpha2KAlpha1'])
+            scan['q']=4*np.pi*np.sin(scan['twotheta']*np.pi/180.0*0.5)/wavelength
+            
+            if meas['twotheta'] is None:
+                meas['twotheta']=scan['twotheta']
+                meas['q']=scan['q']
+                meas['Intensity']=scan['Intensity']
+                meas['Error']=scan['Error']**2
+                counter=1
+            else:
+                if len(meas['twotheta'])==len(scan['twotheta']) and (meas['twotheta']-scan['twotheta']).sum()==0:
+                    meas['Intensity']+=scan['Intensity']
+                    meas['Error']+=scan['Error']**2
+                    counter+=1
+            meas['scans'].append(scan)
+        meas['Intensity']/=counter
+        meas['Error']=np.sqrt(meas['Error'])/counter
+        data['measurements'].append(meas)
+    return data
 
 
 def directdesmear(data,smoothing,params,title='',returnerror=False):

@@ -124,14 +124,7 @@ def spheres2povray(file,spheredata,targetx=0,targety=0,targetz=0,
     
     file.write("union {\n")
     for i in range(spheredata.shape[0]):
-        if spheredata[i,5]<=0:
-            file.write("  sphere {\n")
-            file.write("    <%f, %f, %f>, %f\n" % (spheredata[i,0],spheredata[i,1],spheredata[i,2],spheredata[i,3]))
-            file.write("    texture {\n")
-            file.write("      pigment { color Blue }\n")
-            file.write("    }\n")
-            file.write("  }\n")
-        if spheredata[i,5]>0:
+        if spheredata.shape[1]>5 and spheredata[i,5]>0:
             file.write("  cylinder {\n")
             file.write("    <%f, %f, %f>, <%f, %f, %f>, %f\n" % (spheredata[i,0]-0.5*spheredata[i,5]*spheredata[i,6],
                                                                  spheredata[i,1]-0.5*spheredata[i,5]*spheredata[i,7],
@@ -140,6 +133,13 @@ def spheres2povray(file,spheredata,targetx=0,targety=0,targetz=0,
                                                                  spheredata[i,1]+0.5*spheredata[i,5]*spheredata[i,7],
                                                                  spheredata[i,2]+0.5*spheredata[i,5]*spheredata[i,8],
                                                                  spheredata[i,3]))
+            file.write("    texture {\n")
+            file.write("      pigment { color Blue }\n")
+            file.write("    }\n")
+            file.write("  }\n")
+        else:
+            file.write("  sphere {\n")
+            file.write("    <%f, %f, %f>, %f\n" % (spheredata[i,0],spheredata[i,1],spheredata[i,2],spheredata[i,3]))
             file.write("    texture {\n")
             file.write("      pigment { color Blue }\n")
             file.write("    }\n")

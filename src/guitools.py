@@ -889,9 +889,9 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
     ydata=ydata.flatten()
     if not blind:
         if scaling=='log':
-            pylab.semilogy(xdata,ydata,'b.')
+            pylab.semilogy(xdata,ydata,'b.-')
         else:
-            pylab.plot(xdata,ydata,'b.')
+            pylab.plot(xdata,ydata,'b.-')
         if prompt is None:
             prompt='Please zoom to the peak you want to select, then press ENTER'
         pylab.title(prompt)
