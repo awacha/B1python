@@ -1121,25 +1121,34 @@ def readintfile(filename,dirs=[],sanitize=True):
             ret['Error']=[]
             ret['Area']=[]
             #ret.update({'q':[],'Intensity':[],'Error':[],'Area':[]})
+#            print "file %s found in dir %s. Length: %d lines" % (filename,d,len(lines))
             for line in lines:
                 sp=string.split(line);
-                if len(sp)>=3:
+                if len(sp)>=2:
                     try:
                         tmpq=float(sp[0]);
                         tmpI=float(sp[1]);
-                        tmpe=float(sp[2]);
+                        if len(sp)>2:
+                            tmpe=float(sp[2]);
+                        else:
+                            tmpe=0
                         if len(sp)>3:
                             tmpa=float(sp[3]);
                         else:
-                            tmpa=pylab.nan;
+                            tmpa=np.nan;
                         if sanitize:
                             if not (np.isfinite(tmpI) and np.isfinite(tmpe)):
+                                if not np.isfinite(tmpI):
+                                    print "tmpI is not finite:",tmpI
+                                if not np.isfinite(tmpe):
+                                    print "tmpe is not finite:",tmpe
                                 continue
                         ret['q'].append(tmpq);
                         ret['Intensity'].append(tmpI);
                         ret['Error'].append(tmpe);
                         ret['Area'].append(tmpa);
                     except ValueError:
+                        print "Erroneous line: %s",line
                         #skip erroneous line
                         pass
             ret['q']=pylab.array(ret['q'])
@@ -1151,6 +1160,8 @@ def readintfile(filename,dirs=[],sanitize=True):
             break # file was found, do not iterate over other directories
         except IOError:
             continue
+    if len(ret)==0:
+        print "readintfile: could not find file %s in given directories." % filename
     return ret
 def writeintfile(qs, ints, errs, header, areas=None, filetype='intnorm'):
     """Save 1D scattering data to intnorm files.

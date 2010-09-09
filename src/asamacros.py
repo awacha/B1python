@@ -240,8 +240,8 @@ def readxrdml(filename):
                 counter=1
             else:
                 if len(meas['twotheta'])==len(scan['twotheta']) and (meas['twotheta']-scan['twotheta']).sum()==0:
-                    meas['Intensity']+=scan['Intensity']
-                    meas['Error']+=scan['Error']**2
+                    meas['Intensity']=meas['Intensity']+scan['Intensity']
+                    meas['Error']=meas['Error']**2+scan['Error']**2
                     counter+=1
             meas['scans'].append(scan)
         meas['Intensity']/=counter
