@@ -813,9 +813,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
         fsn=[h['FSN'] for h in header if abs(h['Energy']-energies[l])<2]
         transm1=[h['Transm'] for h in params if abs(h['Energy']-energies[l])<2]
         print "    Transmission: mean=",np.mean(transm1),"std=",np.std(transm1)
-        pylab.plot(fsn,transm1,'-o',
-                  markerfacecolor=(1/(l+1),(len(energies)-l)/len(energies),0.6),
-                  linewidth=1)
+        pylab.plot(fsn,transm1,'-o',linewidth=1)
         pylab.ylabel('Transmission')
         pylab.xlabel('FSN')
         pylab.grid('on')
@@ -825,9 +823,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
         orix1=[h['BeamPosX'] for h in params if abs(h['Energy']-energies[l])<2]
         print "    BeamcenterX: mean=",np.mean(orix1),"std=",np.std(orix1)
-        pylab.plot(fsn,orix1,'-o',
-                  markerfacecolor=(1/(l+1),(len(energies)-l)/len(energies),0.6),
-                  linewidth=1)
+        pylab.plot(fsn,orix1,'-o',linewidth=1)
         pylab.ylabel('Position of beam center in X')
         pylab.xlabel('FSN')
         pylab.grid('on')
@@ -837,9 +833,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
         oriy1=[h['BeamPosY'] for h in params if abs(h['Energy']-energies[l])<2]
         print "    BeamcenterY: mean=",np.mean(oriy1),"std=",np.std(oriy1)
-        pylab.plot(fsn,oriy1,'-o',
-                  markerfacecolor=(1/(l+1),(len(energies)-l)/len(energies),0.6),
-                  linewidth=1)
+        pylab.plot(fsn,oriy1,'-o',linewidth=1)
         pylab.ylabel('Position of beam center in Y')
         pylab.xlabel('FSN')
         pylab.grid('on')
@@ -849,22 +843,20 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
         pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
         doris1=[h['Current1'] for h in header if abs(h['Energy']-energies[l])<2]
         print "    Doris current: mean=",np.mean(doris1),"std=",np.std(doris1)
-        pylab.plot(fsn,doris1,'o',
-                  markerfacecolor=(1/(l+1),(len(energies)-l)/len(energies),0.6),
-                  linewidth=1)
+        pylab.plot(fsn,doris1,'o',linewidth=1)
         pylab.ylabel('Doris current (mA)')
         pylab.xlabel('FSN')
         pylab.grid('on')
         legend4=legend4+['Energy (not calibrated) = %.1f eV\n Mean I = %.4f' % (energies[l],np.mean(doris1))]
         
     pylab.subplot(4,1,1)
-    pylab.legend(legend1,loc=(1.03,0))
+    pylab.legend(legend1,loc=(1.03,0),prop={'size':'small'})
     pylab.subplot(4,1,2)
-    pylab.legend(legend2,loc=(1.03,0))
+    pylab.legend(legend2,loc=(1.03,0),prop={'size':'small'})
     pylab.subplot(4,1,3)
-    pylab.legend(legend3,loc=(1.03,0))
+    pylab.legend(legend3,loc=(1.03,0),prop={'size':'small'})
     pylab.subplot(4,1,4)
-    pylab.legend(legend4,loc=(1.03,0))
+    pylab.legend(legend4,loc=(1.03,0),prop={'size':'small'})
     
 def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,return_error=False):
     """GUI tool for locating peaks by zooming on them

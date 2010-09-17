@@ -676,7 +676,9 @@ def readheader(filename,fsn=None,fileend=None,dirs=[]):
     """Reads header data from measurement files
     
     Inputs:
-        filename: the beginning of the filename, or the whole filename
+        filename: the beginning of the filename, or the whole filename, if fsn is None.
+            If fsn is not None but fileend is, filename should be a printf-style format string,
+            containing a single place to substitute the FSN number.
         fsn: the file sequence number or None if the whole filenam was supplied
             in filename. It can be a list as well.
         fileend: the end of the file. If it ends with .gz, then the file is
@@ -694,6 +696,10 @@ def readheader(filename,fsn=None,fileend=None,dirs=[]):
         or
         
         header=readheader('ORG00123.DAT')
+
+        or
+        
+        header=readheader('ORG%05d.DAT',123)
     """
     jusifaHC=12396.4 #Planck's constant times speed of light: incorrect
                      # constant in the old program on hasjusi1, which was
@@ -705,17 +711,26 @@ def readheader(filename,fsn=None,fileend=None,dirs=[]):
         dirs=['.']
     if fsn is None:
         names=[filename]
+    elif fileend is None:
+        try:
+            fsn[0]
+        except TypeError:
+            fsn=[fsn]
+        try:
+            names=[filename % x for x in fsn]
+        except TypeError:
+            raise UserError("If fileend is None in readheader(), filename should be a format string!")
     else:
-        if type(fsn)==types.ListType:
+        try:
             names=['%s%05d%s' % (filename,x,fileend ) for x in fsn]
-        else:
+        except:
             names=['%s%05d%s' % (filename,fsn,fileend)]
     headers=[]
     for name in names:
         filefound=False
         for d in dirs:
             try:
-                name1='%s%s%s' % (d,os.sep,name)
+                name1=os.path.join(d,name)
                 header={};
                 if name1.upper()[-3:]=='.GZ':
                     fid=gzip.GzipFile(name1,'rt');
@@ -779,7 +794,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
 
     Inputs:
         filename: the beginning of the filename, or the whole filename
-        fsn: the file sequence number or None if the whole filenam was supplied
+        files: the file sequence number or None if the whole filenam was supplied
             in filename. It is possible to give a list of fsns here.
         fileend: the end of the file.
         dirs [optional]: a list of directories to try
@@ -799,7 +814,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
     def readgabrieldata(filename,dirs):
         for d in dirs:
             try:
-                filename1='%s%s%s' %(d,os.sep,filename)
+                filename1=os.path.join(d,filename)
                 if filename1.upper()[-3:]=='.GZ':
                     fid=gzip.GzipFile(filename1,'rt')
                 else:
@@ -819,7 +834,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
     def readpilatus300kdata(filename,dirs):
         for d in dirs:
             try:
-                filename1='%s%s%s' % (d,os.sep,filename)
+                filename1=os.path.join(d,filename)
                 fid=open(filename1,'rb');
                 datastr=fid.read();
                 fid.close();
@@ -835,8 +850,11 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
         dirs=['.']
     if fileend is None:
         fileend=filename[string.rfind(filename,'.'):]
-    if (files is not None) and (type(files)!=types.ListType):
-        files=[files];
+    if (files is not None):
+        try:
+            len(files)
+        except:
+            files=[files];
     if fileend.upper()=='.HEADER':
         fileend='.TIF'
     if fileend.upper()=='.TIF' or fileend.upper()=='.TIFF': # pilatus300k mode
@@ -941,7 +959,7 @@ def read2dintfile(fsns,dirs=[],norm=True):
         dirs: list of directories to try
         norm: True if int2dnorm*.mat file is to be loaded, False if
             int2darb*.mat is preferred. You can even supply the file prefix
-            as a string.
+            itself.
         
     Output:
         a list of 2d intensity matrices

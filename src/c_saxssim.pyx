@@ -1087,3 +1087,117 @@ def ddistgrf(double a, double b, double c, np.ndarray[np.double_t, ndim=2] grf n
     print "Number of secondvacuum steps: ",counter_secondvacuum,",",counter_secondvacuum/<double>counter_alltries*100,"%."
     print "Number of outside steps: ",counter_outsided
     return result
+
+def charfuncgrf(double R0, np.ndarray[np.double_t, ndim=2] grf not None,
+                clip, np.ndarray[np.double_t,ndim=1] r not None,
+                Py_ssize_t NMC,Py_ssize_t printevery=10000):
+    """Calculate the characteristic function gamma_0(r) for a Gaussian Random Field confined in a rectangular box.
+    
+    Inputs:
+        R0: radius of the sphere inside which the first point will be sampled
+        grf: grf array. Each row corresponds to a wave. The columns are
+            interpreted as amplitude, wavevector_x, wavevector_y, wavevector_z,
+            phi.
+        clip: Clipping threshold. GRF values below this are considered as "solid",
+            above this "vacuum". If None, no clipping is performed.
+        r: vector of the values for r
+        NMC: number of Monte-Carlo steps
+        printevery: print a message after every <printevery>-th run
+    
+    Outputs:
+        a vector, of the same size as d. Normalized that its integral with respect
+            to d is the square of the volume of the particle
+    """
+    cdef Py_ssize_t i,j,lend,k
+    cdef double xa,ya,za,xb,yb,zb
+    cdef double d1
+    cdef double *myd
+    cdef double *myresult
+    cdef np.ndarray[np.double_t, ndim=1] result
+    cdef double *myA
+    cdef double *mykx
+    cdef double *myky
+    cdef double *mykz
+    cdef double *myphi
+    cdef Py_ssize_t Nwaves
+    cdef double grfvala,grfvalb
+    cdef int doclip
+    cdef double myclip
+    cdef Py_ssize_t counter_firstvacuum
+    cdef Py_ssize_t counter_alltries
+    cdef Coordtype coord
+    if clip is None:
+        doclip=False
+        myclip=0
+    else:
+        doclip=True
+        myclip=<double>clip
+    
+    lend=len(r)
+    Nwaves=grf.shape[0]
+    result=np.zeros(lend,dtype=np.double)
+    myd=<double*>malloc(sizeof(double)*lend)
+    myresult=<double*>malloc(sizeof(double)*lend)
+    myA=<double*>malloc(sizeof(double)*Nwaves)
+    mykx=<double*>malloc(sizeof(double)*Nwaves)
+    myky=<double*>malloc(sizeof(double)*Nwaves)
+    mykz=<double*>malloc(sizeof(double)*Nwaves)
+    myphi=<double*>malloc(sizeof(double)*Nwaves)
+    
+    for i from 0<=i<lend:
+        myd[i]=r[i]
+        myresult[i]=0
+
+    for i from 0<=i<Nwaves:
+        myA[i]=grf[i,0]
+        mykx[i]=grf[i,1]
+        myky[i]=grf[i,2]
+        mykz[i]=grf[i,3]
+        myphi[i]=grf[i,4]
+    
+    for j from 0<=j<lend:
+        counter_firstvacuum=0
+        counter_alltries=0
+        for i from 0<=i<NMC:
+            if counter_alltries%printevery==0:
+                print "Starting the %d. Monte Carlo step, r=%f (%d/%d)" % (counter_alltries+1,myd[j],j+1,lend)
+            counter_alltries+=1
+            coord=unidirC()
+            d1=rand()/<double>RAND_MAX*R0
+            xa=coord.x*d1
+            ya=coord.y*d1
+            za=coord.z*d1
+            grfvala=0
+            for k from 0<=k<Nwaves:
+                grfvala+=myA[k]*sin(mykx[k]*xa+myky[k]*ya+mykz[k]*za+myphi[k])
+            if doclip:
+                grfvala=(grfvala<=myclip) # zero if above, one if below.
+                if grfvala<=0:
+                    counter_firstvacuum+=1
+                    i-=1
+                    continue
+            coord=unidirC()
+            xb=myd[j]*coord.x
+            yb=myd[j]*coord.y
+            zb=myd[j]*coord.z
+            grfvalb=0
+            for k from 0<=k<Nwaves:
+                grfvalb+=myA[k]*sin(mykx[k]*xb+myky[k]*yb+mykz[k]*zb+myphi[k])
+            if doclip:
+                grfvalb=(grfvalb<=myclip) # zero if above, one if below.
+            myresult[j]+=grfvala*grfvalb
+        print "Number of MC steps: ",NMC
+        print "Clipping: ",myclip
+        print "Number of done MC steps: ",counter_alltries,",",counter_alltries/<double>NMC*100-100,"% more."
+        print "Number of firstvacuum steps: ",counter_firstvacuum,",",counter_firstvacuum/<double>counter_alltries*100,"%."
+    #now normalize by the bin width and the number of MC steps, then multiply by the square of the volume
+    for i from 0<=i<lend:
+        result[i]=myresult[i]
+    free(myd)
+    free(myresult)
+    free(myA)
+    free(mykx)
+    free(myky)
+    free(mykz)
+    free(myphi)
+    return result
