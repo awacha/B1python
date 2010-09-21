@@ -4,7 +4,7 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
-VERSION='0.4.7'
+VERSION='0.4.8'
 
 try:
     f=open('src/__init__.py','rt')
@@ -45,6 +45,6 @@ setup(name='B1python',version=VERSION, author='Andras Wacha',
       package_data={'B1python': ['calibrationfiles/*']},
       cmdclass = {'build_ext': build_ext},
       ext_modules = ext_modules,
-      scripts = ['src/ASAXSE']
+      scripts = ['src/B1guitool.py']
       )
       

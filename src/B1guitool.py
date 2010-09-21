@@ -9,22 +9,21 @@ import numpy as np
 import os
 import scipy.io
 
-#default_inputdirs='/home/andris/kutatas/desy/0921Bota; /home/andris/kutatas/desy/0921Bota/data1; /home/andris/kutatas/desy/0921Bota/processing'
-default_inputdirs=r'r:\misc\jusifa\Projekte\2010\0420Bota; r:\misc\jusifa\Projekte\2010\0420Bota\data1; r:\misc\jusifa\Projekte\2010\0420Bota\eval1; r:\misc\jusifa\Projekte\2010\0420Bota\processing'
+default_inputdirs='/home/andris/kutatas/desy/0921Bota; /home/andris/kutatas/desy/0921Bota/data1; /home/andris/kutatas/desy/0921Bota/processing'
+#default_inputdirs=r'r:\misc\jusifa\Projekte\2010\0420Bota; r:\misc\jusifa\Projekte\2010\0420Bota\data1; r:\misc\jusifa\Projekte\2010\0420Bota\eval1; r:\misc\jusifa\Projekte\2010\0420Bota\processing'
 default_outputdir='.'
 default_mask='mask.mat'
-
 class MainWindow:
     def __init__(self,master):
         master.protocol("WM_DELETE_WINDOW",self.quit)
         self.figure=pylab.figure()
         self.figurenum=self.figure.number
-        self.figure.canvas.manager.window.protocol("WM_DELETE_WINDOW",self.figure.canvas.manager.window.withdraw)
+        #self.figure.canvas.manager.window.protocol("WM_DELETE_WINDOW",self.figure.canvas.manager.window.withdraw)
         self.master=master
         frame=Tkinter.Frame(master)
         frame.columnconfigure(1,weight=1)
         frame.pack()
-        master.wm_title('ASAXSE: Attila\'s Simple Application for X-ray Scattering Evaluation')
+        master.wm_title('B1guitool powered by B1python v%s'%B1python.VERSION)
         Tkinter.Label(frame,text='Input directories (separated by semicolons)').grid(row=0,column=0,sticky='NSW')
         self.inputdirs=Tkinter.Entry(frame)
         self.inputdirs.grid(row=0,column=1,sticky='NSEW')
@@ -250,11 +249,17 @@ class MainWindow:
                 self.Nq.delete(0,Tkinter.END)
                 self.Nq.insert(0,'%.8f' % Nq)
                 self.Nq['state']='disabled'
-                
+            phi0=None
+            dphi=None
+            if self.phi0manual.get():
+                phi0=float(self.phi0.get())*np.pi/180.0
+            if self.dphimanual.get():
+                dphi=float(self.dphi.get())*np.pi/180.0
             qrange=np.linspace(qmin,qmax,Nq)
             self.logger('Integration starting...',"INFO")
             t0=time.time()
-            q,I,E,A=B1python.radintC(data[0],dataerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],param[0]['PixelSize'],param[0]['BeamPosX'],param[0]['BeamPosY'],1-mask,qrange)
+            q,I,E,A,maskout=B1python.radintC(data[0],dataerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],param[0]['PixelSize'],param[0]['BeamPosX'],param[0]['BeamPosY'],1-mask,qrange,phi0=phi0,dphi=dphi,returnmask=True)
+            maskout=1-maskout
             self.currentdataset={'q':q,'Intensity':I,'Error':E,'Area':A}
             self.currentparam=param[0]
             self.logger('Integration finished in %.2f seconds'%(time.time()-t0),"INFO")

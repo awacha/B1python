@@ -472,7 +472,7 @@ def guiniercrosssectionfit(data,qmin=-np.inf,qmax=np.inf,testimage=False,smearin
         pylab.plot(data1['q']**2,Rgcs*data1['q']**2+Gcs,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q\ln I$')
-        a=pylab.axis()
+        #a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
                    'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f\n%f<=q<=%f' %(np.sqrt(-Rgcs*2),1/np.sqrt(-Rgcs)*dRgcs,Gcs,dGcs,np.sqrt(-Rgcs*2)*data1['q'].max(),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
@@ -506,7 +506,7 @@ def guinierthicknessfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.plot(data1['q']**2,Rgt*data1['q']**2+Gt,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('$q^2\ln I$')
-        a=pylab.axis()
+        #a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
                    'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f\n%f<=q<=%f' %(np.sqrt(-Rgt),0.5/np.sqrt(-Rgt)*dRgt,Gt,dGt,np.sqrt(-Rgt)*data1['q'].max(),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
@@ -540,7 +540,7 @@ def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.plot(data1['q']**2,Rg*data1['q']**2+G,'-',color='red');
         pylab.xlabel('$q^2$ (1/%c$^2$)' % 197)
         pylab.ylabel('ln I');
-        a=pylab.axis()
+        #a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
                    'Guinier radius: %f +/- %f\nFactor: %f +/- %f\nRg*q_max: %f\n%f<=q<=%f' %(np.sqrt(-Rg*3),1.5/np.sqrt(-Rg*3)*dRg,G,dG,np.sqrt(-Rg*3)*data1['q'].max(),data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
@@ -574,7 +574,7 @@ def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.plot(data1['q']**4,a*data1['q']**4+b,'-',color='red');
         pylab.xlabel('$q^4$ (1/%c$^4$)' % 197)
         pylab.ylabel('I$q^4$');
-        a=pylab.axis()
+        #a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
                    'Constant background: %f +/- %f\nPorod coefficient: %f +/- %f\n%f<=q<=%f' %(a,b,aerr,berr,data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
@@ -612,7 +612,7 @@ def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.loglog(data1['q'],np.exp(b)*pow(data1['q'],a),'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
-        a=pylab.axis()
+        #a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
                    'Exponent: %f +/- %f\nCoefficient: %f +/- %f\n%f<=q<=%f' %(xp,dxp,coeff,dcoeff,data1['q'].min(),data1['q'].max()),ha='right',va='top',transform=pylab.gca().transAxes)
@@ -657,7 +657,7 @@ def powerfitwithlinearbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.loglog(data1['q'],res[0][1]*pow(data1['q'],res[0][0])+res[0][2]+data1['q']*res[0][3],'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
-        a=pylab.axis()
+        #a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
                    'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f\nLinear term: %f +/- %f\n%f<=q<=%f' %(res[0][0],np.sqrt(res[1][0][0]),\
@@ -702,7 +702,7 @@ def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         pylab.loglog(data1['q'],res[0][1]*pow(data1['q'],res[0][0])+res[0][2],'-',color='red');
         pylab.xlabel('$q$ (1/%c)' % 197)
         pylab.ylabel('I');
-        a=pylab.axis()
+        #a=pylab.axis()
         pylab.text(fitting_testimage_horizpos,\
                    fitting_testimage_vertpos,
                    'Exponent: %f +/- %f\nCoefficient: %f +/- %f\nConstant background: %f +/- %f\n%f<=q<=%f' %(res[0][0],np.sqrt(res[1][0][0]),\
