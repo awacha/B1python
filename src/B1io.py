@@ -107,7 +107,7 @@ def readcbf(name):
             print "dim1*dim2 is",dim1*dim2
             raise ValueError, "Binary data does not have enough points."
         return output.reshape((dim2,dim1))
-    f=open(name)
+    f=open(name,'rb')
     cbfbin=f.read()
     f.close()
     datastart=cbfbin.find('%c%c%c%c'%(12,26,4,213))+4
