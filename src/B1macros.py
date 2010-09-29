@@ -36,6 +36,7 @@ import time
 import fitting
 import scipy.io
 import re
+import warnings
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
@@ -1354,6 +1355,20 @@ def B1integrate(fsn1,fsndc,sens,errorsens,orifsn,mask,energymeas,energycalib,dis
         utils.pause()
     return qs,ints,errs,Areas,As,Aerrs,headerout
 def geomcorrectiontheta(tth,dist):
+    """Create matrix to correct scattered intensity for spatial angle.
+    
+    Inputs:
+        tth: two-theta values, in a matrix
+        dist: sample-to-detector distance
+    
+    Output:
+        correction matrix (dist**2/cos(tth)**3).
+        
+    Notes:
+        this value corresponds to the spatial angle covered by each pixel.
+        
+        
+    """
     return dist**2/(np.cos(tth)**3)
 def absorptionangledependenttth(tth,transm,diffaswell=False):
     """Create matrix for correction by angle-dependent X-ray absorption
@@ -1413,22 +1428,19 @@ def gasabsorptioncorrectiontheta(energycalibrated,tth,components=None):
     #   'name': name of the component (just for reference)
     #   'thick': thickness in mm
     #   'data': data file to find the transmission data.
-    components=[{'name':'detector gas area','thick':50,'data':'TransmissionAr910Torr1mm298K.dat'},
-                {'name':'air gap','thick':50,'data':'TransmissionAir760Torr1mm298K.dat'},
-                {'name':'detector window','thick':0.1,'data':'TransmissionBe1mm.dat'},
-                {'name':'flight tube window','thick':0.15,'data':'TransmissionPolyimide1mm.dat'}]
+    if components is None:
+        warnings.warn('gasabsorptioncorrectiontheta(): argument <components> was not defined, using default values for B1@DORISIII in Hasylab, Gabriel detector!')
+        components=[{'name':'detector gas area','thick':50,'data':'TransmissionAr910Torr1mm298K.dat'},
+                    {'name':'air gap','thick':50,'data':'TransmissionAir760Torr1mm298K.dat'},
+                    {'name':'detector window','thick':0.1,'data':'TransmissionBe1mm.dat'},
+                    {'name':'flight tube window','thick':0.15,'data':'TransmissionPolyimide1mm.dat'}]
     cor=np.ones(tth.shape)
     for c in components:
-        c['travel']=c['thick']/np.cos(tth)
+        c['travel']=c['thick']/np.cos(tth) # the travel length in the current component
         spam=np.loadtxt("%s%s%s" % (_B1config['calibdir'],os.sep,c['data']))
-        if energycalibrated<spam[:,0].min():
-            tr=spam[0,1]
-        elif energycalibrated>spam[:,0].max():
-            tr=spam[0,-1]
-        else:
-            tr=np.interp(energycalibrated,spam[:,0],spam[:,1])
-        c['mu']=-np.log(tr) # in 1/mm
-        cor=cor/np.exp(-c['travel']*c['mu'])
+        tr=np.interp(energycalibrated,spam[:,0],spam[:,1],left=spam[0,1],right=spam[0,-1])
+        c['mu']=np.log(tr) # minus mu, d=1, in 1/mm
+        cor=cor/np.exp(c['travel']*c['mu'])
     return cor
 def subtractbg(data,header,fsndc,sens,senserr,transm=None,oldversion=False):
     """Subtract dark current and empty beam from the measurements and
@@ -2368,3 +2380,26 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         unifsn=min(min(ps1['FSNs']),min(ps2['FSNs']))
         B1io.write1dsasdict(datacomb,'united%d.dat' % unifsn)
         print "File saved with FSN:",unifsn
+
+def maskpilatusgaps(rownum,colnum,horizmodule=487,horizgap=7,vertmodule=195,vertgap=17):
+    """Create a mask matrix which covers the gaps of a Pilatus detector.
+    
+    Inputs:
+        rownum: number of rows
+        colnum: number of columns
+        horizmodule (default 487): width of each module, in pixels
+        horizgap (default 7): width of the gaps between modules, in pixels
+        vertmodule (default 195): height of each module, in pixels
+        vertgap (default 17): height of the gap between modules, in pixels
+        
+    Outputs:
+        the mask matrix, a two-dimensional numpy array, dtype is uint8, masked
+        areas are 0-ed out. Unmasked is 1.
+        
+    """
+    mask=np.ones((rownum,colnum),np.uint8)
+    col,row=np.meshgrid(range(colnum),range(rownum))
+    mask[col % (horizmodule+horizgap) >=horizmodule]=0
+    mask[row % (vertmodule+vertgap) >=vertmodule]=0
+    return mask
+    

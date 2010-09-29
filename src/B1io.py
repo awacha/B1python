@@ -34,6 +34,93 @@ import string
 import scipy.io
 import utils
 import re
+import warnings
+from c_B1io import *
+try:
+    import Image
+except ImportError:
+    warnings.warn('Cannot import module Image (Python Imaging Library). Only Pilatus300k and Gabriel images can be loaded (Pilatus100k, 1M etc. NOT).')
+
+
+def readcbf(name):
+    """Read a cbf (crystallographic binary format) file from a Dectris Pilatus detector.
+    
+    Inputs:
+        name: filename
+    
+    Output:
+        a numpy array of the scattering data
+        
+    Notes:
+        currently only Little endian, "signed 32-bit integer" type and byte-offset compressed data
+        are accepted.
+    """
+    def getvaluefromheader(header,caption,separator=':'):
+        tmp=[x.split(separator)[1].strip() for x in header if x.startswith(caption)]
+        if len(tmp)==0:
+            raise ValueError ('Caption %s not present in CBF header!'%caption)
+        else:
+            return tmp[0]
+    def cbfdecompress_old(data,dim1,dim2):
+        index_input=0
+        index_output=0
+        value_current=0
+        value_diff=0
+        nbytes=len(data)
+        output=np.zeros((dim1*dim2),np.double)
+        while(index_input < nbytes):
+            value_diff=ord(data[index_input])
+            index_input+=1
+            if value_diff !=0x80:
+                if value_diff>=0x80:
+                    value_diff=value_diff -0x100
+            else: 
+                if not ((ord(data[index_input])==0x00 ) and 
+                    (ord(data[index_input+1])==0x80)):
+                    value_diff=ord(data[index_input])+\
+                                0x100*ord(data[index_input+1])
+                    if value_diff >=0x8000:
+                        value_diff=value_diff-0x10000
+                    index_input+=2
+                else:
+                    index_input+=2
+                    value_diff=ord(data[index_input])+\
+                               0x100*ord(data[index_input+1])+\
+                               0x10000*ord(data[index_input+2])+\
+                               0x1000000*ord(data[index_input+3])
+                    if value_diff>=0x80000000L:
+                        value_diff=value_diff-0x100000000L
+                    index_input+=4
+            value_current+=value_diff
+#            print index_output
+            try:
+                output[index_output]=value_current
+            except IndexError:
+                print "End of output array. Remaining input bytes:", len(data)-index_input
+                print "remaining buffer:",data[index_input:]
+                break
+            index_output+=1
+        if index_output != dim1*dim2:
+            print "index_output is ",index_output-1
+            print "dim1 is",dim1
+            print "dim2 is",dim2
+            print "dim1*dim2 is",dim1*dim2
+            raise ValueError, "Binary data does not have enough points."
+        return output.reshape((dim2,dim1))
+    f=open(name)
+    cbfbin=f.read()
+    f.close()
+    datastart=cbfbin.find('%c%c%c%c'%(12,26,4,213))+4
+    header=[x.strip() for x in cbfbin[:datastart].split('\n')]
+    if getvaluefromheader(header,'X-Binary-Element-Type')!='"signed 32-bit integer"':
+        raise NotImplementedError('element type is not "signed 32-bit integer" in CBF, but %s.' % getvaluefromheader(header,'X-Binary-Element-Type'))
+    if getvaluefromheader(header,'conversions','=')!='"x-CBF_BYTE_OFFSET"':
+        raise NotImplementedError('compression is not "x-CBF_BYTE_OFFSET" in CBF!')
+    dim1=long(getvaluefromheader(header,'X-Binary-Size-Fastest-Dimension'))
+    dim2=long(getvaluefromheader(header,'X-Binary-Size-Second-Dimension'))
+    nbytes=long(getvaluefromheader(header,'X-Binary-Size'))
+    return cbfdecompress(cbfbin[datastart:datastart+nbytes],dim1,dim2)
+
 
 def normintBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qphirange=None,center_override=None,inttype='radial',int_aux=None,save_with_extension=None,noplot=False):
     """Normalize Bessy data according to glassy carbon measurements
@@ -807,7 +894,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
         Read FSN 123-130:
         a) measurements with the Gabriel detector:
         data,header=read2dB1data('ORG',range(123,131),'.DAT')
-        b) measurements with the Pilatus300k detector:
+        b) measurements with a Pilatus* detector:
         #in this case the org_*.header files should be present in the same folder
         data,header=read2dB1data('org_',range(123,131),'.tif')
     """
@@ -831,7 +918,26 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
                 pass
         print 'Cannot find file %s. Tried directories:' % filename,dirs
         return None
-    def readpilatus300kdata(filename,dirs):
+    def readpilatusdata(filename,dirs):
+        for d in dirs:
+            try:
+                filename1=os.path.join(d,filename)
+                im=Image.open(filename1)
+                data=np.array(im.getdata(),'uint32').reshape(np.flipud(im.size))
+                oldloader=False
+                return data
+            except IOError:
+                pass
+            except NameError:
+                warnings.warn('Advanced loading of Pilatus images is disabled, since module Image (Python Imaging Library) is unavailable.')
+                oldloader=True
+        if oldloader:
+            return readpilatus300kdata(filename,dirs)
+        else:
+            print 'Cannot find file %s. Make sure the path is correct.' % filename
+            return None
+            
+    def readpilatus300kdata(filename,dirs): # should work for other detectors as well
         for d in dirs:
             try:
                 filename1=os.path.join(d,filename)
@@ -861,22 +967,22 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
         filebegin=filename[:string.rfind(filename,'.')]
         if files is None:
             header=readheader(filebegin+'.header',dirs=dirs)
-            data=readpilatus300kdata(filename,dirs=dirs)
+            data=readpilatusdata(filename,dirs=dirs)
             if (len(header)<1) or (data is None):
                 return [],[]
             else:
                 header=header[0]
-                header['Detector']='Pilatus300k'
+                header['Detector']='Pilatus'
                 return [data],[header]
         else:
             header=[];
             data=[];
             for fsn in files:
                 tmp1=readheader('%s%05d%s' %(filename,fsn,'.header'),dirs=dirs)
-                tmp2=readpilatus300kdata('%s%05d%s'%(filename,fsn,fileend),dirs=dirs)
+                tmp2=readpilatusdata('%s%05d%s'%(filename,fsn,fileend),dirs=dirs)
                 if (len(tmp1)>0) and (tmp2 is not None):
                     tmp1=tmp1[0]
-                    tmp1['Detector']='Pilatus300k'
+                    tmp1['Detector']='Pilatus'
                     header.append(tmp1)
                     data.append(tmp2)
             return data,header
@@ -920,9 +1026,9 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
     """
     if type(files) is not types.ListType:
         files=[files]
-    if showtitles =='Gabriel':
+    if showtitles.upper().startswith('GABRIEL'):
         print 'FSN\tTime\tEnergy\tDist\tPos\tTransm\tSum/Tot %\tT (C)\tTitle\t\t\tDate'
-    elif showtitles=='Pilatus300k':
+    elif showtitles.upper().startswith('PILATUS'):
         print 'FSN\tTime\tEnergy\tDist\tPos\tTransm\tTitle\t\t\tDate'
         fileend='.tif'
     else:

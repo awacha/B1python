@@ -687,6 +687,7 @@ def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     x1=data1['q'];
     err1=data1['Error'];
     y1=data1['Intensity'];
+    costfunc=lambda p,x,y,err:(y-x**p[0]*p[1]-p[2])/err
     def costfunc(p,x,y,err):
         res= (y-x**p[0]*p[1]-p[2])/err
         return res

@@ -104,14 +104,16 @@ def readxrdml(filename):
             meas['incidentbeampath']['sollerslit'][i]=sollerslit.attributes[i].nodeValue
         for i in [c for c in sollerslit.childNodes if not c.nodeName.startswith('#')]:
             meas['incidentbeampath']['sollerslit'][i.nodeName]=i.firstChild.nodeValue
-
-        mask=incidentbeampath.getElementsByTagName('mask')[0]
+        
         meas['incidentbeampath']['mask']={}
-        for i in mask.attributes.keys():
-            meas['incidentbeampath']['mask'][i]=mask.attributes[i].nodeValue
-        for i in [c for c in mask.childNodes if not c.nodeName.startswith('#')]:
-            meas['incidentbeampath']['mask'][i.nodeName]=i.firstChild.nodeValue
-
+        try:
+            mask=incidentbeampath.getElementsByTagName('mask')[0]
+            for i in mask.attributes.keys():
+                meas['incidentbeampath']['mask'][i]=mask.attributes[i].nodeValue
+            for i in [c for c in mask.childNodes if not c.nodeName.startswith('#')]:
+                meas['incidentbeampath']['mask'][i.nodeName]=i.firstChild.nodeValue
+        except:
+            pass
 
         meas['diffractedbeampath']={}
         meas['diffractedbeampath']['radius']=float(diffractedbeampath.getElementsByTagName('radius')[0].firstChild.nodeValue)

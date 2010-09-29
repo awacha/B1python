@@ -501,3 +501,35 @@ def calculate2dfrom1d(q,I,Nx,Ny,bcx,bcy,dist,energy,pixelsize,noise=False):
         else:
             A=A*(1+(np.random.random(A.shape)*2-1)*noise)
     return A
+def calculatetwothetamatrix(mat,dist,res,bcx,bcy):
+    """Calculate two-theta values for detector pixels
+    
+    Inputs:
+        mat: scattering image (or mask) matrix, only its shape is needed
+        dist: sample-detector distance, in mm.
+        res: pixel size (mm)
+        bcx, bcy: beam positions (row, column) in pixel coordinates,
+            counting starts from 1.
+    
+    Output:
+        a matrix of the same shape as mat, containing twotheta values for
+            the pixels.
+    """
+    return np.arctan(calculateDmatrix(mat,res,bcx,bcy)/dist)
+def calculateqmatrix(mat,dist,energy,res,bcx,bcy):
+    """Calculate q values for detector pixels
+    
+    Inputs:
+        mat: scattering image (or mask) matrix, only its shape is needed
+        energy: true (calibrated) photon energy
+        dist: sample-detector distance, in mm.
+        res: pixel size (mm)
+        bcx, bcy: beam positions (row, column) in pixel coordinates,
+            counting starts from 1.
+    
+    Output:
+        a matrix of the same shape as mat, containing q values for the
+            individual pixels.
+    """
+    return 4*np.pi*np.sin(0.5*np.arctan(calculateDmatrix(mat,res,bcx,bcy)/dist))*energy/HC
+    
