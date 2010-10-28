@@ -918,15 +918,21 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
                 pass
         print 'Cannot find file %s. Tried directories:' % filename,dirs
         return None
-    def readpilatusdata(filename,dirs):
+    def readpilatusdata(filename,dirs,useCBF=False):
+        oldloader=False
         for d in dirs:
             try:
+                if useCBF:
+                    data=readcbf(os.path.join(d,filename))
+                    return data
+                oldloader=False
                 filename1=os.path.join(d,filename)
                 im=Image.open(filename1)
                 data=np.array(im.getdata(),'uint32').reshape(np.flipud(im.size))
                 oldloader=False
                 return data
             except IOError:
+                print "Tried file %s with no luck" % os.path.join(d,filename)
                 pass
             except NameError:
                 warnings.warn('Advanced loading of Pilatus images is disabled, since module Image (Python Imaging Library) is unavailable.')
@@ -963,11 +969,16 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
             files=[files];
     if fileend.upper()=='.HEADER':
         fileend='.TIF'
-    if fileend.upper()=='.TIF' or fileend.upper()=='.TIFF': # pilatus300k mode
+    if fileend.upper()=='.CBF':
+        useCBF=True
+    else:
+        useCBF=False
+    
+    if fileend.upper()=='.TIF' or fileend.upper()=='.TIFF' or useCBF: # pilatus300k mode
         filebegin=filename[:string.rfind(filename,'.')]
         if files is None:
             header=readheader(filebegin+'.header',dirs=dirs)
-            data=readpilatusdata(filename,dirs=dirs)
+            data=readpilatusdata(filename,dirs=dirs,useCBF=useCBF)
             if (len(header)<1) or (data is None):
                 return [],[]
             else:
@@ -979,7 +990,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
             data=[];
             for fsn in files:
                 tmp1=readheader('%s%05d%s' %(filename,fsn,'.header'),dirs=dirs)
-                tmp2=readpilatusdata('%s%05d%s'%(filename,fsn,fileend),dirs=dirs)
+                tmp2=readpilatusdata('%s%05d%s'%(filename,fsn,fileend),dirs=dirs,useCBF=useCBF)
                 if (len(tmp1)>0) and (tmp2 is not None):
                     tmp1=tmp1[0]
                     tmp1['Detector']='Pilatus'
@@ -1030,7 +1041,8 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
         print 'FSN\tTime\tEnergy\tDist\tPos\tTransm\tSum/Tot %\tT (C)\tTitle\t\t\tDate'
     elif showtitles.upper().startswith('PILATUS'):
         print 'FSN\tTime\tEnergy\tDist\tPos\tTransm\tTitle\t\t\tDate'
-        fileend='.tif'
+        if fileend.upper()=='.HEADER':
+            fileend='.tif'
     else:
         pass #do not print header
     for i in files:
@@ -1505,14 +1517,14 @@ def readlogfile(fsn,dirs=[],norm=True):
             print 'Cannot find file %s in any of the given directories.' % filebasename
     return params;
 def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
-                 thickGC,injectionGC,injectionEB,pixelsize,mode='Pilatus300k',norm=True):
+                 thickGC,injectionGC,injectionEB,pixelsize,mode='Pilatus',norm=True):
     """Write logfiles.
     
     Inputs:
         header: header structure as read by readheader()
         ori: origin vector of 2
         thick: thickness of the sample (cm)
-        dc: if mode=='Pilatus300k' then this is the DC level which is subtracted.
+        dc: if mode=='Pilatus' then this is the DC level which is subtracted.
             Otherwise it is the dark current FSN.
         realenergy: calibrated energy (eV)
         distance: sample-to-detector distance (mm)
@@ -1524,7 +1536,7 @@ def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
             'y' or True. Otherwise 'n' or False
         injectionEB: the same as injectionGC but for empty beam and sample.
         pixelsize: the size of the pixel of the 2D detector (mm)
-        mode: 'Pilatus300k' or 'Gabriel'. If invalid, it defaults to 'Gabriel'
+        mode: 'Pilatus' or 'Gabriel'. If invalid, it defaults to 'Gabriel'
         norm: if the normalization went good. If failed, intarb*.dat will be saved.
     Output:
         a file intnorm<fsn>.log is saved to the current directory
@@ -1554,7 +1566,7 @@ def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
     fid.write('Temperature:\t%.2f\n' % header['Temperature'])
     fid.write('Measurement time (sec):\t%.2f\n' % header['MeasTime'])
     fid.write('Scattering on 2D detector (photons/sec):\t%.1f\n' % (header['Anode']/header['MeasTime']))
-    if mode=='Pilatus300k':
+    if mode.upper().startswith('PILATUS'):
         fid.write('Dark current subtracted (cps):\t%d\n' % dc)
     else:
         fid.write('Dark current FSN:\t%d\n' % dc)

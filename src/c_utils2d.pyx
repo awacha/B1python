@@ -151,13 +151,17 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     cdef double g,w1
     cdef double symmetric_sector_periodicity
     cdef double sinphi0,cosphi0
-   
+    cdef double bcxa, bcya
+    
     if type(res)!=type([]) and type(res)!=type(()) and type(res)!=np.ndarray:
         res=[res,res];
     if len(res)==1:
         res=[res[0], res[0]]
     if len(res)>2:
         raise ValueError('res should be a scalar or a nonempty vector of length<=2')
+    
+    bcxa=bcx-1
+    bcya=bcy-1
     
     xres=res[0]
     yres=res[1]
@@ -212,8 +216,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             for iy from 0<=iy<N:
                 if mask[ix,iy]:
                     continue
-                x=((ix-bcx)*xres)
-                y=((iy-bcy)*yres)
+                x=((ix-bcxa)*xres)
+                y=((iy-bcya)*yres)
                 q1=4*M_PI*sin(0.5*atan(sqrt(x*x+y*y)/distance))*energy/HC
                 if (qmax1==0):
                     qmax1=q1
@@ -264,11 +268,11 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 zeroerror+=1
             if not (isfinite(data[ix,iy]) and isfinite(dataerr[ix,iy])):
                 continue
-            x=((ix-bcx)*xres)
-            y=((iy-bcy)*yres)
+            x=((ix-bcxa)*xres)
+            y=((iy-bcya)*yres)
             if sectorint:
                 if sliceorsector:
-                    if fabs(sinphi0*(ix-bcx)-cosphi0*(iy-bcy))>dphia:
+                    if fabs(sinphi0*(ix-bcxa)-cosphi0*(iy-bcya))>dphia:
                         continue
                 else:
                     phi=atan2(y,x)
@@ -304,7 +308,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 #      different weight.
                 qout[l]+=q1*w1
                 Intensity[l]+=data[ix,iy]*w1
-                Error[l]+=dataerr[ix,iy]**2*w1
+                Error[l]+=dataerr[ix,iy]**2*w1**2
                 Area[l]+=1
                 weight[l]+=w1
                 if returnmask:
@@ -324,8 +328,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             else:
                 qout[l]/=weight[l]
                 Intensity[l]/=weight[l]
-                Error[l]/=weight[l]
                 Error[l]=sqrt(Error[l])
+                Error[l]/=weight[l]
     if fuzzy_FWHM<=0:
         free(qmax)
     free(weight)
@@ -647,3 +651,43 @@ def bin2D(np.ndarray[np.double_t, ndim=2] M, Py_ssize_t xlen, Py_ssize_t ylen):
                     N[i,j]+=M[i*xlen+i1,j*ylen+j1]
     return N/(xlen*ylen)
  
+def calculateDmatrix(np.ndarray[np.uint8_t, ndim=2] mask,res,double bcx,double bcy):
+    """Calculate distances of pixels from the origin
+    
+    Inputs:
+        mask: mask matrix (only its shape is used)
+        res: pixel size in mm-s. Can be a vector of length 2 or a scalar
+        bcx: Beam center in pixels, in the row direction, starting from 1
+        bcy: Beam center in pixels, in the column direction, starting from 1
+        
+    Output:
+        A matrix of the shape of <mask>. Each element contains the distance
+        of the centers of the pixels from the origin (bcx,bcy), expressed in
+        mm-s.
+    """
+    cdef np.ndarray[np.double_t, ndim=2] D
+    cdef Py_ssize_t i
+    cdef Py_ssize_t j
+    cdef double res0
+    cdef double res1
+    cdef Py_ssize_t N
+    cdef Py_ssize_t M
+    cdef double bcxd
+    cdef double bcyd
+    if type(res)!=type([]) and type(res)!=type(tuple()):
+        res0=res;
+        res1=res;
+    elif len(res)!=2:
+        raise ValueError,'Argument <res> should either be a number, or a list of two.'
+    else:
+        res0=res[0]
+        res1=res[1]
+    bcxd=bcx;
+    bcyd=bcy;
+    M=mask.shape[0]
+    N=mask.shape[1]
+    D=np.zeros((mask.shape[0],mask.shape[1]))
+    for i from 0<=i<M:
+        for j from 0<=j<N:
+            D[i,j]=sqrt((res0*(i-bcx+1))**2+(res1*(j-bcy+1))**2)
+    return D

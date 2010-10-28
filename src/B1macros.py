@@ -1864,7 +1864,7 @@ def scalewaxs(fsns,mask2d,dirs):
         pylab.ylabel('Scattering cross-section (1/cm)')
         pylab.savefig('scalewaxs%d.png' % param[0]['FSN'],dpi=300,transparent='True',format='png')
         pylab.close(pylab.gcf())
-def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned',dirs=[]):
+def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned',dirs=[],plot=False):
     """Re-integrate (re-bin) 2d intensity data
     
     Inputs:
@@ -1883,6 +1883,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
         savefiletype: the first part of the files to be saved. Default is
             'intbinned'
         dirs: directories for searching input files.
+        plot: if results of each integration should be plotted via plotintegrated()
         
     Outputs:
         <savefiletype>*.dat files are saved to the disk.
@@ -1952,11 +1953,19 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 if len(data)<1:
                     continue
                 print 'Re-integrating...'
-                qs,ints,errs,areas=utils2d.radintC(data[0],dataerr[0],p['EnergyCalibrated'],
+                qs,ints,errs,areas,maskout=utils2d.radintC(data[0],dataerr[0],p['EnergyCalibrated'],
                                         p['Dist'],p['PixelSize'],p['BeamPosX'],
-                                        p['BeamPosY'],1-mask,qrange);
+                                        p['BeamPosY'],1-mask,qrange,returnavgq=True,returnmask=True);
+                # as of 27.10.2010, saving averaged q-s.
                 B1io.writeintfile(qs,ints,errs,p,areas,filetype=savefiletype)
                 print 'done.'
+                if plot:
+                    guitools.plotintegrated(data[0],qs,ints,error=errs,area=areas,qtheor=qrange,mask=1-maskout,param=p)
+                    print qs[qs>0].min()
+                    print qs[qs>0].max()
+                    print ints[ints>0].min()
+                    print ints[ints>0].max()
+                    utils.pause()
                 del data
                 del dataerr
                 del qs
@@ -2139,7 +2148,7 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
               ignorewaxs=False,qsepw=None,
               classifyfunc=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
               classifyfunc_waxs=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
-              filetype='summed',logfiletype='summed',waxsfiletype='summedwaxs',waxslogfiletype='summedwaxs'):
+              filetype='summed',logfiletype='summed',waxsfiletype='summedwaxs',waxslogfiletype='summedwaxs',plot=True):
     """Unite summed scattering results.
     
     Inputs:
@@ -2172,6 +2181,7 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             to classification with respect to Title and Energy.
         filetype: file type for saxs measurements (default: 'summed')
         waxsfiletype: file type for waxs measurements (default: 'summedwaxs')
+        plot: if plotting is requested during uniting.
     
     Outputs: none, files are saved.
     
@@ -2271,8 +2281,10 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             print "No mask defined in distmaskdict for distance %s. STOPPING" % details
             return
         #find the q-ranges for each distance.
+        print "Finding q-range from mask"
         q1min,q1max,Nq1=utils2d.qrangefrommask(mask1,ps1['EnergyCalibrated'],ps1['Dist'],param1['PixelSize'],param1['BeamPosX'],param1['BeamPosY'])
         q2min,q2max,Nq2=utils2d.qrangefrommask(mask2,ps2['EnergyCalibrated'],ps2['Dist'],param2['PixelSize'],param2['BeamPosX'],param2['BeamPosY'])
+        print "Found q-range from mask"
         if not ignorewaxs and not waxs_notfound:
             dataw=utils.sanitizeint(B1io.readintfile('%s%d.dat' % (waxsfiletype,paramw['FSN'])))
             qw=dataw['q']
@@ -2288,7 +2300,9 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         qrange=np.linspace(qmin,qmax,100) #the common q-range between short and long geometry
         #now re-integrate every measurement, taken at short geometry, to the common q-range
         q1=None;        I1=None;        E1=None;        N=0
+        print "Loading and re-integrating 2D images to common q-range"
         for f in ps1['FSNs']:
+            print "Loading FSN",f
             A,Aerr,p=B1io.read2dintfile(f,dirs=dirs)
             q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask1).astype(np.uint8),qrange,returnavgq=True)
             if q1 is None:
@@ -2303,6 +2317,7 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         #do the same re-integration for long geometry
         q2=None;        I2=None;        E2=None;        N=0
         for f in ps2['FSNs']:
+            print "Loading FSN",f
             A,Aerr,p=B1io.read2dintfile(f,dirs=dirs)
             q0,I0,E0,A0=utils2d.radintC(A[0],Aerr[0],p[0]['EnergyCalibrated'],p[0]['Dist'],p[0]['PixelSize'],p[0]['BeamPosX'],p[0]['BeamPosY'],(1-mask2).astype(np.uint8),qrange,returnavgq=True)
             if q2 is None:
@@ -2331,7 +2346,11 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
                 qsep=-np.inf
             else:
                 qsep=0.5*(ds1['q'].min()+ds2['q'].max())
-
+        if plot:
+            pylab.clf()
+            pylab.loglog(ds1['q'],ds1['Intensity'],label='Distance %.1f mm' % d1)
+            if not onlyone:
+                pylab.loglog(ds2['q'],ds2['Intensity']*multlong2short,label='Distance %.1f mm, multiplied' % d2)
         if not ignorewaxs and not waxs_notfound:
             #normalize WAXS data as well.
             #calculate common q-range
@@ -2364,16 +2383,35 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             print "Multiplication factor (WAXS -> short): %f +/- %f" % (multwaxs2short,errmultwaxs2short)
             if qsepw is None:
                 qsepw=qrangew.min()
+            if plot:
+                pylab.loglog(dataw['q'],dataw['Intensity'],label='WAXS, multiplied')
         else:
             qsepw=np.inf
-        datalong=fitting.trimq(utils.multsasdict(ds2,multlong2short,errmultlong2short),qmax=qsep)
-        datashort=fitting.trimq(ds1,qmin=qsep,qmax=qsepw)
+        if np.isfinite(qsep) and plot:
+            pylab.plot([qsep,qsep],[pylab.axis()[2],pylab.axis()[3]],label='separator q')
+            pylab.plot([min(qrange),min(qrange)],[pylab.axis()[2],pylab.axis()[3]],label='lower bound of common range')
+            pylab.plot([max(qrange),max(qrange)],[pylab.axis()[2],pylab.axis()[3]],label='upper bound of common range')
+            
+        if plot:
+            pylab.legend()
+            pylab.draw()
+            pylab.xlabel(u'q (1/\xc5)')
+            pylab.ylabel('Intensity (1/cm)')
+            if ignorewaxs and not onlyone:
+                pylab.title('Long->short: %g +/- %g' % (multlong2short, errmultlong2short));
+            if not ignorewaxs and not onlyone:
+                pylab.title('Long->short: %g +/- %g\nWAXS->short: %g +/- %g'% (multlong2short, errmultlong2short,multwaxs2short,errmultwaxs2short));
+            if not ignorewaxs and onlyone:
+                pylab.title('WAXS->short: %g +/- %g'% (multwaxs2short, errmultwaxs2short));
+            utils.pause()
+        datalong=utils.trimq(utils.multsasdict(ds2,multlong2short,errmultlong2short),qmax=qsep)
+        datashort=utils.trimq(ds1,qmin=qsep,qmax=qsepw)
         if onlyone:
             tocombine=[datashort]
         else:
             tocombine=[datalong,datashort]
         if (not ignorewaxs) and (not waxs_notfound):
-            datawaxs=fitting.trimq(utils.multsasdict(dataw,multwaxs2short,errmultwaxs2short),qmin=qsepw)
+            datawaxs=utils.trimq(utils.multsasdict(dataw,multwaxs2short,errmultwaxs2short),qmin=qsepw)
             tocombine.append(datawaxs)
         tocombine=tuple(tocombine)
         datacomb=utils.combinesasdicts(*tocombine)
@@ -2403,3 +2441,9 @@ def maskpilatusgaps(rownum,colnum,horizmodule=487,horizgap=7,vertmodule=195,vert
     mask[row % (vertmodule+vertgap) >=vertmodule]=0
     return mask
     
+def B1_autointegrate(A,Aerr,param,mask,qrange=None):
+    q,I,E,Area,maskout=utils2d.radintC(A,Aerr,param['EnergyCalibrated'],
+                               param['Dist'],param['PixelSize'],
+                               param['BeamPosX'],param['BeamPosY'],
+                               (1-mask).astype(np.uint8),q=qrange,returnavgq=True,returnmask=True)
+    return {'q':qrange,'Intensity':I,'Error':E,'Area':Area,'qaverage':q,'maskout':maskout}

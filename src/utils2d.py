@@ -15,7 +15,7 @@ import pylab
 import numpy as np
 import scipy.optimize
 import types
-from c_utils2d import polartransform, radintC,imageintC,azimintpixC, azimintqC, bin2D
+from c_utils2d import polartransform, radintC,imageintC,azimintpixC, azimintqC, bin2D, calculateDmatrix
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
 def findbeam_gravity(data,mask):
@@ -400,28 +400,28 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,a=None,shutup=Tr
     
     return q,Intensity,Error,Area # return
     
-def calculateDmatrix(mask,res,bcx,bcy):
-    """Calculate distances of pixels from the origin
-    
-    Inputs:
-        mask: mask matrix (only its shape is used)
-        res: pixel size in mm-s. Can be a vector of length 2 or a scalar
-        bcx: Beam center in pixels, in the row direction, starting from 1
-        bcy: Beam center in pixels, in the column direction, starting from 1
-        
-    Output:
-        A matrix of the shape of <mask>. Each element contains the distance
-        of the centers of the pixels from the origin (bcx,bcy), expressed in
-        mm-s.
-    """
-    if type(res)!=type([]) and type(res)!=type(()):
-        res=[res]
-    if len(res)<2:
-        res=res*2
-    Y,X=np.meshgrid(np.arange(mask.shape[1]),np.arange(mask.shape[0]));
-    D=np.sqrt((res[0]*(X-bcx-1))**2+
-                 (res[1]*(Y-bcy-1))**2)
-    return D
+#def calculateDmatrix(mask,res,bcx,bcy):
+#    """Calculate distances of pixels from the origin
+#    
+#    Inputs:
+#        mask: mask matrix (only its shape is used)
+#        res: pixel size in mm-s. Can be a vector of length 2 or a scalar
+#        bcx: Beam center in pixels, in the row direction, starting from 1
+#        bcy: Beam center in pixels, in the column direction, starting from 1
+#        
+#    Output:
+#        A matrix of the shape of <mask>. Each element contains the distance
+#        of the centers of the pixels from the origin (bcx,bcy), expressed in
+#        mm-s.
+#    """
+#    if type(res)!=type([]) and type(res)!=type(()):
+#        res=[res]
+#    if len(res)<2:
+#        res=res*2
+#    Y,X=np.meshgrid(np.arange(mask.shape[1]),np.arange(mask.shape[0]));
+#    D=np.sqrt((res[0]*(X-bcx-1))**2+
+#                 (res[1]*(Y-bcy-1))**2)
+#    return D
 def qrangefrommask(mask,energy,distance,res,bcx,bcy,fullyunmasked=False):
     """Calculate q-range from mask matrix
     
@@ -444,12 +444,12 @@ def qrangefrommask(mask,energy,distance,res,bcx,bcy,fullyunmasked=False):
             the origin)
         Nq: number of q-bins (approx. one q-bin for one pixel)
     """
-    D=calculateDmatrix(mask,res,bcx,bcy)
-    dmin=np.nanmin(D[mask!=0])
-    dmax=np.nanmax(D[mask!=0])
-    Nq=np.ceil(dmax-dmin)
-    qmin=4*np.pi*np.sin(0.5*np.arctan(dmin/distance))*energy/HC
-    qmax=4*np.pi*np.sin(0.5*np.arctan(dmax/distance))*energy/HC
+    #D=calculateDmatrix(mask,res,bcx,bcy)
+    #dmin=np.nanmin(D[mask!=0])
+    #dmax=np.nanmax(D[mask!=0])
+    #Nq=np.ceil(dmax-dmin)
+    #qmin=4*np.pi*np.sin(0.5*np.arctan(dmin/distance))*energy/HC
+    #qmax=4*np.pi*np.sin(0.5*np.arctan(dmax/distance))*energy/HC
 
     q0,I0,E0,A0=radintC(mask.astype(np.double),\
                             np.ones(mask.shape,np.double),\

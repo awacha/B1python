@@ -9,12 +9,14 @@ import numpy as np
 import os
 import scipy.io
 
-default_inputdirs='/home/andris/kutatas/desy/0921Bota; /home/andris/kutatas/desy/0921Bota/data1; /home/andris/kutatas/desy/0921Bota/processing'
+default_inputdirs=''
 #default_inputdirs=r'r:\misc\jusifa\Projekte\2010\0420Bota; r:\misc\jusifa\Projekte\2010\0420Bota\data1; r:\misc\jusifa\Projekte\2010\0420Bota\eval1; r:\misc\jusifa\Projekte\2010\0420Bota\processing'
 default_outputdir='.'
 default_mask='mask.mat'
 class MainWindow:
     def __init__(self,master):
+        master.tk_strictMotif(True)
+        self.inputdirlist=None
         master.protocol("WM_DELETE_WINDOW",self.quit)
         self.figure=pylab.figure()
         self.figurenum=self.figure.number
@@ -172,7 +174,7 @@ class MainWindow:
         self.logtext.insert(Tkinter.END,"\n",("NORMAL",))
         self.logtext.see(Tkinter.END)
         self.logtext['state']='disabled'
-        self.master.mainloop(100000)
+        self.master.update()
     def savelog(self):
         pass
     def clearlog(self):
@@ -258,7 +260,7 @@ class MainWindow:
             qrange=np.linspace(qmin,qmax,Nq)
             self.logger('Integration starting...',"INFO")
             t0=time.time()
-            q,I,E,A,maskout=B1python.radintC(data[0],dataerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],param[0]['PixelSize'],param[0]['BeamPosX'],param[0]['BeamPosY'],1-mask,qrange,phi0=phi0,dphi=dphi,returnmask=True)
+            q,I,E,A,maskout=B1python.radintC(data[0],dataerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],param[0]['PixelSize'],param[0]['BeamPosX'],param[0]['BeamPosY'],1-mask,qrange,phi0=phi0,dphi=dphi,returnmask=True,returnavgq=True)
             maskout=1-maskout
             self.currentdataset={'q':q,'Intensity':I,'Error':E,'Area':A}
             self.currentparam=param[0]
@@ -268,14 +270,25 @@ class MainWindow:
             except:
                 self.figure=pylab.figure(self.figurenum)
             pylab.figure(self.figurenum)
-            pylab.loglog(q,I,label='#%d %s' % (param[0]['FSN'],param[0]['Title']))
-            pylab.xlabel(u'q (1/%c)'%197)
-            pylab.ylabel('Intensity')
-            pylab.legend()
+            B1python.plotintegrated(data[0],q,I,E,A,qrange,maskout,param[0],mode='radial')
         pylab.draw()
         pylab.gcf().show()
     def getinputdirs(self):
-        return [ x.strip() for x in self.inputdirs.get().split(';')]
+        if self.inputdirlist is not None and self.inputdirlist[0]==self.inputdirs.get():
+            return self.inputdirlist[1]
+        #otherwise 
+        self.logger('Parsing input directories, please wait...','INFO')
+        dirs=[ x.strip() for x in self.inputdirs.get().split(';')]
+        result=set()
+        for d in dirs:
+            for i in os.walk(d):
+                result.add(i[0])
+        result=list(result)
+        result.sort()
+        self.inputdirlist=[self.inputdirs.get(),result]
+        self.logger('%d subdirectories found.'%len(result),'INFO')
+        return self.inputdirlist[1]
+        
     def clearplot(self):
         print "Clear plot"
         pylab.clf()

@@ -117,7 +117,7 @@ def plotintegrated(A,q,intensity,error=None,area=None,qtheor=None,mask=None,para
         pylab.title('Effective area')
     if qtheor is not None:
         pylab.subplot(Nsubplotrows,2,4)
-        pylab.plot(q,q/qtheor)
+        pylab.plot(q,q/qtheor,'.')
         pylab.xlabel(xlabel)
         pylab.ylabel(u'Effective q / desired q (==1 if correct)')
         if xscale.upper()=='LOGARITHMIC'[:max(2,len(xscale))]:

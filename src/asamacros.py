@@ -19,6 +19,61 @@ import time
 import ConfigParser
 from c_asamacros import smearingmatrix, trapezoidshapefunction
 import xml.dom.minidom
+import os
+import shutil
+
+_asa_config={'dataroot':'/afs/.bionano/misc/measurements'}
+
+def asa_copyfiles(files,fromdir,todir,saxsprefix='saxs',waxsprefix='waxs',exts=['P00','E00','INF']):
+    files_return=files[:]
+    for prefix in [saxsprefix, waxsprefix]:
+        if prefix is None:
+            continue
+        sas_from=os.path.join(_asa_config['dataroot'],prefix,fromdir)
+        sas_to=os.path.join(todir,prefix)
+        try:
+            os.stat(sas_from)
+        except OSError,v:
+            if v.errno==2:
+                print "Invalid input directory:",sas_from
+                raise
+            else:
+                raise
+        try:
+            os.stat(sas_to)
+        except OSError,v:
+            if v.errno==2:
+                try:
+                    os.mkdir(sas_to)
+                    print "Created data directory:",sas_to
+                except OSError,v:
+                    if v.errno==13:
+                        print "Cannot create output directory:",sas_to
+                        raise
+                    else:
+                        raise
+        # if this line is reached, sas_from and sas_to exist.
+        for f in files:
+            extspresent={}
+            for e in exts:
+                try:
+                    shutil.copy(os.path.join(sas_from,'%s.%s'%(f,e)),sas_to)
+                    extspresent[e]=True
+                except:
+                    print "Cannot copy file %s. Checking if already copied." % os.path.join(sas_from,'%s.%s'%(f,e))
+                    try:
+                        f1=open(os.path.join(sas_to,'%s.%s'%(f,e)),'rt')
+                        extspresent[e]=True
+                        f1.close()
+                        print "File %s.%s was FOUND." % (f,e)
+                    except IOError:
+#                    print "File %s.%s was not found." % (f,e)
+                        extspresent[e]=False
+            if not all(extspresent.values()):
+                print "Skipping absent measurement %s." % f
+                files_return=[x for x in files_return if x!=f]
+    return files_return
+                
 
 def readxrdml(filename):
     """Read xrdml files made by the software for Panalytical/Philips X'Pert

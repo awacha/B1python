@@ -18,6 +18,49 @@ import types
 import scipy.special
 _pausemode=True
 
+def trimq(data,qmin=-np.inf,qmax=np.inf):
+    """Trim the 1D scattering data to a given q-range
+    
+    Inputs:
+        data: scattering data
+        qmin: lowest q-value to include
+        qmax: highest q-value to include
+    
+    Output:
+        an 1D scattering data dictionary, with points whose q-values were not
+            smaller than qmin and not larger than qmax.
+    """
+    indices=(data['q']<=qmax) & (data['q']>=qmin)
+    data1={}
+    for k in data.keys():
+        data1[k]=data[k][indices]
+    return data1
+
+
+def sasdicts_commonq(*args):
+    """Reduce SAS dictionaries to a common q-range. Only the boundaries are checked!
+    
+    Inputs:
+        arbitrary number of SAS dicts
+        
+    Outputs:
+        a list of SAS dicts, in the same order as the arguments
+    
+    Notes:
+        only the smallest and largest q is checked for each SAS dict.
+    """
+    qmin=-np.inf
+    qmax=np.inf
+    for a in args:
+        if a['q'].min()>qmin:
+            qmin=a['q'].min()
+        if a['q'].max()<qmax:
+            qmax=a['q'].max()
+    res=[]
+    for a in args:
+        res.append(trimq(a,qmin=qmin,qmax=qmax))
+    return res
+
 def multsasdict(data,mult,errmult=0):
     """Multiply a SAS dict by a scalar, possibly with error propagation
     

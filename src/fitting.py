@@ -247,7 +247,7 @@ def intintensity(data,alpha,alphaerr,qmin=-np.inf,qmax=np.inf,m=0):
     if alpha<1:
         raise ValueError('m+alpha should be larger than 1. alpha: %f m: %f (m+alpha): %f',(-alpha,m,m-alpha))
     alpha=alpha-m
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
     q2=data1['q'].max()
     q1=data['q'].min()
     
@@ -263,23 +263,6 @@ def intintensity(data,alpha,alphaerr,qmin=-np.inf,qmax=np.inf,m=0):
     #print ret3, "+/-",dret3
     
     return ret1+ret2+ret3,np.sqrt(dret1**2+dret2**2+dret3**2)
-def trimq(data,qmin=-np.inf,qmax=np.inf):
-    """Trim the 1D scattering data to a given q-range
-    
-    Inputs:
-        data: scattering data
-        qmin: lowest q-value to include
-        qmax: highest q-value to include
-    
-    Output:
-        an 1D scattering data dictionary, with points whose q-values were not
-            smaller than qmin and not larger than qmax.
-    """
-    indices=(data['q']<=qmax) & (data['q']>=qmin)
-    data1={}
-    for k in data.keys():
-        data1[k]=data[k][indices]
-    return data1
 def subconstbg(data,bg,bgerror):
     """Subtract a constant background from the 1D dataset.
     
@@ -345,7 +328,7 @@ def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
     ax3=pylab.axes((leftborder,bottomborder,width,height))
     ax4=pylab.axes(((1-rightborder-width),bottomborder,width,height))
     
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
 
     if gui:
         axq1=pylab.axes((leftborder,bottomborder/7.0,1-rightborder-leftborder-0.1,bottomborder/7.0))
@@ -358,7 +341,7 @@ def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
         ax2.clear()
         ax3.clear()
         ax4.clear()
-        data1=trimq(data,qmin,qmax)
+        data1=utils.trimq(data,qmin,qmax)
         Iexp=np.array(data1['Intensity'])
         qexp=np.array(data1['q'])
         errexp=np.array(data1['Error'])
@@ -459,7 +442,7 @@ def guiniercrosssectionfit(data,qmin=-np.inf,qmax=np.inf,testimage=False,smearin
         the calculated error of Rg
         the calculated error of the prefactor
     """
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
     x1=data1['q']**2;
     err1=np.absolute(data1['Error']/data1['Intensity']*data1['q'])
     y1=np.log(data1['Intensity'])*data1['q']
@@ -493,7 +476,7 @@ def guinierthicknessfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         the calculated error of Rgt
         the calculated error of the prefactor
     """
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
     x1=data1['q']**2;
     err1=np.absolute(data1['Error']/data1['Intensity']*data1['q']**2)
     y1=np.log(data1['Intensity'])*data1['q']**2
@@ -527,7 +510,7 @@ def guinierfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         the calculated error of Rg
         the calculated error of the prefactor
     """
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
     x1=data1['q']**2;
     err1=np.absolute(data1['Error']/data1['Intensity']);
     y1=np.log(data1['Intensity']);
@@ -561,7 +544,7 @@ def porodfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         the calculated error of the constant background
         the calculated error of the Porod coefficient
     """
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
     x1=data1['q']**4;
     err1=data1['Error']*x1;
     y1=data1['Intensity']*x1;
@@ -595,7 +578,7 @@ def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         the calculated error of the exponent
         the calculated error of the prefactor
     """
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
     x1=np.log(data1['q']);
     err1=np.absolute(data1['Error']/data1['Intensity']);
     y1=np.log(data1['Intensity']);
@@ -637,7 +620,7 @@ def powerfitwithlinearbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         the calculated error of the constant background
         the calculated error of the first order part of the background
     """
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
     x1=data1['q'];
     err1=data1['Error'];
     y1=data1['Intensity'];
@@ -683,7 +666,7 @@ def powerfitwithbackground(data,qmin=-np.inf,qmax=np.inf,testimage=False):
         the calculated error of the prefactor
         the calculated error of the constant background
     """
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
     x1=data1['q'];
     err1=data1['Error'];
     y1=data1['Intensity'];
@@ -735,7 +718,7 @@ def unifiedfit(data,B,G,Rg,P,qmin=-np.inf,qmax=np.inf,maxiter=1000):
         the error of the Guinier prefactor
         the error of the radius of gyration
     """
-    data=trimq(data,qmin,qmax)
+    data=utils.trimq(data,qmin,qmax)
     def fitfun(data,x,y,err):
         G=data[0]
         B=data[1]
@@ -763,7 +746,7 @@ def fitspheredistribution(data,distfun,R,params,qmin=-np.inf,qmax=np.inf,testima
         paramsfitted: list of the fitted parameters plus a scaling factor
             added as the last.
     """
-    data1=trimq(data,qmin,qmax)
+    data1=utils.trimq(data,qmin,qmax)
     q=data1['q']
     Int=data1['Intensity']
     Err=data1['Error']
