@@ -444,12 +444,10 @@ def qrangefrommask(mask,energy,distance,res,bcx,bcy,fullyunmasked=False):
             the origin)
         Nq: number of q-bins (approx. one q-bin for one pixel)
     """
-    #D=calculateDmatrix(mask,res,bcx,bcy)
-    #dmin=np.nanmin(D[mask!=0])
-    #dmax=np.nanmax(D[mask!=0])
-    #Nq=np.ceil(dmax-dmin)
-    #qmin=4*np.pi*np.sin(0.5*np.arctan(dmin/distance))*energy/HC
-    #qmax=4*np.pi*np.sin(0.5*np.arctan(dmax/distance))*energy/HC
+    D=calculateDmatrix(mask,res,bcx,bcy)
+    dmin=np.nanmin(D[mask!=0])
+    dmax=np.nanmax(D[mask!=0])
+    Nq=np.ceil(dmax-dmin)
 
     q0,I0,E0,A0=radintC(mask.astype(np.double),\
                             np.ones(mask.shape,np.double),\
@@ -458,6 +456,8 @@ def qrangefrommask(mask,energy,distance,res,bcx,bcy,fullyunmasked=False):
                             np.zeros(mask.shape,np.uint8),q=None,\
                             returnavgq=False)
     if fullyunmasked:
+        qmin=4*np.pi*np.sin(0.5*np.arctan(dmin/distance))*energy/HC
+        qmax=4*np.pi*np.sin(0.5*np.arctan(dmax/distance))*energy/HC
         # the smallest of the border elements in D
         Dbordermin=min(D[:,0].min(),D[0,:].min(),D[-1,:].min(),D[:,-1].min())
         qbordermin=4*np.pi*np.sin(0.5*np.arctan(Dbordermin/distance))*energy/HC

@@ -1956,15 +1956,17 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 qs,ints,errs,areas,maskout=utils2d.radintC(data[0],dataerr[0],p['EnergyCalibrated'],
                                         p['Dist'],p['PixelSize'],p['BeamPosX'],
                                         p['BeamPosY'],1-mask,qrange,returnavgq=True,returnmask=True);
+                intdata=utils.sanitizeint({'q':qs,'Intensity':ints,'Error':errs,'Area':areas,'qorig':qrange})
+                if len(intdata['q'])<len(qs):
+                    print "WARNING! There were some q-bins which had to be sanitized, because of no intensity."
+                    print "Number of q-bins removed:",len(qs)-len(intdata['q'])
+                    print "q min:",intdata['q'].min()
+                    print "q max:",intdata['q'].max()
                 # as of 27.10.2010, saving averaged q-s.
-                B1io.writeintfile(qs,ints,errs,p,areas,filetype=savefiletype)
+                B1io.write1dsasdict(intdata,'%s%d.dat'%(savefiletype,p['FSN']))
                 print 'done.'
                 if plot:
-                    guitools.plotintegrated(data[0],qs,ints,error=errs,area=areas,qtheor=qrange,mask=1-maskout,param=p)
-                    print qs[qs>0].min()
-                    print qs[qs>0].max()
-                    print ints[ints>0].min()
-                    print ints[ints>0].max()
+                    guitools.plotintegrated(data[0],intdata['q'],intdata['Intensity'],error=intdata['Error'],area=intdata['Area'],qtheor=intdata['qorig'],mask=1-maskout,param=p)
                     utils.pause()
                 del data
                 del dataerr
@@ -1976,7 +1978,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
             dirs=[],plot=False,
             classifyfunc=lambda plist:utils.classify_params_fields(plist,'Title','Energy','Dist'),
             classifyfunc_waxs=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
-            errorpropagation='weight'):
+            errorpropagation='weight',q_epsilon=1e-3):
     """Summarize scattering data.
     
     Inputs:
@@ -1996,6 +1998,9 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
         errorpropagation: 'weight' or 'standard'. If 'weight' (default), intensity
             points are normalized by their squared error. If 'standard', each
             curve is taken with the same weight in account.
+        q_epsilon: upon summarizing different measurements, (q1-q2)/len(q1) is
+            calculated. If this one is smaller than q_epsilon, the two measurements
+            are considered the same.
     """
     if not hasattr(fsns,'__getitem__'): # if fsns cannot be indexed
         fsns=[fsns] # make a list of one
@@ -2053,7 +2058,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
                     if q.size!=intdata['q'].size:
                         print 'q-range of file %s differs from the others read before. Skipping.' % filename
                         continue
-                    if np.sum(q-intdata['q'])!=0:
+                    if np.sum(q-intdata['q'])/len(q)>q_epsilon:
                         print 'q-range of file %s differs from the others read before. Skipping.' % filename
                         continue
                     if errorpropagation=='weight':
@@ -2115,7 +2120,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
                 Isum=Isum/w
                 Isum[np.isnan(Isum)]=0
                 if plot:
-                    pylab.loglog(q,Isum,'o-',label='Sum')
+                    pylab.loglog(q,Isum,'o-',label='Sum',markerfacecolor='None',linewidth=3,markeredgewidth=2,markersize=6)
                     pylab.legend(loc='best')
                     pylab.draw()
                     pylab.gcf().show()
