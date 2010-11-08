@@ -777,15 +777,22 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
         mode: 'Gabriel' if the measurements were made with the gas-detector, 
             and 'Pilatus300k' if that detector was used.            
     """
+    hborder=0.08
+    vborder=0.08
+    hspacing=0.02
+    vspacing=0.08
+    axiswidth=0.6
+    axisheight=(1-vborder*2-vspacing*3)/4.
+    
+    
     if type(fsns)!=types.ListType:
         fsns=[fsns]
-    if mode=='Gabriel':
+    if mode.upper().startswith('GABRIEL'):
         header1=B1io.readheader('ORG',fsns,'.DAT',dirs=dirs)
-    elif mode=='Pilatus300k':
+    elif mode.upper().startswith('PILATUS'):
         header1=B1io.readheader('org_',fsns,'.header',dirs=dirs)
     else:
-        print "invalid mode argument. Possible values: 'Gabriel', 'Pilatus300k'"
-        return
+        raise ValueError("invalid mode argument. Possible values: 'Gabriel' or 'Pilatus'")
     params1=B1io.readlogfile(fsns,dirs=dirs)
     header=[]
     for h in header1:
@@ -797,66 +804,63 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
             params.append(h.copy())
     energies=utils.unique([h['Energy'] for h in header],(lambda a,b:abs(a-b)<2))
 
+    axisTransm=pylab.gcf().add_axes([hborder,1-vborder-axisheight,axiswidth,axisheight])
+    axisBcX=pylab.gcf().add_axes([hborder,1-vborder-2*axisheight-vspacing,axiswidth,axisheight])
+    axisBcY=pylab.gcf().add_axes([hborder,1-vborder-3*axisheight-2*vspacing,axiswidth,axisheight])
+    axisDORIS=pylab.gcf().add_axes([hborder,1-vborder-4*axisheight-3*vspacing,axiswidth,axisheight])
+
     doris=[h['Current1'] for h in header]
     orix=[h['BeamPosX'] for h in params]
     oriy=[h['BeamPosY'] for h in params]
-    legend1=[]
-    legend2=[]
-    legend3=[]
-    legend4=[]
     print "Assesstransmission"
     for l in range(len(energies)):
         print "  Energy: ",energies[l]
-        pylab.subplot(4,1,1)
-        bbox=pylab.gca().get_position()
-        pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
-        fsn=[h['FSN'] for h in header if abs(h['Energy']-energies[l])<2]
+        pylab.axes(axisTransm)
+        fsn=[h['FSN'] for h in params if abs(h['Energy']-energies[l])<2]
         transm1=[h['Transm'] for h in params if abs(h['Energy']-energies[l])<2]
+        legend1='Energy (not calibrated) = %.1f eV\n Mean T = %.4f, std %.4f' % (energies[l],np.mean(transm1),np.std(transm1))
         print "    Transmission: mean=",np.mean(transm1),"std=",np.std(transm1)
-        pylab.plot(fsn,transm1,'-o',linewidth=1)
+        pylab.plot(fsn,transm1,'-o',label=legend1,linewidth=1)
         pylab.ylabel('Transmission')
         pylab.xlabel('FSN')
         pylab.grid('on')
-        legend1=legend1+['Energy (not calibrated) = %.1f eV\n Mean T = %.4f, std %.4f' % (energies[l],np.mean(transm1),np.std(transm1))]
-        pylab.subplot(4,1,2)
-        bbox=pylab.gca().get_position()
-        pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
+
+        pylab.axes(axisBcX)
         orix1=[h['BeamPosX'] for h in params if abs(h['Energy']-energies[l])<2]
+        legend2='Energy (not calibrated) = %.1f eV\n Mean x = %.4f, std %.4f' % (energies[l],np.mean(orix1),np.std(orix1))
         print "    BeamcenterX: mean=",np.mean(orix1),"std=",np.std(orix1)
-        pylab.plot(fsn,orix1,'-o',linewidth=1)
+        pylab.plot(fsn,orix1,'-o',label=legend2,linewidth=1)
         pylab.ylabel('Position of beam center in X')
         pylab.xlabel('FSN')
         pylab.grid('on')
-        legend2=legend2+['Energy (not calibrated) = %.1f eV\n Mean x = %.4f, std %.4f' % (energies[l],np.mean(orix1),np.std(orix1))]
-        pylab.subplot(4,1,3)
-        bbox=pylab.gca().get_position()
-        pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
+        
+        pylab.axes(axisBcY)
         oriy1=[h['BeamPosY'] for h in params if abs(h['Energy']-energies[l])<2]
+        legend3='Energy (not calibrated) = %.1f eV\n Mean y = %.4f, std %.4f' % (energies[l],np.mean(oriy1),np.std(oriy1))
         print "    BeamcenterY: mean=",np.mean(oriy1),"std=",np.std(oriy1)
-        pylab.plot(fsn,oriy1,'-o',linewidth=1)
+        pylab.plot(fsn,oriy1,'-o',label=legend3,linewidth=1)
         pylab.ylabel('Position of beam center in Y')
         pylab.xlabel('FSN')
         pylab.grid('on')
-        legend3=legend3+['Energy (not calibrated) = %.1f eV\n Mean y = %.4f, std %.4f' % (energies[l],np.mean(oriy1),np.std(oriy1))]
-        pylab.subplot(4,1,4)
-        bbox=pylab.gca().get_position()
-        pylab.gca().set_position([bbox.x0,bbox.y0,(bbox.x1-bbox.x0)*0.9,bbox.y1-bbox.y0])
+        
+        pylab.axes(axisDORIS)
         doris1=[h['Current1'] for h in header if abs(h['Energy']-energies[l])<2]
+        legend4='Energy (not calibrated) = %.1f eV\n Mean I = %.4f' % (energies[l],np.mean(doris1))
         print "    Doris current: mean=",np.mean(doris1),"std=",np.std(doris1)
-        pylab.plot(fsn,doris1,'o',linewidth=1)
+        fsnh=[h['FSN'] for h in header if abs(h['Energy']-energies[l])<2]
+        pylab.plot(fsnh,doris1,'o',label=legend4,linewidth=1)
         pylab.ylabel('Doris current (mA)')
         pylab.xlabel('FSN')
         pylab.grid('on')
-        legend4=legend4+['Energy (not calibrated) = %.1f eV\n Mean I = %.4f' % (energies[l],np.mean(doris1))]
         
-    pylab.subplot(4,1,1)
-    pylab.legend(legend1,loc=(1.03,0),prop={'size':'small'})
-    pylab.subplot(4,1,2)
-    pylab.legend(legend2,loc=(1.03,0),prop={'size':'small'})
-    pylab.subplot(4,1,3)
-    pylab.legend(legend3,loc=(1.03,0),prop={'size':'small'})
-    pylab.subplot(4,1,4)
-    pylab.legend(legend4,loc=(1.03,0),prop={'size':'small'})
+    pylab.axes(axisTransm)
+    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-0*vspacing-0.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'small'})
+    pylab.axes(axisBcX)
+    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-1*vspacing-1.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'small'})
+    pylab.axes(axisBcY)
+    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-2*vspacing-2.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'small'})
+    pylab.axes(axisDORIS)
+    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-3*vspacing-3.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'small'})
     
 def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,return_error=False):
     """GUI tool for locating peaks by zooming on them

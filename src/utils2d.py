@@ -400,28 +400,6 @@ def radint(data,dataerr,energy,distance,res,bcx,bcy,mask,q=None,a=None,shutup=Tr
     
     return q,Intensity,Error,Area # return
     
-#def calculateDmatrix(mask,res,bcx,bcy):
-#    """Calculate distances of pixels from the origin
-#    
-#    Inputs:
-#        mask: mask matrix (only its shape is used)
-#        res: pixel size in mm-s. Can be a vector of length 2 or a scalar
-#        bcx: Beam center in pixels, in the row direction, starting from 1
-#        bcy: Beam center in pixels, in the column direction, starting from 1
-#        
-#    Output:
-#        A matrix of the shape of <mask>. Each element contains the distance
-#        of the centers of the pixels from the origin (bcx,bcy), expressed in
-#        mm-s.
-#    """
-#    if type(res)!=type([]) and type(res)!=type(()):
-#        res=[res]
-#    if len(res)<2:
-#        res=res*2
-#    Y,X=np.meshgrid(np.arange(mask.shape[1]),np.arange(mask.shape[0]));
-#    D=np.sqrt((res[0]*(X-bcx-1))**2+
-#                 (res[1]*(Y-bcy-1))**2)
-#    return D
 def qrangefrommask(mask,energy,distance,res,bcx,bcy,fullyunmasked=False):
     """Calculate q-range from mask matrix
     
@@ -447,30 +425,18 @@ def qrangefrommask(mask,energy,distance,res,bcx,bcy,fullyunmasked=False):
     D=calculateDmatrix(mask,res,bcx,bcy)
     dmin=np.nanmin(D[mask!=0])
     dmax=np.nanmax(D[mask!=0])
+    qmin=4*np.pi*np.sin(0.5*np.arctan(dmin/distance))*energy/HC
+    qmax=4*np.pi*np.sin(0.5*np.arctan(dmax/distance))*energy/HC
     Nq=np.ceil(dmax-dmin)
 
-    q0,I0,E0,A0=radintC(mask.astype(np.double),\
-                            np.ones(mask.shape,np.double),\
-                            energy,distance,\
-                            res,bcx,bcy,\
-                            np.zeros(mask.shape,np.uint8),q=None,\
-                            returnavgq=False)
     if fullyunmasked:
-        qmin=4*np.pi*np.sin(0.5*np.arctan(dmin/distance))*energy/HC
-        qmax=4*np.pi*np.sin(0.5*np.arctan(dmax/distance))*energy/HC
         # the smallest of the border elements in D
         Dbordermin=min(D[:,0].min(),D[0,:].min(),D[-1,:].min(),D[:,-1].min())
         qbordermin=4*np.pi*np.sin(0.5*np.arctan(Dbordermin/distance))*energy/HC
-        qmin1=q0[np.nonzero(I0==1)[0][0]] # find the first unmasked q-value
-        qmax1=q0[np.nonzero(I0==1)[0][-1]] # find the last unmasked q-value
-        qmax1=min(qmax1,qbordermin)
-    else:
-        qmin1=q0[np.nonzero(I0>0)[0][0]] # find the first unmasked q-value
-        qmax1=q0[np.nonzero(I0>0)[0][-1]] # find the last unmasked q-value
-#        print "qrangefrommask: old method - new method: qmin: ",qmin-qmin1,"; qmax:",qmax-qmax1
+        qmax=min(qmax,qbordermin)
 
     
-    return qmin1,qmax1,Nq
+    return qmin,qmax,Nq
 def calculate2dfrom1d(q,I,Nx,Ny,bcx,bcy,dist,energy,pixelsize,noise=False):
     """Create a 2D scattering image from a scattering curve.
     
