@@ -414,6 +414,11 @@ def sanitizeint(data,accordingto='Intensity'):
     indices=(data[accordingto]>0)
     data1={}
     for k in data.keys():
+        if type(data[k])!=type(data[accordingto]):
+            continue
+        if type(data[k])==np.ndarray:
+            if data[k].shape!=data[accordingto].shape:
+                continue
         data1[k]=data[k][indices]
     return data1
 def dot_error(A,B,DA,DB):

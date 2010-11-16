@@ -167,6 +167,7 @@ def findbeam_semitransparent(data,pri):
     Outputs: bcx,bcy
         the x and y coordinates of the primary beam
     """
+    threshold=0.05
     print "Finding beam (semitransparent), please be patient..."
     xmin=min([pri[0],pri[1]])
     ymin=min([pri[2],pri[3]])
@@ -174,12 +175,24 @@ def findbeam_semitransparent(data,pri):
     ymax=max([pri[2],pri[3]])
     C,R=np.meshgrid(np.arange(data.shape[1]),
                        np.arange(data.shape[0]))
-    indices=((C<=xmax) & (C>=xmin) & (R<=ymax) & (R>=ymin))
-    d=data[indices]
-    x=R[indices]
-    y=C[indices]
-    bcx=np.sum(d*x)/np.sum(d)
-    bcy=np.sum(d*y)/np.sum(d)
+    B=data[pri[2]:pri[3],pri[0]:pri[1]];
+    Ri=range(pri[2],pri[3])
+    Ci=range(pri[0],pri[1])
+    Ravg=np.sum(B,1)/len(Ri)
+    Cavg=np.sum(B,0)/len(Ci)
+    maxR=max(Ravg)
+    maxRpos=[i for i,avg in zip(Ri,Ravg) if avg==maxR][0]
+    Rmin=[i for i,avg in zip(Ri,Ravg) if (avg<Ravg[0]+(maxR-Ravg[0])*threshold) and (i<maxRpos)][-1]    
+    Rmax=[i for i,avg in zip(Ri,Ravg) if (avg<Ravg[-1]+(maxR-Ravg[-1])*threshold) and (i>maxRpos)][0]
+    maxC=max(Cavg)
+    maxCpos=[i for i,avg in zip(Ci,Cavg) if avg==maxC][0]
+    Cmin=[i for i,avg in zip(Ci,Cavg) if (avg<Cavg[0]+(maxC-Cavg[0])*threshold) and (i<maxCpos)][-1]    
+    Cmax=[i for i,avg in zip(Ci,Cavg) if (avg<Cavg[-1]+(maxC-Cavg[-1])*threshold) and (i>maxCpos)][0]
+    d=data[Rmin:Rmax,Cmin:Cmax]
+    x=np.arange(Rmin,Rmax)
+    y=np.arange(Cmin,Cmax)
+    bcx=np.sum(np.sum(d,1)*x)/np.sum(d)+1
+    bcy=np.sum(np.sum(d,0)*y)/np.sum(d)+1
     return bcx,bcy
 def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=np.inf):
     """Perform azimuthal integration of image.
@@ -481,7 +494,7 @@ def calculatetwothetamatrix(mat,dist,res,bcx,bcy):
         a matrix of the same shape as mat, containing twotheta values for
             the pixels.
     """
-    return np.arctan(calculateDmatrix(mat,res,bcx,bcy)/dist)
+    return np.arctan(calculateDmatrix(mat.astype(np.uint8),res,bcx,bcy)/dist)
 def calculateqmatrix(mat,dist,energy,res,bcx,bcy):
     """Calculate q values for detector pixels
     

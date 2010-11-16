@@ -726,6 +726,7 @@ def testorigin(data,orig,mask=None,dmin=None,dmax=None):
         mask: the mask matrix. Nonzero means nonmasked
     """
     print "Creating origin testing images, please wait..."
+    pylab.clf()
     if mask is None:
         mask=np.ones(data.shape)
     print "    plotting matrix with cross-hair..."

@@ -1117,7 +1117,7 @@ def B1normint1(fsn1,thicknesses,orifsn,fsndc,sens,errorsens,mask,energymeas,ener
             else:
                 B1io.writeintfile(qs[k],ints[k],errs[k],header[k],areas[k],filetype='intarb')
             B1io.write2dintfile(As[k],Aerrs[k],header[k],norm=norm)
-def B1findbeam(data,header,orifsn,orig,mask):
+def B1findbeam(data,header,orifsn,orig,mask,quiet=False):
     """Find origin (beam position) on scattering images
     
     Inputs:
@@ -1148,10 +1148,8 @@ def B1findbeam(data,header,orifsn,orig,mask):
             D) a mask matrix (1 means nonmasked, 0 means masked), the
                 same size as that of the measurement data. In this
                 case findbeam_gravity() will be used.
-        transm: you can give this if you know the transmission of the
-            sample from another measurement. Leave it None to use the
-            measured transmission.
-            
+        quiet: if True, do not plot anything. This is definitely faster.
+            Defaults to False.
     Outputs: 
         coords: a list of tuples: each tuple contains the beam center
             coordinates of the corresponding scattering measurement. The
@@ -1174,16 +1172,18 @@ def B1findbeam(data,header,orifsn,orig,mask):
                 print "Determining origin (by the 'slices' method) from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
                 orig1=utils2d.findbeam_slices(data[orifsn],orig,mask)
                 print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
-                guitools.testorigin(data[orifsn],orig1,mask)
-                utils.pause()
+                if not quiet:
+                    guitools.testorigin(data[orifsn],orig1,mask)
+                    utils.pause()
                 coords=[(orig1[0],orig1[1])]*len(data)
                 print coords
             elif len(orig)==5:
                 print "Determining origin (by the 'azimuthal' method) from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
                 orig1=utils2d.findbeam_azimuthal(data[orifsn],orig[3:5],mask,Ntheta=orig[0],dmin=orig[1],dmax=orig[2])
                 print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
-                guitools.testorigin(data[orifsn],orig1,mask,dmin=orig[1],dmax=orig[2])
-                utils.pause()
+                if not quiet:
+                    guitools.testorigin(data[orifsn],orig1,mask,dmin=orig[1],dmax=orig[2])
+                    utils.pause()
                 coords=[(orig1[0],orig1[1])]*len(data)
                 print coords
             elif len(orig)==4:
@@ -1193,16 +1193,18 @@ def B1findbeam(data,header,orifsn,orig,mask):
                     orig1=utils2d.findbeam_semitransparent(data[k],orig)
                     print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
                     coords.append((orig1[0],orig1[1]))
-                    guitools.testorigin(data[orifsn],orig1,mask)
-                    utils.pause()
+                    if not quiet:
+                        guitools.testorigin(data[k],orig1,mask)
+                        utils.pause()
                 print coords
             elif orig.shape==data[orifsn].shape:
                 print "Determining origin (by the 'gravity' method) from file FSN %d %s" %(header[orifsn]['FSN'],header[orifsn]['Title'])
                 orig1=utils2d.findbeam_gravity(data[orifsn],orig)
                 print "Determined origin to be %.2f %.2f." % (orig1[0],orig1[1])
                 coords=[(orig1[0],orig1[1])]*len(data)
-                guitools.testorigin(data[orifsn-1],orig1,mask)
-                utils.pause()
+                if not quiet:
+                    guitools.testorigin(data[orifsn-1],orig1,mask)
+                    utils.pause()
                 print coords
         except:
             print "Finding the origin did not succeed"
@@ -1864,7 +1866,7 @@ def scalewaxs(fsns,mask2d,dirs):
         pylab.ylabel('Scattering cross-section (1/cm)')
         pylab.savefig('scalewaxs%d.png' % param[0]['FSN'],dpi=300,transparent='True',format='png')
         pylab.close(pylab.gcf())
-def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned',dirs=[],plot=False):
+def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned',dirs=[],plot=False,sanitize=None):
     """Re-integrate (re-bin) 2d intensity data
     
     Inputs:
@@ -1884,6 +1886,9 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
             'intbinned'
         dirs: directories for searching input files.
         plot: if results of each integration should be plotted via plotintegrated()
+        sanitize: if sanitization of the integrated data is preferred, set this to
+            the field name according to which the sanitization should be done,
+            eg. 'Intensity', 'Error', 'Area'. Otherwise leave it None (default).
         
     Outputs:
         <savefiletype>*.dat files are saved to the disk.
@@ -1956,12 +1961,14 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 qs,ints,errs,areas,maskout=utils2d.radintC(data[0],dataerr[0],p['EnergyCalibrated'],
                                         p['Dist'],p['PixelSize'],p['BeamPosX'],
                                         p['BeamPosY'],1-mask,qrange,returnavgq=True,returnmask=True);
-                intdata=utils.sanitizeint({'q':qs,'Intensity':ints,'Error':errs,'Area':areas,'qorig':qrange})
-                if len(intdata['q'])<len(qs):
-                    print "WARNING! There were some q-bins which had to be sanitized, because of no intensity."
-                    print "Number of q-bins removed:",len(qs)-len(intdata['q'])
-                    print "q min:",intdata['q'].min()
-                    print "q max:",intdata['q'].max()
+                intdata={'q':qs,'Intensity':ints,'Error':errs,'Area':areas,'qorig':qrange}
+                if sanitize is not None:
+                    intdata=utils.sanitizeint(intdata,accordingto=sanitize)
+                    if len(intdata['q'])<len(qs):
+                        print "WARNING! There were some q-bins which had to be sanitized, because of no intensity."
+                        print "Number of q-bins removed:",len(qs)-len(intdata['q'])
+                        print "q min:",intdata['q'].min()
+                        print "q max:",intdata['q'].max()
                 # as of 27.10.2010, saving averaged q-s.
                 B1io.write1dsasdict(intdata,'%s%d.dat'%(savefiletype,p['FSN']))
                 print 'done.'
@@ -1978,7 +1985,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
             dirs=[],plot=False,
             classifyfunc=lambda plist:utils.classify_params_fields(plist,'Title','Energy','Dist'),
             classifyfunc_waxs=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
-            errorpropagation='weight',q_epsilon=1e-3):
+            errorpropagation='weight',q_epsilon=1e-3,sanitize='Intensity'):
     """Summarize scattering data.
     
     Inputs:
@@ -2001,6 +2008,9 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
         q_epsilon: upon summarizing different measurements, (q1-q2)/len(q1) is
             calculated. If this one is smaller than q_epsilon, the two measurements
             are considered the same.
+        sanitize: set it to the field name in the SAS dicts according to the automatic
+            masking (sanitization) should be done, eg. 'Intensity' (default), 'Area',
+            'Error', etc. Set it to None to skip sanitization.
     """
     if not hasattr(fsns,'__getitem__'): # if fsns cannot be indexed
         fsns=[fsns] # make a list of one
@@ -2022,6 +2032,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
             print 'Distance (first element of class):',plist[0]['Dist']
             print 'Energy (first element of class):',plist[0]['Energy']
             counter=0 # this counts the summed results.
+            sanmask=None
             q=None
             w=None
             Isum=None
@@ -2046,13 +2057,17 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
                 if len(intdata)<1:
                     print "sumfsns: cannot find file %s, skipping!" % filename
                     continue
+                if sanitize is not None:
+                    sanmask=(intdata[sanitize]>0).astype(np.double)
+                else:
+                    sanmask=np.ones(intdata['q'].shape)
                 if counter==0:
                     q=intdata['q']
                     if errorpropagation=='weight':
-                        w=1/(intdata['Error']**2)
+                        w=1/(intdata['Error']**2)*sanmask
                     else:
-                        w=1
-                        Esum=intdata['Error']**2
+                        w=sanmask
+                        Esum=intdata['Error']**2*sanmask
                     Isum=intdata['Intensity']*w
                 else:
                     if q.size!=intdata['q'].size:
@@ -2062,10 +2077,10 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
                         print 'q-range of file %s differs from the others read before. Skipping.' % filename
                         continue
                     if errorpropagation=='weight':
-                        w1=1/(intdata['Error']**2)
+                        w1=1/(intdata['Error']**2)*sanmask
                     else:
-                        w1=1
-                        Esum+=intdata['Error']**2
+                        w1=sancounter
+                        Esum+=intdata['Error']**2*sanmask
                     Isum=Isum+intdata['Intensity']*w1
                     w=w+w1
                 if waxsprefix=='': # ONLY IN SAXS MODE:
