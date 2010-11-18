@@ -227,8 +227,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                     qmax1=q1
                 if (q1<qmin1):
                     qmin1=q1
-        qstep1=(qmax1-qmin1)/(sqrt(M*M+N*N))
-        q=np.arange(qmin1,qmax1,qstep1,dtype=np.double)
+        q=np.linspace(qmin1,qmax1,sqrt(M*M+N*N)/2)
         if not shutup:
             print "done"
     else:

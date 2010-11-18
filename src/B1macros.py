@@ -2239,7 +2239,10 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         print "Uniting measurements for class", nclass
         print "Sample name (first member of class):",plist[0]['Title']
         print "Energy (first member of class):",plist[0]['Energy']
-        classfsns=[p['FSNs'] for p in plist]
+        try:
+            classfsns=[p['FSNs'] for p in plist]
+        except KeyError:
+            classfsns=[[p['FSN']] for p in plist]
         print "FSNs:",repr(classfsns)
         #find the distances
         dists=utils.unique([p['Dist'] for p in plist])
@@ -2261,12 +2264,16 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         if len(ps1)>1:
             print "WARNING! More than one summed files exist of class %d, distance %f. FSNs: %s" % (nclass,d1,repr([min(p['FSNs']) for p in ps1]))
         ps1=ps1[0]
+        if not 'FSNs' in ps1.keys():
+            ps1['FSNs']=[ps1['FSN']]
         # the summed dataset corresponding to the shortest geometry
         ds1,param1=[(d,p) for (d,p) in zip(datasum,datasumparam) if p['FSN']==ps1['FSN']][0]
         ps2=[p for p in plist if (p['Dist']==d2)]
         if len(ps2)>1:
             print "WARNING! More than one summed files exist of class %d, distance %f. FSNs: %s" % (nclass,d2,repr([min(p['FSNs']) for p in ps2]))
         ps2=ps2[0]
+        if not 'FSNs' in ps2.keys():
+            ps2['FSNs']=[ps2['FSN']]
         # the summed dataset corresponding to the longest geometry
         ds2,param2=[(d,p) for (d,p) in zip(datasum,datasumparam) if p['FSN']==ps2['FSN']][0] 
         print "Uniting two summed files: FSNs %d and %d"%(ps1['FSN'],ps2['FSN'])
@@ -2287,6 +2294,8 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
                 waxs_notfound=True
             else:
                 psw=psw[0]
+                if not 'FSNs' in psw.keys():
+                    psw['FSNs']=[psw['FSN']]
                 dw,paramw=[(d,p) for (d,p) in zip(datasumw,datasumparamw) if p['FSN']==min(psw['FSNs'])][0] # the summed WAXS dataset
                 print "Uniting summed waxs file "
                 waxs_notfound=False
