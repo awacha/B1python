@@ -18,6 +18,7 @@ import types
 import scipy.special
 _pausemode=True
 
+
 def trimq(data,qmin=-np.inf,qmax=np.inf):
     """Trim the 1D scattering data to a given q-range
     
@@ -77,7 +78,7 @@ def multsasdict(data,mult,errmult=0):
     for i in data.keys():
         newdict[i]=data[i]
     newdict['Error']=np.sqrt((newdict['Intensity']*errmult)**2+(newdict['Error']*mult)**2)
-    newdict['Intensity']*=mult
+    newdict['Intensity']=newdict['Intensity']*mult
     return newdict
 
 def sortsasdict(data,*args):

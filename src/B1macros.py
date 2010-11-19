@@ -37,6 +37,7 @@ import fitting
 import scipy.io
 import re
 import warnings
+import matplotlib.cbook
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
@@ -2476,3 +2477,242 @@ def B1_autointegrate(A,Aerr,param,mask,qrange=None):
                                param['BeamPosX'],param['BeamPosY'],
                                (1-mask).astype(np.uint8),q=qrange,returnavgq=True,returnmask=True)
     return {'q':qrange,'Intensity':I,'Error':E,'Area':Area,'qaverage':q,'maskout':maskout}
+
+def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
+              dirs=[],ignorescalingerror=False,qtolerance=0.05,
+              ignorewaxs=False,classifyfunc=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
+              classifyfunc_waxs=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
+              filetype='summed',logfiletype='summed',waxsfiletype='summedwaxs',waxslogfiletype='summedwaxs',plot=True,savefiletype='united'):
+    """Unite summed scattering results.
+    
+    Inputs:
+        fsns: range of file sequence numbers (list)
+        distmaskdict: a distance-to-mask dictionary. Eg. if you measured at
+            two sample-to-detector distances (say 935 and 3535 mm), and the
+            corresponding masks reside in numpy arrays maskshort and masklong,
+            then you should construct distmaskdict={935:maskshort,3535:masklong}.
+            Notice that the distance should be the correct distance.
+        sample (default: None): the sample name to be processed. If None, all
+            samples found in the FSN range will be treated.
+        qmin, qmax: limiting values of the common q-range. If None, autodetect
+            from the mask.
+        qsep: separating q-value. The resulting (united) curve will have its
+            points before this value from the long geometry, after this value
+            from the short geometry. If None, all points are used, short and
+            long geometry are combed together.
+        dirs: the dirs parameter, to be forwarded to I/O routines (like
+            readlogfile).
+        ignorescalingerror: if the error of the scaling factor should be
+            neglected.
+        qtolerance: when integrating scattering images onto the common q-range,
+            bins where the relative distance of the averaged q-value and the
+            desired one is larger than this value, are neglected.
+        ignorewaxs: True if you would prefer to skip WAXS files.
+        classifyfunc: classification function (see eg. classify_params_field).
+            Default is to classify measurements with respect to Title and Energy.
+        classifyfunc_waxs: classification function for WAXS curves. Defaults
+            to classification with respect to Title and Energy.
+        filetype: file type for saxs measurements (default: 'summed')
+        logfiletype: type of the log files (default: 'summed')
+        waxsfiletype: file type for waxs measurements (default: 'summedwaxs')
+        waxslogfiletype: type of the waxs log files (default: 'summedwaxs')
+        plot: if plotting is requested during uniting.
+        savefiletype: filetype to save. Either a format string with a single "%d"
+            for the FSN or the beginning of the filename, like "united".
+    
+    Outputs: none, files are saved.
+    
+    Notes: the function finds the common q-range among measurements at different
+        sample-to-detector distance. Re-integrates 2D scattering images onto
+        that q-range, summarizes them, calculates the scaling factor and passes
+        the original summed intensities (read from summed*.dat) to each other
+        using this factor.
+    """
+    allparams=B1io.readlogfile(fsns,dirs=dirs,norm=logfiletype)
+    for p in allparams: # if uniting non-summarized measurements, update the param structures to look as if they were summed from 1 measurement
+        if 'FSNs' not in p.keys():
+            p['FSNs']=[p['FSN']]
+    classes=classifyfunc(allparams)
+    if not ignorewaxs:
+        allparamswaxs=B1io.readlogfile(fsns,dirs=dirs,norm=waxslogfiletype)
+        if len(allparamswaxs)<1:
+            print "WAXS log files not found, disabling WAXS in unitefsns()."
+            ignorewaxs=True
+        else:
+            for p in allparamswaxs: # if uniting non-summarized measurements, update the param structures to look as if they were summed from 1 measurement
+                if 'FSNs' not in p.keys():
+                    p['FSNs']=[p['FSN']]
+            classeswaxs=classifyfunc_waxs(allparamswaxs)
+            if len(classes)!=len(classeswaxs):
+                raise RuntimeError("Number of WAXS classes differs from number of SAXS classes!")
+    for i in range(len(classes)):
+        currentclass=classes[i]
+        if not ignorewaxs:
+            currentclasswaxs=classeswaxs[i]
+        dists=utils.unique([p['Dist'] for p in currentclass])
+        lastmult=1
+        lasterrmult=0
+        datastounite=[]
+        lastqsep=np.inf
+        allfsns=[]
+        for di in range(len(dists)): # dists is ordered by utils.unique(), starts from the shortest.
+            if di==0: # in this case, calculate the multiplication factor for SAXS and WAXS
+                if ignorewaxs:
+                    continue # no waxs measurements, then continue with i==1.
+                fsnslong=[x for x in matplotlib.cbook.flatten([p['FSNs'] for p in currentclasswaxs])]
+                if len(fsnslong)>1:
+                    print "more than one summarized WAXS files exist from class #%d. USING FIRST! FSNS:" % (i),fsnslong
+                dataslong,paramslong=B1io.readintnorm(fsnslong,dirs=dirs,filetype=waxsfiletype,logfiletype=waxslogfiletype)
+                datalong=dataslong[0]
+                paramlong=paramslong[0]
+                print "Uniting WAXS to distance",dists[di]
+                shortdist=dists[di]
+            else:
+                fsnslong=[x for x in matplotlib.cbook.flatten([p['FSNs'] for p in currentclass if p['Dist']==dists[di]])]
+                if len(fsnslong)>1:
+                    print "more than one summarized files exist from class #%d. USING FIRST! FSNS:" % (i),fsnslong
+                dataslong,paramslong=B1io.readintnorm(fsnslong,dirs=dirs,filetype=filetype,logfiletype=logfiletype)
+                datalong=dataslong[0]
+                paramlong=paramslong[0]
+                print "Uniting distance",dists[di],"to",dists[di-1]
+                shortdist=dists[di-1]
+            fsnsshort=[x for x in matplotlib.cbook.flatten([p['FSNs'] for p in currentclass if p['Dist']==shortdist])]
+            if len(fsnsshort)>1:
+                print "more than one summarized files exist from class #%d. USING FIRST! FSNS:" % (i),fsnslong
+            datasshort,paramsshort=B1io.readintnorm(fsnsshort,dirs=dirs,filetype=filetype,logfiletype=logfiletype)
+            datashort=datasshort[0]
+            paramshort=paramsshort[0]
+            allfsns.extend(fsnslong)
+            allfsns.extend(fsnsshort)
+            # now we have fsns, data and param for long (or WAXS) and short distance
+            
+            # !! NOTICE !! Under LONG distance, we mean the measurement which
+            # will be scaled to the other. SHORT is the measurement, to which LONG
+            # will be scaled !! Only WAXS makes a difference, because it has to be scaled
+            # to SAXS.
+            
+            #let's find the multiplication factor. To accomplish that, we need the common q-range.
+            # This common q-range is either supplied by the user (qmin, qmax) or has to determined by us.
+            if qmin is None:
+                ourqmin=max(min(datashort['q']),min(datalong['q']))
+            elif np.isscalar(qmin):
+                ourqmin=qmin
+            else:
+                if ignorewaxs and len(qmin)==len(dists)-1:
+                    ourqmin=qmin[di-1]
+                elif not ignorewaxs and len(qmax)==len(dists):
+                    ourqmin=qmin[di]
+                else:
+                    raise ValueError("qmin should be either scalar or a list of the same size as many distances are present (minus one if WAXS is not present)")
+            if qmax is None:
+                ourqmax=min(max(datashort['q']),max(datalong['q']))
+            elif np.isscalar(qmax):
+                ourqmax=qmax
+            else:
+                if ignorewaxs and len(qmax)==len(dists)-1:
+                    ourqmax=qmax[di-1]
+                elif not ignorewaxs and len(qmax)==len(dists):
+                    ourqmax=qmax[di]
+                else:
+                    raise ValueError("qmax should be either scalar or a list of the same size as many distances are present (minus one if WAXS is not present)")
+            if qsep is None:
+                ourqsep=0.5*(ourqmin+ourqmax)
+            elif np.isscalar(qsep):
+                ourqsep=qsep
+            else:
+                if ignorewaxs and len(qsep)==len(dists)-1:
+                    ourqsep=qsep[di-1]
+                elif not ignorewaxs and len(qsep)==len(dists):
+                    ourqsep=qsep[di]
+                else:
+                    raise ValueError("qsep should be either scalar or a list of the same size as many distances are present (minus one if WAXS is not present)")
+            # now we have qmin, qmax, qsep for uniting the current two distances.
+            print "Common q-range: ",ourqmin," to ",ourqmax
+            print "Separator q: ",ourqsep
+            #re-integrate the two distances.
+            if di==0: # WAXS:
+                dataredlong=utils.trimq(datalong,qmin=ourqmin,qmax=ourqmax)
+                if len(dataredlong['q'])<2:
+                    raise ValueError("WAXS curve does not have enough q-points in the common q-range!")
+                commonqrange=dataredlong['q']
+            else:
+                commonqrange=np.linspace(ourqmin,ourqmax,10);
+                intdata=[]
+                Along,Aerrlong,paramlong=B1io.read2dintfile(fsnslong,dirs=dirs)
+                for j in range(len(Along)):
+                    intdata.append(B1_autointegrate(Along[j],Aerrlong[j],paramlong[j],distmaskdict[paramlong[j]['Dist']],commonqrange))
+                dataredlong=utils.combinesasdicts(*intdata,accordingto='q')
+            intdata=[]
+            Ashort,Aerrshort,paramshort=B1io.read2dintfile(fsnsshort,dirs=dirs)
+            for j in range(len(Ashort)):
+                intdata.append(B1_autointegrate(Ashort[j],Aerrshort[j],paramshort[j],distmaskdict[paramshort[j]['Dist']],commonqrange))
+            dataredshort=utils.combinesasdicts(*intdata,accordingto='q')
+            print "Re-integration done."
+            #now dataredlong and dataredshort contain the integrated data, reduced to the common q-range.
+            
+            # check if q-scales are matching.
+            goodqs=dataredlong['q'][2*np.absolute(dataredlong['q']-dataredshort['q'])/(dataredlong['q']+dataredshort['q'])<qtolerance]
+            print "Number of good q-s: %d out of %d" % (len(goodqs),len(dataredlong['q']))
+            dataredlong=utils.trimq(dataredlong,qmin=goodqs.min(),qmax=goodqs.max())
+            dataredshort=utils.trimq(dataredshort,qmin=goodqs.min(),qmax=goodqs.max())
+            
+            # calculate the multiplication factor to normalize long to short.
+            mult1,errmult1=utils.multfactor(dataredlong['q'],dataredshort['Intensity'],dataredshort['Error'],dataredlong['Intensity'],dataredlong['Error'])
+            print "Multiplication factor:",mult1,"+/-",errmult1
+            if ignorescalingerror:
+                print "Ignoring scaling errors"
+                errmult1=0;
+            # save into datastounite[]
+            if di==0: # uniting WAXS to SAXS: save WAXS curve, normalized to SAXS
+                print "Storing multiplied WAXS curve, trimming it from below at",ourqsep
+                datastounite.append(utils.trimq(utils.multsasdict(datalong,mult1,errmult1),qmin=ourqsep))
+            else: # uniting long SAXS to short SAXS: save short SAXS with scaling by the previous scaling factor.
+                # first cut the previously saved SAXS curve from above. If the previously saved curve is WAXS, do not trim.
+                #  save the current short distance, normalized by the last multfactor (if this is the first SAXS to be saved, lastmult is 1, lasterrmult is 0).
+                print "Storing short distance curve, trimming it from above at",lastqsep
+                datastounite.append(utils.trimq(utils.multsasdict(datashort,lastmult,lasterrmult),qmin=ourqsep,qmax=lastqsep))
+                lastqsep=ourqsep
+                # adjust lastmult and lasterrmult
+                lasterrmult=np.sqrt((lastmult*errmult1)**2+(mult1*lasterrmult)**2)
+                lastmult*=mult1
+                # if this is the last iteration, save long distance as well.
+                if di==len(dists)-1:
+                    print "This is the last distance, storing long distance curve, trimming it from above at",ourqsep
+                    datastounite.append(utils.trimq(utils.multsasdict(datalong,lastmult,lasterrmult),qmax=ourqsep))
+            if plot:
+                pylab.clf()
+                datalongmult=utils.multsasdict(datalong,mult1,errmult1)
+                pylab.loglog(datalongmult['q'],datalongmult['Intensity'],'.-',label='long')
+                pylab.loglog(datashort['q'],datashort['Intensity'],'.-',label='short')
+                pylab.loglog(dataredshort['q'],dataredshort['Intensity'],'.-',label='reduced short')
+                pylab.loglog(dataredlong['q'],dataredlong['Intensity']*mult1,'.-',label='reduced long, scaled')
+                a=pylab.axis()
+                pylab.plot([ourqmin,ourqmin],[a[2],a[3]],'-',label='q min')
+                pylab.plot([ourqmax,ourqmax],[a[2],a[3]],'-',label='q max')
+                pylab.plot([ourqsep,ourqsep],[a[2],a[3]],'-',label='q sep')
+                pylab.xlabel(u'q (1/\xc5)')
+                pylab.ylabel('Intensity (1/cm)')
+                pylab.legend(loc='best')
+                utils.pause()
+        #we are ready with datastounite[].
+        print "Number of stored curves:",len(datastounite)
+        if plot:
+            pylab.clf()
+            for data in datastounite:
+                pylab.loglog(data['q'],data['Intensity'],'.-')
+#                utils.pause()
+            pylab.xlabel(u'q (1/\xc5)')
+            pylab.ylabel('Intensity (1/cm)')
+            pylab.gcf().show()
+            pylab.draw()
+        print "Combining stored curves"
+        united=utils.combinesasdicts(*datastounite)
+        if plot:
+            pylab.loglog(united['q'],united['Intensity'],'-')
+            utils.pause()
+        try:
+            fname=savefiletype % min(allfsns)
+        except:
+            fname='%s%d.dat' % (savefiletype,min(allfsns))
+        B1io.write1dsasdict(united,fname)
+        print "United curve saved as %s"%fname
