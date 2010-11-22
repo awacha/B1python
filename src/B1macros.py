@@ -38,6 +38,13 @@ import scipy.io
 import re
 import warnings
 import matplotlib.cbook
+import sys
+import string
+
+try:
+    import xlwt
+except ImportError:
+    pass
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
@@ -1961,7 +1968,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 print 'Re-integrating...'
                 qs,ints,errs,areas,maskout=utils2d.radintC(data[0],dataerr[0],p['EnergyCalibrated'],
                                         p['Dist'],p['PixelSize'],p['BeamPosX'],
-                                        p['BeamPosY'],1-mask,qrange,returnavgq=True,returnmask=True);
+                                        p['BeamPosY'],(1-mask).astype(np.uint8),qrange,returnavgq=True,returnmask=True);
                 intdata={'q':qs,'Intensity':ints,'Error':errs,'Area':areas,'qorig':qrange}
                 if sanitize is not None:
                     intdata=utils.sanitizeint(intdata,accordingto=sanitize)
@@ -2716,3 +2723,56 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             fname='%s%d.dat' % (savefiletype,min(allfsns))
         B1io.write1dsasdict(united,fname)
         print "United curve saved as %s"%fname
+        
+def getsamplenamesxls(fsns,xlsname,dirs,whattolist=None):
+    """ getsamplenames revisited, XLS output.
+    
+    Inputs:
+        fsns: FSN sequence
+        xlsname: XLS file name to output listing
+        dirs: either a single directory (string) or a list of directories, a la readheader()
+        whattolist: format specifier for listing. Should be a list of tuples. Each tuple
+            corresponds to a column in the worksheet, in sequence. The first element of
+            each tuple is the column title, eg. 'Distance' or 'Calibrated energy (eV)'.
+            The second element is either the corresponding field in the header dictionary
+            ('Dist' or 'EnergyCalibrated'), or a tuple of them, eg. ('FSN', 'Title', 'Energy').
+            If the column-descriptor tuple does not have a third element, the string
+            representation of each field (str(param[i][fieldname])) will be written
+            in the corresponding cell. If a third element is present, it is treated as a 
+            format string, and the values of the fields are substituted.
+    Outputs:
+        an XLS workbook is saved.
+    
+    Notes:
+        if whattolist is not specified exactly (ie. is None), then the output
+            is similar to getsamplenames().
+        module xlwt is needed in order for this function to work. If it cannot
+            be imported, the other functions may work, only this function will
+            raise a NotImplementedError.
+    """
+    if 'xlwt' not in sys.modules.keys():
+        raise NotImplementedError('Module xlwt missing, function generatexls() cannot work without it.')
+    params=B1io.readheader('org_',fsns,'.header',dirs)
+
+    if whattolist is None:
+        whattolist=[('FSN','FSN'),('Time','MeasTime'),('Energy','Energy','%.2f'),
+                    ('Distance','Dist','%.0f'),('Position','PosSample','%.2f'),
+                    ('Transmission','Transm','%.6f'),('Temperature','Temperature','%.2f'),
+                    ('Title','Title'),('Date',('Day','Month','Year','Hour','Minutes'),'%02d.%02d.%04d %02d:%02d')]
+    wb=xlwt.Workbook(encoding='utf8')
+    ws=wb.add_sheet('Measurements')
+    for i in range(len(whattolist)):
+        ws.write(0,i,whattolist[i][0])
+    for i in range(len(params)):
+        for j in range(len(whattolist)):
+            if np.isscalar(whattolist[j][1]):
+                fields=[whattolist[j][1]]
+            else:
+                fields=whattolist[j][1]
+            if len(whattolist[j])==2:
+                ws.write(i+1,j,string.join([str(params[i][f]) for f in fields]))
+            elif len(whattolist[j])>=3:
+                ws.write(i+1,j,whattolist[j][2] % tuple([params[i][f] for f in fields]))
+    wb.save(xlsname)
+
+    
