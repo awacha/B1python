@@ -6,6 +6,6 @@ _all1=dir()
 __all__=[_a for _a in _all1 if _a[0:2]!='__']
 #print __all__
 
-VERSION="0.5.5"
+VERSION="0.5.6"
 pass
 #comment

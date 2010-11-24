@@ -18,7 +18,228 @@ import types
 import scipy.special
 _pausemode=True
 
+class SASDict(object):
+    """Small Angle Scattering results in a dictionary-like representation.
+    """
+    _q=None
+    _Intensity=None
+    _Error=None
+    _Area=None
+    def __init__(self,**kwargs):
+        try:
+            self._q=np.array(kwargs['q'])
+        except KeyError:
+            raise ValueError('SASDict has to be initialized with q given.')
+        try:
+            if len(kwargs['Intensity'])!=len(self._q):
+                raise ValueError('Length of Intensity should be equal to length of q.')
+            self._Intensity=np.array(kwargs['Intensity'])
+        except KeyError:
+            raise ValueError('SASDict has to be initialized with Intensity given.')
+        try:
+            if len(kwargs['Error'])!=len(self._q):
+                raise ValueError('Length of Error should be equal to length of q.')
+            self._Error=np.array(kwargs['Error'])
+        except KeyError:
+            self._Error=np.zeros(self._Intensity.shape)
+        try:
+            if len(kwargs['Area'])!=len(self._q):
+                raise ValueError('Length of Error should be equal to length of q.')
+            self._Area=np.array(kwargs['Area'])
+        except KeyError:
+            self._Area=np.zeros(self._Intensity.shape)
+    def get_q(self):
+        return self._q
+    def get_Intensity(self):
+        return self._Intensity
+    def get_Error(self):
+        return self._Error
+    def get_Area(self):
+        return self._Area
+    def get_s(self):
+        return self._q/(2*np.pi)
+    def set_q(self,q1):
+        q1=np.array(q1)
+        if (self._q is None) or (len(self._q)==len(q1)):
+            self._q=q1
+        else:
+            # new q differs, Intensity, Error and Area have to be reset.
+            self._Intensity=None
+            self._Error=None
+            self._Area=None
+    def set_s(self,s1):
+        return self.set_q(self,s1/(2*np.pi))
+    def set_Intensity(self,I1):
+        I1=np.array(I1)
+        if (len(self._q)==len(I1)):
+            self._Intensity=I1
+        else:
+            raise ValueError("Intensity should be of the same length as q.")
+    def set_Error(self,E1):
+        E1=np.array(I1)
+        if (len(self._q)==len(E1)):
+            self._Error=E1
+        else:
+            raise ValueError("Error should be of the same length as q.")
+    def set_Area(self,A1):
+        A1=np.array(A1)
+        if (len(self._q)==len(A1)):
+            self._Area=A1
+        else:
+            raise ValueError("Area should be of the same length as q.")
+    q=property(fget=get_q,fset=set_q,doc='Scattering variable, 4*pi*sin(theta)/lambda')
+    s=property(fget=get_s,fset=set_s,doc='Scattering variable, 2*sin(theta)/lambda')
+    Intensity=property(fget=get_Intensity,fset=set_Intensity,doc='Scattered intensity')
+    Error=property(fget=get_Error,fset=set_Error,doc='Absolute error of scattered intensity')
+    Area=property(fget=get_Area,fset=set_Area,doc='Effective area during integration')
+    def save(self,filename):
+        return B1io.write1dsasdict(self,filename)
+    def keys(self):
+        return ['q','Intensity','Error','Area']
+    def __getitem__(self,item):
+        if item=='q':
+            return self.q
+        if item=='Intensity':
+            return self.Intensity
+        if item=='Error':
+            return self.Error
+        if item=='Area':
+            return self.Area
+        raise KeyError(item)
+    def copy(self):
+        return SASDict(self)
+    def trimq(self,qmin=-np.inf,qmax=np.inf):
+        """Trim the 1D scattering data to a given q-range
+        
+        Inputs:
+            data: scattering data
+            qmin: lowest q-value to include (default: ignore)
+            qmax: highest q-value to include (default: ignore)
 
+        Intensity, Error and Area (if present) will be trimmed.
+        """
+        indices=(self._q<=qmax) & (self._q>=qmin)
+        self._q=self._q[indices]
+        if self._Intensity is not None:
+            self._Intensity=self._Intensity[indices]
+        if self._Error is not None:
+            self._Error=self._Error[indices]
+        if self._Area is not None:
+            self._Area=self._Area[indices]
+        return self
+    def trims(self,smin=-np.inf,smax=np.inf):
+        return self.trimq(self,qmin=smin*2*np.pi,qmax=smax*2*np.pi)
+    def loglog(self,*args,**kwargs):
+        pylab.loglog(self._q,self._Intensity,*args,**kwargs)
+    def semilogy(self,*args,**kwargs):
+        pylab.semilogy(self._q,self._Intensity,*args,**kwargs)
+    def semilogx(self,*args,**kwargs):
+        pylab.semilogx(self._q,self._Intensity,*args,**kwargs)
+    def plot(self,*args,**kwargs):
+        pylab.plot(self._q,self._Intensity,*args,**kwargs)
+    def errorbar(self,*args,**kwargs):
+        pylab.errorbar(self._q,self._Intensity,self._Error,*args,**kwargs)
+    def __imul__(self,x):
+        if isinstance(x,tuple) and len(x)==2:
+            val=x[0]
+            err=x[1]
+        else:
+            val=x
+            err=0
+        self._Error=np.sqrt((self._Intensity*err)**2+(self._Error*val)**2)
+        self._Intensity=self._Intensity*val
+        return self
+    def __idiv__(self,x):
+        if isinstance(x,tuple) and len(x)==2:
+            val=x[0]
+            err=x[1]
+        else:
+            val=x
+            err=0
+        self._Error=np.sqrt((self._Intensity/(val*val)*err)**2+(self._Error/val)**2)
+        self._Intensity=self._Intensity/val
+        return self
+    def __iadd__(self,x):
+        if isinstance(x,tuple) and len(x)==2:
+            val=x[0]
+            err=x[1]
+        else:
+            val=x
+            err=0
+        self._Error=np.sqrt((err)**2+(self._Error)**2)
+        self._Intensity=self._Intensity+val
+        return self
+    def __isub__(self,x):
+        if isinstance(x,tuple) and len(x)==2:
+            val=x[0]
+            err=x[1]
+        else:
+            val=x
+            err=0
+        self._Error=np.sqrt((err)**2+(self._Error)**2)
+        self._Intensity=self._Intensity-val
+        return self
+    def __mul__(self,x):
+        if isinstance(x,tuple) and len(x)==2:
+            val=x[0]
+            err=x[1]
+        else:
+            val=x
+            err=0
+        err=np.sqrt((self._Intensity*err)**2+(self._Error*val)**2)
+        val=self._Intensity*val
+        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+    def __div__(self,x):
+        if isinstance(x,tuple) and len(x)==2:
+            val=x[0]
+            err=x[1]
+        else:
+            val=x
+            err=0
+        err=np.sqrt((self._Intensity/(val*val)*err)**2+(self._Error/val)**2)
+        val=self._Intensity/val
+        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+    __itruediv__=__idiv__
+    def __add__(self,x):
+        if isinstance(x,tuple) and len(x)==2:
+            val=x[0]
+            err=x[1]
+        else:
+            val=x
+            err=0
+        err=np.sqrt((err)**2+(self._Error)**2)
+        val=self._Intensity+val
+        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+    def __sub__(self,x):
+        if isinstance(x,tuple) and len(x)==2:
+            val=x[0]
+            err=x[1]
+        else:
+            val=x
+            err=0
+        err=np.sqrt((err)**2+(self._Error)**2)
+        val=self._Intensity-val
+        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+    def __neg__(self):
+        return SASDict(q=self._q,Intensity=-self._Intensity,Error=self._Error,Area=self._Area)
+    __itruediv__=__idiv__
+    __truediv__=__div__
+    __rmul__=__mul__
+    def __rdiv__(self,x):
+        if isinstance(x,tuple) and len(x)==2:
+            val=x[0]
+            err=x[1]
+        else:
+            val=x
+            err=0
+        err=np.sqrt((err/self._Intensity)**2+(val/(self._Error)**2)**2)
+        val=self._Intensity/val
+        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+    __rtruediv__=__truediv__
+    __radd__=__add__
+    def __rsub__(self,x):
+        return -(self-x)
+        
 def trimq(data,qmin=-np.inf,qmax=np.inf):
     """Trim the 1D scattering data to a given q-range
     
@@ -398,7 +619,8 @@ def flatten1dsasdict(data):
     """
     d1={}
     for k in data.keys():
-        d1[k]=data[k].flatten()
+        if hasattr(data[k],'flatten'):
+            d1[k]=data[k].flatten()
     return d1
 def sanitizeint(data,accordingto='Intensity'):
     """Remove points with nonpositive values of a given field from 1D SAXS dataset
