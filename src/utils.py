@@ -20,6 +20,28 @@ _pausemode=True
 
 class SASDict(object):
     """Small Angle Scattering results in a dictionary-like representation.
+    
+    This is the recommended way to represent small-angle scattering curves.
+    Old representation (dictionary) can be transformed as:
+    
+    newrep=SASDict(**data)
+    
+    This class retains the functionality of the dictionary representation:
+    fields as 'q', 'Intensity', 'Error', 'Area' are accessible as dictionary
+    fields. However, they are also accessible as attributes, ie. data.q, etc.
+    
+    Arithmetic operations are implemented (in-place also, like in data*=2). 
+    Currently the other operand can only be either a scalar (or vector of the
+    same length as q), or a tuple of two (elements of it being scalars or
+    vectors of the same length as q), in which latter case the second element
+    of the tuple is treated as absolute error.
+    
+    Plotting functions are implemented (plot, loglog, semilogx, semilogy, errorbar),
+    which call the matplotlib functions of the same name, forwarding all
+    optional arguments to them. Thus constructs like these are possible:
+    
+    data.plot('.-',linewidth=3,markersize=5,label='test plot')
+    
     """
     _q=None
     _Intensity=None
@@ -95,7 +117,27 @@ class SASDict(object):
     def save(self,filename):
         return B1io.write1dsasdict(self,filename)
     def keys(self):
-        return ['q','Intensity','Error','Area']
+        list=[]
+        if self._q is not None:
+            list.append('q')
+        if self._Intensity is not None:
+            list.append('Intensity')
+        if self._Error is not None:
+            list.append('Error')
+        if self._Area is not None:
+            list.append('Area')
+        return list
+    def values(self):
+        list=[]
+        if self._q is not None:
+            list.append(self.get_q())
+        if self._Intensity is not None:
+            list.append(self.get_Intensity())
+        if self._Error is not None:
+            list.append(self.get_Error())
+        if self._Area is not None:
+            list.append(self.get_Area())
+        return list
     def __getitem__(self,item):
         if item=='q':
             return self.q
@@ -128,7 +170,7 @@ class SASDict(object):
             self._Area=self._Area[indices]
         return self
     def trims(self,smin=-np.inf,smax=np.inf):
-        return self.trimq(self,qmin=smin*2*np.pi,qmax=smax*2*np.pi)
+        return self.trimq(qmin=smin*2*np.pi,qmax=smax*2*np.pi)
     def loglog(self,*args,**kwargs):
         pylab.loglog(self._q,self._Intensity,*args,**kwargs)
     def semilogy(self,*args,**kwargs):
@@ -239,7 +281,55 @@ class SASDict(object):
     __radd__=__add__
     def __rsub__(self,x):
         return -(self-x)
-        
+    def __pow__(self,exponent,modulus=None):
+        if modulus is not None:
+            return NotImplemented # this is hard to implement for SAS curves.
+        if exponent==0:
+            return SASDict(q=self._q,Intensity=np.zeros(self._q.shape),Error=np.zeros(self._q.shape),Area=self._Area)
+        else:
+            return SASDict(q=self._q,Intensity=np.pow(self._Intensity,exponent),
+                           Error=self._Error*np.absolute((exponent)*np.pow(self._Intensity,exponent-1)))
+    def __array__(self):
+        a=np.array(zip(*(self.values())),dtype=zip(self.keys(),[np.double]*len(self.keys())))
+        return a
+    def sort(self,order='q'):
+        a=self.__array__()
+        sorted=np.sort(a,order=order)
+        if self._q is not None:
+            self._q=sorted['q']
+        if self._Intensity is not None:
+            self._Intensity=sorted['Intensity']
+        if self._Error is not None:
+            self._Error=sorted['Error']
+        if self._Area is not None:
+            self._Area=sorted['Area']
+        return self
+    def sanitize(self,accordingto='Intensity',thresholdmin=0,thresholdmax=np.inf,function=None):
+        if hasattr(function,'__call__'):
+            indices=function(self.getattr(accordingto))
+        else:
+            indices=(self.getattr(accordingto)>thresholdmin) & (self.getattr(accordingto)<thresholdmax)
+        if self._q is not None:
+            self._q=self._q[indices]
+        if self._Intensity is not None:
+            self._Intensity=self._Intensity[indices]
+        if self._Error is not None:
+            self._Error=self._Error[indices]
+        if self._Error is not None:
+            self._Area=self._Area[indices]
+        return self
+    def modulus(self,exponent=0,errorrequested=False):
+        x=self._q
+        y=self._Intensity*self._q**exponent
+        err=self._Error*self._q**exponent
+        m=np.trapz(y,x)
+        dm=errtapz(x,err)
+        if errorrequested:
+           return (m,dm) 
+        else:
+            return m
+    def integral(self,errorrequested=False):
+        return self.modulus(errorrequested=errorrequested)
 def trimq(data,qmin=-np.inf,qmax=np.inf):
     """Trim the 1D scattering data to a given q-range
     
@@ -252,6 +342,8 @@ def trimq(data,qmin=-np.inf,qmax=np.inf):
         an 1D scattering data dictionary, with points whose q-values were not
             smaller than qmin and not larger than qmax.
     """
+    if isinstance(data,SASDict):
+        return data.trimq(qmin,qmax)
     indices=(data['q']<=qmax) & (data['q']>=qmin)
     data1={}
     for k in data.keys():
@@ -295,6 +387,8 @@ def multsasdict(data,mult,errmult=0):
         a dictionary, multiplied by the scalar factor. Fields 'Intensity' and
         'Error' are treated, other ones are copied.
     """
+    if isinstance(data,SASDict):
+        return data*(mult,errmult)
     newdict={}
     for i in data.keys():
         newdict[i]=data[i]
@@ -312,6 +406,8 @@ def sortsasdict(data,*args):
     Output:
         sorted dict
     """
+    if isinstance(data,SASDict):
+        return data.sort(args)
 #    print "Sorting SAS dict."
     if len(args)==0:
         args='q'
@@ -617,6 +713,8 @@ def flatten1dsasdict(data):
         The same dictionary, but every element ('q', 'Intensity', ...) gets
         flattened into 1D.
     """
+    if isinstance(data,SASDict):
+        return data
     d1={}
     for k in data.keys():
         if hasattr(data[k],'flatten'):
@@ -634,6 +732,8 @@ def sanitizeint(data,accordingto='Intensity'):
         a new dictionary of which the points with nonpositive values of a given
             key (see parameter 'accordingto') are omitted
     """
+    if isinstance(data,SASDict):
+        return data.sanitize(accordingto)
     indices=(data[accordingto]>0)
     data1={}
     for k in data.keys():
