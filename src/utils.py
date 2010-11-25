@@ -43,11 +43,13 @@ class SASDict(object):
     data.plot('.-',linewidth=3,markersize=5,label='test plot')
     
     """
-    _q=None
-    _Intensity=None
-    _Error=None
-    _Area=None
+    qtolerance=0.001
+    __instances=0
     def __init__(self,**kwargs):
+        self._q=None
+        self._Intensity=None
+        self._Error=None
+        self._Area=None
         try:
             self._q=np.array(kwargs['q'])
         except KeyError:
@@ -56,20 +58,27 @@ class SASDict(object):
             if len(kwargs['Intensity'])!=len(self._q):
                 raise ValueError('Length of Intensity should be equal to length of q.')
             self._Intensity=np.array(kwargs['Intensity'])
+        except TypeError:
+            self._Intensity=None
         except KeyError:
             raise ValueError('SASDict has to be initialized with Intensity given.')
         try:
             if len(kwargs['Error'])!=len(self._q):
                 raise ValueError('Length of Error should be equal to length of q.')
             self._Error=np.array(kwargs['Error'])
+        except TypeError:
+            self._Error=None
         except KeyError:
             self._Error=np.zeros(self._Intensity.shape)
         try:
             if len(kwargs['Area'])!=len(self._q):
-                raise ValueError('Length of Error should be equal to length of q.')
+                raise ValueError('Length of Area should be equal to length of q.')
             self._Area=np.array(kwargs['Area'])
+        except TypeError:
+            self._Area=None
         except KeyError:
             self._Area=np.zeros(self._Intensity.shape)
+        SASDict.__instances+=1
     def get_q(self):
         return self._q
     def get_Intensity(self):
@@ -181,10 +190,27 @@ class SASDict(object):
         pylab.plot(self._q,self._Intensity,*args,**kwargs)
     def errorbar(self,*args,**kwargs):
         pylab.errorbar(self._q,self._Intensity,self._Error,*args,**kwargs)
+    def _check_compat(self,x,die=False):
+        if len(x._q)!=len(self._q):
+            if die:
+                raise ValueError('Incompatible SAS dicts (q-scales have different lengths)!')
+            return False
+        if (2*np.absolute(x._q-self._q)/(x._q+self._q)).sum()/len(self._q)>SASDict.qtolerance:
+            if die:
+                raise ValueError('Incompatible SAS dicts (q-scales are different)!')
+            return False
+        return True
     def __imul__(self,x):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
+        elif isinstance(x,SASDict):
+            self._check_compat(x,die=True)
+            self._q=0.5*(self._q+x._q)
+            self._Intensity=self._Intensity*x._Intensity
+            self._Error=np.sqrt((x._Intensity*self._Error)**2+(self._Intensity*x._Error)**2)
+            self._Area=None
+            return self
         else:
             val=x
             err=0
@@ -195,6 +221,9 @@ class SASDict(object):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
+        elif isinstance(x,SASDict):
+            self*=1/x
+            return self
         else:
             val=x
             err=0
@@ -205,6 +234,13 @@ class SASDict(object):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
+        elif isinstance(x,SASDict):
+            self._check_compat(x,die=True)
+            self._q=0.5*(self._q+x._q)
+            self._Intensity=self._Intensity+x._Intensity
+            self._Error=np.sqrt(self._Error**2+x._Error**2)
+            self._Area=None
+            return self
         else:
             val=x
             err=0
@@ -215,6 +251,13 @@ class SASDict(object):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
+        elif isinstance(x,SASDict):
+            self._check_compat(x,die=True)
+            self._q=0.5*(self._q+x._q)
+            self._Intensity=self._Intensity-x._Intensity
+            self._Error=np.sqrt(self._Error**2+x._Error**2)
+            self._Area=None
+            return self
         else:
             val=x
             err=0
@@ -225,6 +268,13 @@ class SASDict(object):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
+        elif isinstance(x,SASDict):
+            self._check_compat(x,die=True)
+            q1=0.5*(self._q+x._q)
+            Intensity1=self._Intensity*x._Intensity
+            Error1=np.sqrt((x._Intensity*self._Error)**2+(self._Intensity*x._Error)**2)
+            Area1=None
+            return SASDict(q=q1,Intensity=Intensity1,Error=Error1,Area=Area1)
         else:
             val=x
             err=0
@@ -235,6 +285,8 @@ class SASDict(object):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
+        elif isinstance(x,SASDict):
+            return self*(1/x)
         else:
             val=x
             err=0
@@ -246,6 +298,9 @@ class SASDict(object):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
+        elif isinstance(x,SASDict):
+            self._check_compat(x,die=True)
+            return SASDict(q=0.5*(self._q+x._q),Intensity=self._Intensity+x._Intensity,Error=np.sqrt(self._Error**2+x._Error**2),Area=None)
         else:
             val=x
             err=0
@@ -256,6 +311,9 @@ class SASDict(object):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
+        elif isinstance(x,SASDict):
+            self._check_compat(x,die=True)
+            return SASDict(q=0.5*(self._q+x._q),Intensity=self._Intensity-x._Intensity,Error=np.sqrt(self._Error**2+x._Error**2),Area=None)
         else:
             val=x
             err=0
@@ -271,6 +329,8 @@ class SASDict(object):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
+        elif isinstance(x,SASDict):
+            return x*(1/self)
         else:
             val=x
             err=0
@@ -330,6 +390,19 @@ class SASDict(object):
             return m
     def integral(self,errorrequested=False):
         return self.modulus(errorrequested=errorrequested)
+    def __len__(self):
+        return len(self.keys())
+    def __del__(self):
+        if self._q is not None:
+            del self._q
+        if self._Intensity is not None:
+            del self._Intensity
+        if self._Error is not None:
+            del self._Error
+        if self._Area is not None:
+            del self._Area
+        SASDict.__instances-=1
+#        print "An instance of SASDict has been disposed of. Remaining instances:",SASDict.__instances
 def trimq(data,qmin=-np.inf,qmax=np.inf):
     """Trim the 1D scattering data to a given q-range
     

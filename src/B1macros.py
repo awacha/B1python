@@ -2026,13 +2026,13 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
     if samples is not None:
         if type(samples)==type(''): # if it is a string
             samples=[samples] # make a list of one
+        # reduce the set of files to be evaluated to the samples requested.
+        params=[p for p in params if p['Title'] in samples]
     # a for loop for small- and wide-angle scattering. First iteration will be SAXS, second WAXS
     for ftype,clfunc,waxsprefix in zip([filetype, waxsfiletype],[classifyfunc,classifyfunc_waxs],['','waxs']):
         pclass=clfunc(params) # classify the parameters with the classification function
         nclass=0 # reset class index
         for plist in pclass: # for each param in the class
-            if samples is not None: # reduce the set of files to be evaluated to the samples requested.
-                plist=[p for p in plist if p['Title'] in samples]
             nclass+=1 # increase class counter
             classfsns=repr([p1['FSN'] for p1 in plist]) # fsns in the class
             print 'Class',nclass,', FSNs:',classfsns
@@ -2143,7 +2143,7 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
                 Isum=Isum/w
                 Isum[np.isnan(Isum)]=0
                 if plot:
-                    pylab.loglog(q,Isum,'o-',label='Sum',markerfacecolor='None',linewidth=3,markeredgewidth=2,markersize=6)
+                    pylab.loglog(q,Isum,'o',label='Sum',markerfacecolor='None',linewidth=5,markeredgewidth=1,markersize=10)
                     pylab.legend(loc='best')
                     pylab.draw()
                     pylab.gcf().show()
@@ -2535,13 +2535,19 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         the original summed intensities (read from summed*.dat) to each other
         using this factor.
     """
-    allparams=B1io.readlogfile(fsns,dirs=dirs,norm=logfiletype)
+    if np.isscalar(sample):
+        sample=[sample]
+    print "Reading logfiles of type %s"%logfiletype
+    allparams=B1io.readlogfile(fsns,dirs=dirs,norm=logfiletype,quiet=True)
+    print "%d logfiles have been loaded." % len(allparams)
+    allparams=[p for p in allparams if p['Title'] in sample]
     for p in allparams: # if uniting non-summarized measurements, update the param structures to look as if they were summed from 1 measurement
         if 'FSNs' not in p.keys():
             p['FSNs']=[p['FSN']]
     classes=classifyfunc(allparams)
+    print "Number of classes:",len(classes)
     if not ignorewaxs:
-        allparamswaxs=B1io.readlogfile(fsns,dirs=dirs,norm=waxslogfiletype)
+        allparamswaxs=B1io.readlogfile(fsns,dirs=dirs,norm=waxslogfiletype,quiet=True)
         if len(allparamswaxs)<1:
             print "WAXS log files not found, disabling WAXS in unitefsns()."
             ignorewaxs=True
@@ -2566,27 +2572,29 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             if di==0: # in this case, calculate the multiplication factor for SAXS and WAXS
                 if ignorewaxs:
                     continue # no waxs measurements, then continue with i==1.
-                fsnslong=[x for x in matplotlib.cbook.flatten([p['FSNs'] for p in currentclasswaxs])]
-                if len(fsnslong)>1:
-                    print "more than one summarized WAXS files exist from class #%d. USING FIRST! FSNS:" % (i),fsnslong
-                dataslong,paramslong=B1io.readintnorm(fsnslong,dirs=dirs,filetype=waxsfiletype,logfiletype=waxslogfiletype)
+                if len(currentwaxsclass)>1:
+                    print "more than one summarized WAXS files exist from class #%d. USING FIRST! FSNS:" % (i),[p['FSN'] for p in currentwaxsclass]
+                fsnslong=currentwaxsclass[0]['FSNs']
+                dataslong,paramslong=B1io.readintnorm(fsnslong,dirs=dirs,filetype=waxsfiletype,logfiletype=waxslogfiletype,quiet=True)
                 datalong=dataslong[0]
                 paramlong=paramslong[0]
                 print "Uniting WAXS to distance",dists[di]
                 shortdist=dists[di]
             else:
-                fsnslong=[x for x in matplotlib.cbook.flatten([p['FSNs'] for p in currentclass if p['Dist']==dists[di]])]
-                if len(fsnslong)>1:
-                    print "more than one summarized files exist from class #%d. USING FIRST! FSNS:" % (i),fsnslong
-                dataslong,paramslong=B1io.readintnorm(fsnslong,dirs=dirs,filetype=filetype,logfiletype=logfiletype)
+                currentclasslong=[c for c in currentclass if c['Dist']==dists[di]]
+                if len(currentclasslong)>1:
+                    print "more than one summarized files exist from class #%d. USING FIRST! FSNS:" % (i),[p['FSN'] for p in currentclasslong]
+                fsnslong=currentclasslong[0]['FSNs']
+                dataslong,paramslong=B1io.readintnorm(fsnslong,dirs=dirs,filetype=filetype,logfiletype=logfiletype,quiet=True)
                 datalong=dataslong[0]
                 paramlong=paramslong[0]
                 print "Uniting distance",dists[di],"to",dists[di-1]
                 shortdist=dists[di-1]
-            fsnsshort=[x for x in matplotlib.cbook.flatten([p['FSNs'] for p in currentclass if p['Dist']==shortdist])]
-            if len(fsnsshort)>1:
-                print "more than one summarized files exist from class #%d. USING FIRST! FSNS:" % (i),fsnslong
-            datasshort,paramsshort=B1io.readintnorm(fsnsshort,dirs=dirs,filetype=filetype,logfiletype=logfiletype)
+            currentclassshort=[c for c in currentclass if c['Dist']==shortdist]
+            if len(currentclassshort)>1:
+                print "more than one summarized files exist from class #%d. USING FIRST! FSNS:" % (i),[p['FSN'] for p in currentclassshort]
+            fsnsshort=currentclassshort[0]['FSNs']
+            datasshort,paramsshort=B1io.readintnorm(fsnsshort,dirs=dirs,filetype=filetype,logfiletype=logfiletype,quiet=True)
             datashort=datasshort[0]
             paramshort=paramsshort[0]
             allfsns.extend(fsnslong)
@@ -2645,15 +2653,30 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             else:
                 commonqrange=np.linspace(ourqmin,ourqmax,10);
                 intdata=[]
-                Along,Aerrlong,paramlong=B1io.read2dintfile(fsnslong,dirs=dirs)
+                print "Loading int2dnorm files for long distance..."
+                Along,Aerrlong,paramlong=B1io.read2dintfile(fsnslong,dirs=dirs,quiet=True)
+                print "done."
                 for j in range(len(Along)):
-                    intdata.append(B1_autointegrate(Along[j],Aerrlong[j],paramlong[j],distmaskdict[paramlong[j]['Dist']],commonqrange))
+                    print "Re-integrating FSN %d"%paramlong[j]['FSN']
+                    intdata.append(utils.SASDict(**B1_autointegrate(Along[j],Aerrlong[j],paramlong[j],distmaskdict[paramlong[j]['Dist']],commonqrange)))
+                print "re-integration of long distance done."
+                del Along
+                del Aerrlong
+                del paramlong
                 dataredlong=utils.combinesasdicts(*intdata,accordingto='q')
+                del intdata
             intdata=[]
+            print "Loading int2dnorm files for short distance..."
             Ashort,Aerrshort,paramshort=B1io.read2dintfile(fsnsshort,dirs=dirs)
+            print "done."
             for j in range(len(Ashort)):
-                intdata.append(B1_autointegrate(Ashort[j],Aerrshort[j],paramshort[j],distmaskdict[paramshort[j]['Dist']],commonqrange))
+                print "Re-integrating FSN %d"%paramshort[j]['FSN']
+                intdata.append(utils.SASDict(**B1_autointegrate(Ashort[j],Aerrshort[j],paramshort[j],distmaskdict[paramshort[j]['Dist']],commonqrange)))
+            del Ashort
+            del Aerrshort
+            del paramshort
             dataredshort=utils.combinesasdicts(*intdata,accordingto='q')
+            del intdata
             print "Re-integration done."
             #now dataredlong and dataredshort contain the integrated data, reduced to the common q-range.
             
@@ -2701,6 +2724,11 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
                 pylab.ylabel('Intensity (1/cm)')
                 pylab.legend(loc='best')
                 utils.pause()
+            del dataredlong
+            del dataredshort
+            del datalongmult
+            del datashort
+            del datalong
         #we are ready with datastounite[].
         print "Number of stored curves:",len(datastounite)
         if plot:
@@ -2723,6 +2751,8 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             fname='%s%d.dat' % (savefiletype,min(allfsns))
         B1io.write1dsasdict(united,fname)
         print "United curve saved as %s"%fname
+        del datastounite
+        del united
         
 def getsamplenamesxls(fsns,xlsname,dirs,whattolist=None):
     """ getsamplenames revisited, XLS output.

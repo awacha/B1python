@@ -759,7 +759,7 @@ def readasa(basename,dirs=[]):
                 params['Stopcondition']=line.strip().split(':')[1].strip().replace(',','.')
         params['basename']=basename.split(os.sep)[-1]
     return {'position':p00,'energy':e00,'params':params,'pixels':pylab.arange(len(p00))}
-def readheader(filename,fsn=None,fileend=None,dirs=[]):
+def readheader(filename,fsn=None,fileend=None,dirs=[],quiet=False):
     """Reads header data from measurement files
     
     Inputs:
@@ -771,6 +771,7 @@ def readheader(filename,fsn=None,fileend=None,dirs=[]):
         fileend: the end of the file. If it ends with .gz, then the file is
             treated as a gzip archive.
         dirs [optional]: a list of directories to try
+        quiet: True if no warning messages should be printed
         
     Output:
         A list of header dictionaries. An empty list if no headers were read.
@@ -873,10 +874,10 @@ def readheader(filename,fsn=None,fileend=None,dirs=[]):
                 break # we have already found the file, do not search for it in other directories
             except IOError:
                 pass #continue with the next directory
-        if not filefound:
+        if not filefound and not quiet:
             print 'readheader: Cannot find file %s in given directories.' % name
     return headers
-def read2dB1data(filename,files=None,fileend=None,dirs=[]):
+def read2dB1data(filename,files=None,fileend=None,dirs=[],quiet=False):
     """Read 2D measurement files, along with their header data
 
     Inputs:
@@ -885,6 +886,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
             in filename. It is possible to give a list of fsns here.
         fileend: the end of the file.
         dirs [optional]: a list of directories to try
+        quiet: True if no warning messages should be printed
         
     Outputs:
         A list of 2d scattering data matrices
@@ -898,7 +900,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
         #in this case the org_*.header files should be present in the same folder
         data,header=read2dB1data('org_',range(123,131),'.tif')
     """
-    def readgabrieldata(filename,dirs):
+    def readgabrieldata(filename,dirs,quiet=False):
         for d in dirs:
             try:
                 filename1=os.path.join(d,filename)
@@ -916,9 +918,10 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
                 return data
             except IOError:
                 pass
-        print 'Cannot find file %s. Tried directories:' % filename,dirs
+        if not quiet:
+            print 'Cannot find file %s. Tried directories:' % filename,dirs
         return None
-    def readpilatusdata(filename,dirs,useCBF=False):
+    def readpilatusdata(filename,dirs,useCBF=False,quiet=False):
         oldloader=False
         for d in dirs:
             try:
@@ -932,18 +935,20 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
                 oldloader=False
                 return data
             except IOError:
-                print "Tried file %s with no luck" % os.path.join(d,filename)
+                if not quiet:
+                    print "Tried file %s with no luck" % os.path.join(d,filename)
                 pass
             except NameError:
                 warnings.warn('Advanced loading of Pilatus images is disabled, since module Image (Python Imaging Library) is unavailable.')
                 oldloader=True
         if oldloader:
-            return readpilatus300kdata(filename,dirs)
+            return readpilatus300kdata(filename,dirs,quiet=quiet)
         else:
-            print 'Cannot find file %s. Make sure the path is correct.' % filename
+            if not quiet:
+                print 'Cannot find file %s. Make sure the path is correct.' % filename
             return None
             
-    def readpilatus300kdata(filename,dirs): # should work for other detectors as well
+    def readpilatus300kdata(filename,dirs,quiet=False): # should work for other detectors as well
         for d in dirs:
             try:
                 filename1=os.path.join(d,filename)
@@ -954,7 +959,8 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
                 return data;                
             except IOError:
                 pass
-        print 'Cannot find file %s. Make sure the path is correct.' % filename
+        if not quiet:
+            print 'Cannot find file %s. Make sure the path is correct.' % filename
         return None
     if type(dirs)==type(''):
         dirs=[dirs]
@@ -977,8 +983,8 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
     if fileend.upper()=='.TIF' or fileend.upper()=='.TIFF' or useCBF: # pilatus300k mode
         filebegin=filename[:string.rfind(filename,'.')]
         if files is None:
-            header=readheader(filebegin+'.header',dirs=dirs)
-            data=readpilatusdata(filename,dirs=dirs,useCBF=useCBF)
+            header=readheader(filebegin+'.header',dirs=dirs,quiet=quiet)
+            data=readpilatusdata(filename,dirs=dirs,useCBF=useCBF,quiet=quiet)
             if (len(header)<1) or (data is None):
                 return [],[]
             else:
@@ -989,8 +995,8 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
             header=[];
             data=[];
             for fsn in files:
-                tmp1=readheader('%s%05d%s' %(filename,fsn,'.header'),dirs=dirs)
-                tmp2=readpilatusdata('%s%05d%s'%(filename,fsn,fileend),dirs=dirs,useCBF=useCBF)
+                tmp1=readheader('%s%05d%s' %(filename,fsn,'.header'),dirs=dirs,quiet=quiet)
+                tmp2=readpilatusdata('%s%05d%s'%(filename,fsn,fileend),dirs=dirs,useCBF=useCBF,quiet=quiet)
                 if (len(tmp1)>0) and (tmp2 is not None):
                     tmp1=tmp1[0]
                     tmp1['Detector']='Pilatus'
@@ -999,8 +1005,8 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
             return data,header
     else: # Gabriel mode, if fileend is neither TIF, nor TIFF, case insensitive
         if files is None: # read only 1 file
-            header=readheader(filename,dirs=dirs);
-            data=readgabrieldata(filename,dirs=dirs);
+            header=readheader(filename,dirs=dirs,quiet=quiet);
+            data=readgabrieldata(filename,dirs=dirs,quiet=quiet);
             if (len(header)>0) and (data is not None):
                 header=header[0]
                 header['Detector']='Gabriel'
@@ -1011,8 +1017,8 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[]):
             data=[];
             header=[];
             for fsn in files:
-                tmp1=readheader('%s%05d%s' % (filename,fsn,fileend),dirs=dirs)
-                tmp2=readgabrieldata('%s%05d%s' % (filename,fsn,fileend),dirs=dirs)
+                tmp1=readheader('%s%05d%s' % (filename,fsn,fileend),dirs=dirs,quiet=quiet)
+                tmp2=readgabrieldata('%s%05d%s' % (filename,fsn,fileend),dirs=dirs,quiet=quiet)
                 if (len(tmp1)>0) and (tmp2 is not None):
                     tmp1=tmp1[0];
                     tmp1['Detector']='Gabriel'
@@ -1046,7 +1052,7 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
     else:
         pass #do not print header
     for i in files:
-        d,h=read2dB1data(filename,i,fileend,dirs);
+        d,h=read2dB1data(filename,i,fileend,dirs,quiet=True);
         if len(h)<1:
             continue
         h=h[0]
@@ -1069,7 +1075,7 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
                                                 h['Year'],
                                                 h['Hour'],
                                                 h['Minutes'])))
-def read2dintfile(fsns,dirs=[],norm=True):
+def read2dintfile(fsns,dirs=[],norm=True,quiet=False):
     """Read corrected intensity and error matrices
     
     Input:
@@ -1078,6 +1084,7 @@ def read2dintfile(fsns,dirs=[],norm=True):
         norm: True if int2dnorm*.mat file is to be loaded, False if
             int2darb*.mat is preferred. You can even supply the file prefix
             itself.
+        quiet: True if no warning messages should be printed
         
     Output:
         a list of 2d intensity matrices
@@ -1180,7 +1187,8 @@ def read2dintfile(fsns,dirs=[],norm=True):
                         tmp=read2dascii('%s%sint2darb%d.dat' % (d,os.sep,fsn));
                         tmp1=read2dascii('%s%serr2darb%d.dat' % (d,os.sep,fsn));
                 except TypeError: # if mat file was found but scipy.io.loadmat was unable to read it
-                    print "Malformed MAT file! Skipping."
+                    if not quiet:
+                        print "Malformed MAT file! Skipping."
                     continue # try from another directory
             if (tmp is not None) and (tmp1 is not None): # if all of int,err and log is read successfully
                 filefound=True
@@ -1194,7 +1202,7 @@ def read2dintfile(fsns,dirs=[],norm=True):
                     tmp1=np.zeros(tmp.shape)
                 err2d.append(tmp1)
                 params.append(tmp2)                
-        if not filefound:
+        if not filefound and not quiet:
             print "read2dintfile: Cannot find file(s ) for FSN %d" % fsn
     return int2d,err2d,params # return the lists
 def write2dintfile(A,Aerr,params,norm=True,filetype='npz'):
@@ -1225,12 +1233,13 @@ def write2dintfile(A,Aerr,params,norm=True,filetype='npz'):
         scipy.io.savemat('%s.mat' % fileprefix,{'Intensity':A,'Error':Aerr});
     else:
         raise ValueError,"Unknown file type: %s" % repr(filetype)
-def readintfile(filename,dirs=[],sanitize=True):
+def readintfile(filename,dirs=[],sanitize=True,quiet=False):
     """Read intfiles.
 
     Input:
         filename: the file name, eg. intnorm123.dat
         dirs [optional]: a list of directories to try
+        quiet: True if no warning messages should be printed
 
     Output:
         A dictionary with 'q' holding the values for the momentum transfer,
@@ -1274,9 +1283,9 @@ def readintfile(filename,dirs=[],sanitize=True):
                             tmpa=np.nan;
                         if sanitize:
                             if not (np.isfinite(tmpI) and np.isfinite(tmpe)):
-                                if not np.isfinite(tmpI):
+                                if not np.isfinite(tmpI) and not quiet:
                                     print "tmpI is not finite:",tmpI
-                                if not np.isfinite(tmpe):
+                                if not np.isfinite(tmpe) and not quiet:
                                     print "tmpe is not finite:",tmpe
                                 continue
                         ret['q'].append(tmpq);
@@ -1284,7 +1293,8 @@ def readintfile(filename,dirs=[],sanitize=True):
                         ret['Error'].append(tmpe);
                         ret['Area'].append(tmpa);
                     except ValueError:
-                        print "Erroneous line: %s",line
+                        if not quiet:
+                            print "Erroneous line: %s",line
                         #skip erroneous line
                         pass
             ret['q']=pylab.array(ret['q'])
@@ -1293,10 +1303,12 @@ def readintfile(filename,dirs=[],sanitize=True):
             ret['Area']=pylab.array(ret['Area'])
             if len([1 for x in ret['Area'] if pylab.isnan(x)==False])==0:
                 del ret['Area']
+            #convert it to a SASDict
+            ret=utils.SASDict(**ret)
             break # file was found, do not iterate over other directories
         except IOError:
             continue
-    if len(ret)==0:
+    if len(ret)==0 and not quiet:
         print "readintfile: could not find file %s in given directories." % filename
     return ret
 def writeintfile(qs, ints, errs, header, areas=None, filetype='intnorm'):
@@ -1330,7 +1342,7 @@ def write1dsasdict(data, filename):
     for i in range(len(data['q'])):
         fid.write('%e %e %e\n' % (data['q'][i],data['Intensity'][i],data['Error'][i]))
     fid.close();
-def readintnorm(fsns, filetype='intnorm',dirs=[],logfiletype='intnorm'):
+def readintnorm(fsns, filetype='intnorm',dirs=[],logfiletype='intnorm',quiet=False):
     """Read intnorm*.dat files along with their headers
     
     Inputs:
@@ -1338,6 +1350,7 @@ def readintnorm(fsns, filetype='intnorm',dirs=[],logfiletype='intnorm'):
         filetype: prefix of the filename
         logfiletype: prefix of the log filename
         dirs [optional]: a list of directories to try
+        quiet: True if no warning messages should be printed
         
     Outputs:
         A vector of dictionaries, in each dictionary the self-explanatory
@@ -1361,22 +1374,35 @@ def readintnorm(fsns, filetype='intnorm',dirs=[],logfiletype='intnorm'):
         currlog={}
         for d in dirs:
             filename='%s%s%s%d.dat' % (d,os.sep,filetype, fsn)
-            tmp=readintfile(filename)
+            tmp=readintfile(filename,quiet=quiet)
             if len(tmp)>0:
                 currdata=tmp
                 break # file was already found, do not try in another directory
-        currlog=readlogfile(fsn,dirs,norm=logfiletype)
+        currlog=readlogfile(fsn,dirs,norm=logfiletype,quiet=quiet)
         if len(currdata)>0 and len(currlog)>0:
             data.append(currdata);
             param.append(currlog[0]);
     return data,param
-def readbinned(fsn,dirs=[]):
+def readbinned(fsn,dirs=[],quiet=False):
     """Read intbinned*.dat files along with their headers.
     
     This is a shortcut to readintnorm(fsn,'intbinned',dirs)
     """
-    return readintnorm(fsn,'intbinned',dirs);
-def readlogfile(fsn,dirs=[],norm=True):
+    return readintnorm(fsn,'intbinned',dirs,quiet=quiet);
+def readsummed(fsn,**kwargs):
+    """Read summed*.dat files along with their headers.
+    
+    All arguments are forwarded to readintnorm().
+    """
+    return readintnorm(fsn,filetype='summed',**kwargs)
+def readunited(fsn,**kwargs):
+    """Read united*.dat files along with their headers.
+    
+    All arguments are forwarded to readintnorm().
+    """
+    return readintnorm(fsn,filetype='united',**kwargs)
+    
+def readlogfile(fsn,dirs=[],norm=True,quiet=False):
     """Read logfiles.
     
     Inputs:
@@ -1386,6 +1412,7 @@ def readlogfile(fsn,dirs=[],norm=True):
         norm: if a normalized file is to be loaded (intnorm*.log). If
             False, intarb*.log will be loaded instead. Or, you can give a
             string. In that case, '%s%d.log' %(norm, <FSN>) will be loaded.
+        quiet: True if no warning messages should be printed
             
     Output:
         a list of dictionaries corresponding to the header files. This
@@ -1513,7 +1540,7 @@ def readlogfile(fsn,dirs=[],norm=True):
             except IOError, detail:
                 #print 'Cannot find file %s.' % filename
                 pass
-        if not filefound:
+        if not filefound and not quiet:
             print 'Cannot find file %s in any of the given directories.' % filebasename
     return params;
 def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
