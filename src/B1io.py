@@ -35,7 +35,13 @@ import scipy.io
 import utils
 import re
 import warnings
-from c_B1io import *
+import fitting
+
+
+from c_B1io import cbfdecompress
+HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
+
+
 try:
     import Image
 except ImportError:
@@ -121,377 +127,6 @@ def readcbf(name):
     nbytes=long(getvaluefromheader(header,'X-Binary-Size'))
     return cbfdecompress(cbfbin[datastart:datastart+nbytes],dim1,dim2)
 
-
-def normintBessy(fsn,filenameformat,mask,thicknesses,referencethickness,referenceindex,doffset,step2cm,resol,energyapp,energytheor,ref_qrange=None,qphirange=None,center_override=None,inttype='radial',int_aux=None,save_with_extension=None,noplot=False):
-    """Normalize Bessy data according to glassy carbon measurements
-    
-    Inputs:
-        fsn: range of file sequence numbers. Only give one ASAXS
-            sequence at a time! The first fsn should be the first frame
-            of the sequence.
-        filenameformat: C-style format string for the filename without
-            extension, e.g. 's%07u_000'
-        mask: mask matrix. 0 is masked, 1 is unmasked
-        thicknesses: a single thickness value for all measurements OR a
-            dictionary, the keys being the sample names. In cm-s.
-        referencethickness: thickness of the reference sample, in microns
-        referenceindex: the index of the reference measurement in the
-            sequence. 0 is the first measurement (usually empty beam).
-        doffset: additive correction to the detector position read from
-            the BDF file. In cm-s.
-        step2cm: multiplicative correction to the detector position read
-            from the BDF file. The true sample-to-detector distance is
-            calculated: SD [cm] = detx*step2cm+doffset
-        resol: resolution of the detector (pixel size), in mm/pixel
-        energyapp: list of apparent energies
-        energytheor: list of theoretical energies, corresponding to the
-            apparent energies
-        ref_qrange: q-range to be taken into account for the reference.
-            Only the first and the last value of this will be used. Set
-            it to None if the complete available reference dataset is to
-            be used.
-        qphirange: if a vector, the q- or theta-range onto which the
-            integration is to be carried out. If an integer, the number
-            of bins. In this case, the smallest and largest border is
-            auto-determined. If None, the whole q- or phi-range will be
-            auto-determined.
-        center_override: if you want to set the beam center by hand. Leave
-            it None if you want to use the default value (read from the
-            bdf file).
-        inttype: integration mode: 'r[adial]', 's[ector]' or
-            'a[zimuthal]'. Case-insensitive.
-        int_aux: auxiliary data for integration. If sector integration is
-            preferred, then this should be a list of two. The first value
-            is the starting azimuth angle, the second is the arc angle,
-            both in radians. If azimuthal integration is requested, these
-            are the smallest and largest q-values to be taken into account.
-        save_with_extension: a string to append to the filename, just
-            before the extension. If None, it will be the integration method.
-        noplot: set this to True to suppress plotting.
-    """
-    GCareathreshold=10;
-    
-    if len(energyapp)!=len(energytheor):
-        raise ValueError('You should supply as much apparent energies, as theoretical ones.')
-    if len(energyapp)<2:
-        print 'You should supply at least 2 different energy pairs to have a correct energy calibration! Now doing only a shift.'
-    dat=[]
-    fsnfound=[]
-    print 'Loading header files...'
-    for i in range(len(fsn)):
-        bdfname='%s.bhf' %(filenameformat % (fsn[i]))
-        try:
-            dat1=B1io.bdf_read(bdfname);
-        except IOError:
-            print 'Cannot read file: %s, ignored.' %bdfname
-            continue
-        dat.append(dat1)
-        fsnfound.append(fsn[i])
-        if center_override is not None:
-            dat[-1]['C']['xcen']=str(center_override[1])
-            dat[-1]['C']['ycen']=str(center_override[0])
-        print 'File %s loaded.'%bdfname
-    print 'Done loading header files.'
-    bgfsn=[]
-    for i in range(len(dat)):
-        try:
-            bgfsn.append(dat[i]['C']['Background'])
-        except KeyError:
-            print 'No background set in header file for sample %s. This is what you want?' % dat[i]['C']['Sample']
-    # now determine the length of an element of the sequence. This is done by
-    # looking for repetition of the title of the 1st FSN.
-    seqlen=len(dat) # initial value, if only one sequence exists.
-    for i in range(1,len(dat)): # ignore the first
-        if dat[i]['C']['Sample']==dat[0]['C']['Sample']:
-            seqlen=i-1; 
-            break
-    print 'Sequence length is %u' % seqlen;
-    nseq=float(len(dat))/seqlen
-    if int(nseq)!=nseq:
-        print 'Disregarding the last sequence, since it is incomplete.'
-        nseq=floor(nseq);
-    nseq=int(nseq) # force this, so the rest of the code won't complain about float indices
-    #doing energy and distance correction
-    dist=np.zeros(seqlen*nseq)
-    energyreal=np.zeros(seqlen*nseq)
-    for sequence in range(nseq): # evaluate each sequence
-        print 'Correcting distances/energies for sequence %u/%u' %(sequence,nseq);
-        for sample in range(seqlen): # evaluate each sample in the current sequence
-            index=sequence*seqlen+sample;
-            euncalib=float(dat[index]['M']['Energy'])
-            duncalib=float(dat[index]['M']['Detector'])
-            print 'Processing sample %u/%u (%s, %s)' %(sample,seqlen,dat[index]['C']['Frame'],dat[index]['C']['Sample'])
-            dist[index]=(duncalib*step2cm+doffset)*10
-            print 'Sample-detector distance: %f + %f = %f' % (duncalib,doffset,dist[index])
-            energyreal[index]=fitting.energycalibration(energyapp,energytheor,euncalib)
-            print 'Energy calibration: %f -> %f' %(euncalib,energyreal[index]);
-    
-    dist=utils.unique(dist);
-    if len(dist)>1:
-        raise RuntimeError,'Please give data measured with the same sample-to-detector distance!';
-    dist=dist[0]
-    print 'Distance is:',dist
-    #processing argument resol.
-
-    if type(resol)==type([]) or type(resol)==type(()) or type(resol)==np.ndarray:
-        if len(resol)>2:
-            print 'Wow! A %u dimensional detector :-) !' % len(resol);
-        resx=resol[0];
-        resy=resol[1];
-    else:
-        resx=resol;
-        resy=resol;
-    
-    # determining common q-range if needed. First, try if qphirange is
-    # a vector
-    try:
-        Nq=len(qphirange)
-        # check if qphirange is a string (len() is also defined for strings)
-        if type(qphirange)==type(''):
-            raise TypeError # to get to the except clause
-    except TypeError: # len() is not defined for qphirange, or qphirange is a string
-        if qphirange is None: # fully automatic qphirange is to be determined
-            if inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
-                #choose value for azimuthal integration.
-                raise NotImplementedError,"Determining the number of bins for azimuthal integration is not yet supported!"
-            else: # radial or sector integration.
-                Nq=max([dat[0]['xdim'],dat[0]['ydim']])/2.0
-        else: # qphirange should be an integer, or a string-representation of an integer
-            try:
-                Nq=int(qphirange)
-                qphirange=None # set it to None, to request auto-determination
-            except ValueError:
-                raise ValueError, "Invalid value for qphirange: %s" % repr(qphirange)
-    # either way, we have Nq if we reached here.
-       
-    if inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
-        pass
-    else:
-        if qphirange is None: # common q-range should be generated for radial and sector integration
-            maxenergy=max(energyreal);
-            minenergy=min(energyreal);
-            print 'Energy range: ',minenergy,'to',maxenergy,'eV'
-            # in the BDF struct: X means the column direction, Y the row direction.
-            bcx=float(dat[0]['C']['ycen'])+1
-            bcy=float(dat[0]['C']['xcen'])+1
-            D=utils2d.calculateDmatrix(mask,[resx,resy],bcx,bcy)[mask==1]
-            print 'smallest distance from origin (pixels):',D.min()
-            print 'largest distance from origin (pixels):',D.max()
-            qmin=4*np.pi/HC*maxenergy*np.sin(0.5*np.arctan(D.min()/dist));
-            qmax=4*np.pi/HC*minenergy*np.sin(0.5*np.arctan(D.max()/dist));
-            qphirange=np.linspace(qmin,qmax,Nq);
-            print 'Created common q-range: qmin: %f; qmax: %f; qstep: %f (%d points)' % \
-                         (qmin,qmax,qphirange[1]-qphirange[0],Nq);
-    qs=[]; ints=[]; errs=[]; areas=[];
-    for sequence in range(nseq): # evaluate each sequence
-        print 'Evaluating sequence %u/%u' % (sequence,nseq);
-        gcindex=sequence*seqlen+referenceindex;
-        print 'Doing absolute calibration from sample %s' % dat[gcindex]['C']['Sample'];
-        if referencethickness==1000:
-            GCdata=scipy.io.loadmat("%s%s%s" % (_B1config['calibdir'],os.sep,'GCK1mm.mat'))['GCK1mm'];
-            GCdata[:,0]=GCdata[:,0]*0.1; # convert q from 1/nm to 1/A
-            thisreferencethickness=1020e-4;
-        elif referencethickness==500:
-            GCdata=scipy.io.loadmat("%s%s%s" % (_B1config['calibdir'],os.sep,'GCK500mkm.mat'))['GCK500mkm'];
-            GCdata[:,0]=GCdata[:,0]*0.1;
-            thisreferencethickness=485e-4;
-        elif referencethickness==90:
-            GCdata=scipy.io.loadmat("%s%s%s" % (_B1config['calibdir'],os.sep,'GCK90mkm.mat'))['GCK90mkm'];
-            GCdata[:,0]=GCdata[:,0]*0.1;
-            thisreferencethickness=90e-4;
-        else:
-            raise RuntimeError, 'Unknown reference thickness!';
-        GCdata[:,1]=GCdata[:,1]*(0.28179e-12)**2; # scale intensities and errors into cm-1-s.
-        GCdata[:,2]=GCdata[:,2]*(0.28179e-12)**2; # scale intensities and errors into cm-1-s.
-        if ref_qrange is not None: # trim data
-            GCindices=((GCdata[:,0]<=max(ref_qrange)) & (GCdata[:,0]>=min(ref_qrange)));
-            GCdata=GCdata[GCindices,:];
-        # now integrate the measured GC data to the q-range of GCdata
-        print 'Glassy carbon reference: q_min=',np.min(GCdata[:,0]),'q_max=',np.max(GCdata[:,0]),'# of points=',len(GCdata[:,0])
-        bdfname='%s.bdf' % (filenameformat % (fsnfound[gcindex]));
-        print 'Loading GC data from file',bdfname;
-        try:
-            dat1=B1io.bdf_read(bdfname);
-            if center_override is not None:
-                if len(center_override)==2:
-                    dat1['C']['xcen']=str(center_override[1])
-                    dat1['C']['ycen']=str(center_override[0])
-                else:
-                    print "Finding origin."
-                    orig=utils2d.findbeam_azimuthal(dat1['data'],(dat1['C']['ycen'],dat1['C']['xcen']),mask,center_override[0],center_override[1],center_override[2])
-                    dat1['C']['xcen']=str(orig[1])
-                    dat1['C']['ycen']=str(orig[0])
-                    print "Found origin",orig[0],",",orig[1]
-        except IOError:
-            print "Cannot read reference file: %s. Skipping this sequence." % bdfname
-            continue
-        print 'Integrating GC data'
-        tmp=time.time()
-        [qGC,intGC,errGC,areaGC]=utils2d.radintC(dat1['data'].astype('double')/thisreferencethickness, \
-                                        dat1['error'].astype('double')/thisreferencethickness, \
-                                        energyreal[gcindex], \
-                                        dist, \
-                                        [resx,resy], \
-                                        float(dat1['C']['ycen']), \
-                                        float(dat1['C']['xcen']), \
-                                        (1-mask).astype('uint8'),
-                                        GCdata.astype('double')[:,0]);
-        print 'Integration completed in %f seconds.' % (time.time()-tmp);
-        print 'length of returned values:',len(qGC)
-        goodindex=(areaGC>=GCareathreshold) & (np.isfinite(intGC)) & (np.isfinite(errGC))
-        print 'valid q-bins (effective area > %f and both Intensity and its error are finite): %u' % (GCareathreshold,goodindex.sum())
-        print '# of q-bins where the effective area is less than',GCareathreshold,':',(areaGC<GCareathreshold).sum()
-        print '# of q-bins where either the intensity or its error is NaN:',(np.isnan(intGC) | np.isnan(errGC)).sum()
-        print '# of q-bins where either the intensity or its error is infinite:',(np.isinf(intGC) | np.isinf(errGC)).sum()
-        GCdata=GCdata[goodindex,:];
-        qGC=qGC[goodindex,:];                                   
-        intGC=intGC[goodindex,:];                                   
-        errGC=errGC[goodindex,:];                                   
-        areaGC=areaGC[goodindex,:];
-        #Now the reference (GCdata) and the measured (qGC, intGC, errGC) data
-        #are on the same q-scale, with unwanted pixels eliminated (see
-        #ref_qrange). Thus we can calculate the multiplication factor by
-        #integrating according to the trapezoid formula. Also, the measured
-        #data have been divided by the thickness.
-        mult,errmult=utils.multfactor(GCdata[:,0],GCdata[:,1],GCdata[:,2],intGC,errGC)
-        if not noplot:
-            pylab.clf()
-            pylab.subplot(1,1,1)
-            pylab.plot(GCdata[:,0],GCdata[:,1],'o');
-            pylab.plot(qGC,intGC*mult,'.');
-            pylab.xlabel('q (1/Angstrom)');
-            pylab.legend(['Reference data for GC','Measured data for GC']);
-            pylab.ylabel('Absolute intensity (1/cm)');
-            #pylab.xscale('log')
-            pylab.yscale('log')
-            pylab.draw()
-            pylab.savefig('GCcalib_%s.pdf' % save_with_extension, format='pdf')
-            utils.pause();
-        print 'Absolute calibration factor: %g +/- %g (= %g %%)' % (mult,errmult,errmult/mult*100);
-        print 'Integrating samples';
-        for sample in range(seqlen): # evaluate each sample in the current sequence
-            index=sequence*seqlen+sample;
-            if type(thicknesses)==type({}):
-                try:
-                    Sthick=thicknesses[dat[index]['C']['Sample']]
-                except KeyError:
-                    print 'Cannot find thickness for sample %s in thicknesses! Disregarding this sample.' % dat[index]['C']['Sample'];
-            else:
-                Sthick=thicknesses;
-            print 'Using thickness %f (cm) for sample %s' % (Sthick,dat[index]['C']['Sample']);
-            bdfname='%s.bdf' % (filenameformat % (fsnfound[index]));
-            print 'Loading file %s' % bdfname;
-            try:
-                dat1=B1io.bdf_read(bdfname);
-                if center_override is not None:
-                    if len(center_override)==2:
-                        dat1['C']['xcen']=str(center_override[1])
-                        dat1['C']['ycen']=str(center_override[0])
-                    else:
-                        print "Finding origin."
-                        orig=utils2d.findbeam_azimuthal(dat1['data'],(dat1['C']['ycen'],dat1['C']['xcen']),mask,center_override[0],center_override[1],center_override[2])
-                        dat1['C']['xcen']=str(orig[1])
-                        dat1['C']['ycen']=str(orig[0])
-                        print "Found origin",orig[0],",",orig[1]
-            except IOError:
-                print 'Cannot read file: %s. Skipping.' % (bdfname);
-                continue;
-            print 'Converting to B1 format...'
-            data,dataerr,header=B1io.bdf2B1(dat1,doffset,step2cm,energyreal[index],\
-                        re.findall('[0-9]+',dat[gcindex]['C']['Frame'])[0],\
-                        thisreferencethickness,0.5*(resx+resy),mult,errmult,Sthick)
-            print 'Integrating sample %u/%u (%s, %s)...' %(sample,seqlen,dat1['bdf'],dat1['C']['Sample']);
-            tmp=time.time()
-            if inttype.upper()=='RADIAL'[:len(inttype)]:
-                qs1,ints1,errs1,areas1,mask1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
-                                            dat1['error'].astype('double')/Sthick,\
-                                            energyreal[index],\
-                                            dist,\
-                                            [resx,resy],\
-                                            float(dat1['C']['ycen']),\
-                                            float(dat1['C']['xcen']),\
-                                            (1-mask).astype('uint8'),\
-                                            qphirange.astype('double'),\
-                                            returnavgq=True,returnmask=True);
-                if save_with_extension is None:
-                    save_with_extension='radial'
-            elif inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
-                qs1,ints1,errs1,areas1,mask1=utils2d.azimintqC(dat1['data'].astype('double')/Sthick,\
-                                            dat1['error'].astype('double')/Sthick,\
-                                            energyreal[index],\
-                                            dist,\
-                                            [resx,resy],\
-                                            [float(dat1['C']['ycen']),\
-                                            float(dat1['C']['xcen'])],\
-                                            (1-mask).astype('uint8'),
-                                            Nq,qmin=int_aux[0],qmax=int_aux[1],returnmask=True);
-                if save_with_extension is None:
-                    save_with_extension='azimuthal'
-            elif inttype.upper()=='SECTOR'[:len(inttype)]:
-                qs1,ints1,errs1,areas1,mask1=utils2d.radintC(dat1['data'].astype('double')/Sthick,\
-                                            dat1['error'].astype('double')/Sthick,\
-                                            energyreal[index],\
-                                            dist,\
-                                            [resx,resy],\
-                                            float(dat1['C']['ycen']),\
-                                            float(dat1['C']['xcen']),\
-                                            (1-mask).astype('uint8'),\
-                                            qphirange.astype('double'),\
-                                            phi0=int_aux[0],dphi=int_aux[1],\
-                                            returnavgq=True,returnmask=True);
-                if save_with_extension is None:
-                    save_with_extension='sector'
-            else:
-                raise ValueError,'Invalid integration mode: %s',inttype
-            print 'Integration completed in %f seconds.' %(time.time()-tmp);
-            errs1=np.sqrt(ints1**2*errmult**2+mult**2*errs1**2);
-            ints1=ints1*mult;
-            outname='%s_%s.dat'%(dat[index]['C']['Frame'][:-4],save_with_extension);
-            B1io.write1dsasdict({'q':qs1,'Intensity':ints1,'Error':errs1},outname)
-            if not noplot:
-                pylab.clf()
-                pylab.subplot(2,2,1);
-                guitools.plot2dmatrix((dat1['data']),mask=1-mask1,header=header,showqscale=True)
-                pylab.subplot(2,2,2);
-                pylab.cla();
-                validindex=(np.isfinite(ints1) & np.isfinite(errs1))
-                if (1-validindex).sum()>0:
-                    print "WARNING!!! Some nonfinite points are present among the integrated values!"
-                    print "NaNs: ",(np.isnan(ints1) | np.isnan(errs1)).sum()
-                    print "Infinities: ",(np.isinf(ints1) | np.isinf(errs1)).sum()
-                if inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
-                    pylab.plot(qs1[validindex],ints1[validindex])
-                    pylab.xlabel(u'theta (rad)');
-                    pylab.xscale('linear')
-                    pylab.yscale('log')
-                else:
-                    pylab.plot(qphirange[validindex],ints1[validindex])
-                    #pylab.errorbar(qphirange[validindex],ints1[validindex],errs1[validindex]);
-                    pylab.xlabel('q (1/Angstrom)');
-                    pylab.xscale('log')
-                    pylab.yscale('log')
-                pylab.ylabel('Absolute intensity (1/cm)');
-                pylab.title('%s (%s)' % (dat[index]['C']['Frame'],dat[index]['C']['Sample']));
-                pylab.axis('auto')
-
-                pylab.subplot(2,2,3);
-                if inttype.upper()=='AZIMUTHAL'[:len(inttype)]:
-                    pylab.plot(qs1,areas1)
-                    pylab.xlabel('theta (rad)')
-                else:
-                    pylab.plot(qphirange,areas1);
-                    pylab.xlabel('q (1/Angstrom)');
-                pylab.ylabel('Effective area');
-                if (inttype.upper()=='SECTOR'[:len(inttype)]) or (inttype.upper()=='RADIAL'[:len(inttype)]):
-                    pylab.subplot(2,2,4);
-                    pylab.plot(qphirange,qs1/qphirange,'.',markersize=3)
-                    pylab.xlabel('Original q values')
-                    pylab.ylabel('Averaged / original q-values')
-                pylab.draw()
-                pylab.gcf().show()
-                pylab.savefig('int_%u_%s_%s.pdf' % (int(re.findall('[0-9]+',dat1['C']['Frame'])[0]),dat1['C']['Sample'],save_with_extension), format='pdf')
-                utils.pause()
-                pylab.clf();
 
 
 def bdf2B1(bdf,doffset,steps2cm,energyreal,fsnref,thicknessref,pixelsize,mult,errmult,thickness):
@@ -807,7 +442,7 @@ def readheader(filename,fsn=None,fileend=None,dirs=[],quiet=False):
         try:
             names=[filename % x for x in fsn]
         except TypeError:
-            raise UserError("If fileend is None in readheader(), filename should be a format string!")
+            raise ValueError("If fileend is None in readheader(), filename should be a format string!")
     else:
         try:
             names=['%s%05d%s' % (filename,x,fileend ) for x in fsn]
@@ -1148,11 +783,8 @@ def read2dintfile(fsns,dirs=[],norm=True,quiet=False):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
-    try:
-        lenfsn=len(fsns)
-    except TypeError:
+    if np.isscalar(fsns):
         fsns=[fsns]
-        lenfsn=1
     int2d=[]
     err2d=[]
     params=[]
@@ -1247,6 +879,8 @@ def readintfile(filename,dirs=[],sanitize=True,quiet=False):
             values. These three fields are numpy ndarrays. An empty dict
             is returned if file is not found.
     """
+    fields=['q','Intensity','Error','Area','qavg','qstd']
+    
     if type(dirs)==type(''):
         dirs=[dirs]
     if len(dirs)==0:
@@ -1258,53 +892,12 @@ def readintfile(filename,dirs=[],sanitize=True,quiet=False):
                 fname=filename
             else:
                 fname= "%s%s%s" % (d,os.sep,filename)
-            fid=open(fname,'rt');
-            lines=fid.readlines();
-            fid.close();
-            ret['q']=[]
-            ret['Intensity']=[]
-            ret['Error']=[]
-            ret['Area']=[]
-            #ret.update({'q':[],'Intensity':[],'Error':[],'Area':[]})
-#            print "file %s found in dir %s. Length: %d lines" % (filename,d,len(lines))
-            for line in lines:
-                sp=string.split(line);
-                if len(sp)>=2:
-                    try:
-                        tmpq=float(sp[0]);
-                        tmpI=float(sp[1]);
-                        if len(sp)>2:
-                            tmpe=float(sp[2]);
-                        else:
-                            tmpe=0
-                        if len(sp)>3:
-                            tmpa=float(sp[3]);
-                        else:
-                            tmpa=np.nan;
-                        if sanitize:
-                            if not (np.isfinite(tmpI) and np.isfinite(tmpe)):
-                                if not np.isfinite(tmpI) and not quiet:
-                                    print "tmpI is not finite:",tmpI
-                                if not np.isfinite(tmpe) and not quiet:
-                                    print "tmpe is not finite:",tmpe
-                                continue
-                        ret['q'].append(tmpq);
-                        ret['Intensity'].append(tmpI);
-                        ret['Error'].append(tmpe);
-                        ret['Area'].append(tmpa);
-                    except ValueError:
-                        if not quiet:
-                            print "Erroneous line: %s",line
-                        #skip erroneous line
-                        pass
-            ret['q']=pylab.array(ret['q'])
-            ret['Intensity']=pylab.array(ret['Intensity'])
-            ret['Error']=pylab.array(ret['Error'])
-            ret['Area']=pylab.array(ret['Area'])
-            if len([1 for x in ret['Area'] if pylab.isnan(x)==False])==0:
-                del ret['Area']
-            #convert it to a SASDict
+            ni=np.loadtxt(fname)
+            for k,i in zip(fields,range(ni.shape[1])):
+                ret[k]=ni[:,i]
             ret=utils.SASDict(**ret)
+            if sanitize:
+                ret.sanitize()
             break # file was found, do not iterate over other directories
         except IOError:
             continue
@@ -1490,10 +1083,8 @@ def readlogfile(fsn,dirs=[],norm=True,quiet=False):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
-    try:
-        lenfsn=len(fsn)
-    except TypeError:
-        fsn=[fsn];
+    if np.isscalar(fsn):
+        fsn=[fsn]
     params=[]; #initially empty
     for f in fsn:
         filefound=False
@@ -1537,7 +1128,7 @@ def readlogfile(fsn,dirs=[],norm=True,quiet=False):
                 filefound=True
                 del lines;
                 break # file was already found, do not try in another directory
-            except IOError, detail:
+            except IOError:
                 #print 'Cannot find file %s.' % filename
                 pass
         if not filefound and not quiet:

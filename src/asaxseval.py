@@ -189,8 +189,6 @@ def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqn
         if seqname is not None:
             logfile.write('Sample: %s\n' % s)
         q=None;
-        I=None;
-        E=None;
         counter=None;
         fsns=None
         for k in range(0,len(data)): #collect the intensities energy-wise.

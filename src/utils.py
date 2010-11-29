@@ -17,6 +17,7 @@ import time
 import types
 import scipy.special
 _pausemode=True
+import string
 
 class SASDict(object):
     """Small Angle Scattering results in a dictionary-like representation.
@@ -99,7 +100,7 @@ class SASDict(object):
             self._Error=None
             self._Area=None
     def set_s(self,s1):
-        return self.set_q(self,s1/(2*np.pi))
+        return self.set_q(s1/(2*np.pi))
     def set_Intensity(self,I1):
         I1=np.array(I1)
         if (len(self._q)==len(I1)):
@@ -107,7 +108,7 @@ class SASDict(object):
         else:
             raise ValueError("Intensity should be of the same length as q.")
     def set_Error(self,E1):
-        E1=np.array(I1)
+        E1=np.array(E1)
         if (len(self._q)==len(E1)):
             self._Error=E1
         else:
@@ -124,7 +125,10 @@ class SASDict(object):
     Error=property(fget=get_Error,fset=set_Error,doc='Absolute error of scattered intensity')
     Area=property(fget=get_Area,fset=set_Area,doc='Effective area during integration')
     def save(self,filename):
-        return B1io.write1dsasdict(self,filename)
+        f=open(filename,'wt')
+        f.write('#%s\n'%string.join([str(k) for k in self.keys()]))
+        np.savetxt(f,np.array(self))
+        f.close()
     def keys(self):
         list=[]
         if self._q is not None:
@@ -347,8 +351,8 @@ class SASDict(object):
         if exponent==0:
             return SASDict(q=self._q,Intensity=np.zeros(self._q.shape),Error=np.zeros(self._q.shape),Area=self._Area)
         else:
-            return SASDict(q=self._q,Intensity=np.pow(self._Intensity,exponent),
-                           Error=self._Error*np.absolute((exponent)*np.pow(self._Intensity,exponent-1)))
+            return SASDict(q=self._q,Intensity=np.power(self._Intensity,exponent),
+                           Error=self._Error*np.absolute((exponent)*np.power(self._Intensity,exponent-1)))
     def __array__(self):
         a=np.array(zip(*(self.values())),dtype=zip(self.keys(),[np.double]*len(self.keys())))
         return a
@@ -366,9 +370,9 @@ class SASDict(object):
         return self
     def sanitize(self,accordingto='Intensity',thresholdmin=0,thresholdmax=np.inf,function=None):
         if hasattr(function,'__call__'):
-            indices=function(self.getattr(accordingto))
+            indices=function(self.__getattribute__(accordingto))
         else:
-            indices=(self.getattr(accordingto)>thresholdmin) & (self.getattr(accordingto)<thresholdmax)
+            indices=(self.__getattribute__(accordingto)>thresholdmin) & (self.__getattribute__(accordingto)<thresholdmax)
         if self._q is not None:
             self._q=self._q[indices]
         if self._Intensity is not None:
@@ -383,7 +387,7 @@ class SASDict(object):
         y=self._Intensity*self._q**exponent
         err=self._Error*self._q**exponent
         m=np.trapz(y,x)
-        dm=errtapz(x,err)
+        dm=errtrapz(x,err)
         if errorrequested:
            return (m,dm) 
         else:
@@ -403,6 +407,20 @@ class SASDict(object):
             del self._Area
         SASDict.__instances-=1
 #        print "An instance of SASDict has been disposed of. Remaining instances:",SASDict.__instances
+
+class SASImage(object):
+    def __init__(self,A,Aerr=None,param=None,mask=None):
+        self._A=A
+        self._Aerr=Aerr
+        self._param=param
+        self._mask=mask
+    def __getitem__(self,item):
+        try:
+            return self._param[item]
+        except KeyError:
+            raise
+    
+
 def trimq(data,qmin=-np.inf,qmax=np.inf):
     """Trim the 1D scattering data to a given q-range
     
@@ -840,7 +858,7 @@ def inv_error(A,DA):
     Output:
         The error of the inverse matrix
     """
-    B=np.inv(A);
+    B=np.linalg.linalg.inv(A);
     return np.sqrt(np.dot(np.dot(B**2,DA**2),B**2))
     
 def multiple(list,comparefun=(lambda a,b:(a==b))):

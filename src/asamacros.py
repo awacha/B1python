@@ -16,7 +16,6 @@ import fitting
 import matplotlib.widgets
 import guitools
 import time
-import ConfigParser
 from c_asamacros import smearingmatrix, trapezoidshapefunction
 import xml.dom.minidom
 import os
@@ -554,7 +553,6 @@ def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*np.pi*np.ar
                      peakmode,scaling='lin')
         pcoord.append(tmp)
     pcoord=np.array(pcoord)
-    n=np.array(peaks)
     a,b,aerr,berr=fitting.linfit(pcoord,qvals)
     if returnq:
         return a*xdata+b

@@ -31,7 +31,7 @@ import scipy.interpolate
 import matplotlib.widgets
 import utils
 import types
-from c_fitting import *
+from c_fitting import multigauss
 try:
     import Ifeffit
 except ImportError:
@@ -580,7 +580,7 @@ def powerfit(data,qmin=-np.inf,qmax=np.inf,testimage=False):
     """
     data1=utils.trimq(data,qmin,qmax)
     x1=np.log(data1['q']);
-    err1=np.absolute(data1['Error']/data1['Intensity']);
+    #err1=np.absolute(data1['Error']/data1['Intensity']);
     y1=np.log(data1['Intensity']);
     a,b,aerr,berr=linfit(x1,y1)
     xp=a
@@ -927,6 +927,5 @@ def fitradialelectrondensity(ns,qs,Is,sigma,numz):
     d=2*np.pi/a
     z=np.linspace(-0.5*d,0.5*d,numz)
     sumfactor=np.sqrt(ns**2*Is).sum()
-    iz=np.outer(ns,z)
     rho=(np.cos(2*np.pi/d*np.outer(ns,z))*np.outer(sigma*np.sqrt(ns**2*Is),np.ones(z.shape))).sum(0)/(d*sumfactor)
     return z,rho

@@ -510,7 +510,7 @@ def makemask(mask,A,savefile=None):
     fig.mydata['mode']=None
     fig.mydata['mask']=mask.astype('bool')
     fig.mydata['redrawneeded']=True
-    conn_id=fig.canvas.mpl_connect('button_press_event',clickevent)
+    fig.canvas.mpl_connect('button_press_event',clickevent)
     fig.toexit=False
     fig.show()
     firstdraw=1;
@@ -607,16 +607,17 @@ def basicfittinggui(data,title='',blocking=False):
     ax=pylab.axes((leftborder,topborder-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))*len(plots) ))
     pylab.title('Plot types')
     rb=matplotlib.widgets.RadioButtons(ax,plots,active=7)
-    if blocking:
+    pylab.gcf().blocking=blocking
+    if pylab.gcf().blocking:
         ax=pylab.axes((leftborder,0.03,leftbox_end,bottomborder-0.03))
         b=matplotlib.widgets.Button(ax,"Done")
         fig=pylab.gcf()
         fig.fittingdone=False
-        def onclick(A=None,B=None,fig=fig):
+        def onclick1(A=None,B=None,fig=fig):
             fig.fittingdone=True
-            blocking=False
+            pylab.gcf().blocking=False
      #       print "blocking should now end"
-        b.on_clicked(onclick)
+        b.on_clicked(onclick1)
     pylab.axes((0.4,bottomborder,0.5,0.8))
     def onselectplottype(plottype,q=data['q'],I=data['Intensity'],title=title):
         pylab.cla()
@@ -810,9 +811,6 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
     axisBcY=pylab.gcf().add_axes([hborder,1-vborder-3*axisheight-2*vspacing,axiswidth,axisheight])
     axisDORIS=pylab.gcf().add_axes([hborder,1-vborder-4*axisheight-3*vspacing,axiswidth,axisheight])
 
-    doris=[h['Current1'] for h in header]
-    orix=[h['BeamPosX'] for h in params]
-    oriy=[h['BeamPosY'] for h in params]
     print "Assesstransmission"
     for l in range(len(energies)):
         print "  Energy: ",energies[l]
@@ -919,7 +917,6 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
         res=scipy.optimize.leastsq(gausscostfun,p0,args=(x1,y1),maxfev=10000,full_output=True)
         p1=res[0]
         cov=res[1]
-        ier=res[4]
         if not blind:
             if scaling=='log':
                 pylab.semilogy(x1,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
@@ -934,7 +931,6 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
         res=scipy.optimize.leastsq(lorentzcostfun,p0,args=(x1,y1),maxfev=10000,full_output=True)
         p1=res[0]
         cov=res[1]
-        ier=res[4]
         if not blind:
             if scaling=='log':
                 pylab.semilogy(x1,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x1),'r-')

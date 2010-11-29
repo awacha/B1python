@@ -56,7 +56,7 @@ def findbeam_gravity(data,mask):
     # indices where both nix and spamx is nonzero.
     goodx=((nix!=0) & (spamx!=0))
     # trim y, nix and spamx by goodx, eliminate invalid points.
-    y1=y[goodx]
+    #y1=y[goodx]
     nix=nix[goodx]
     spamx=spamx[goodx]
 
@@ -64,7 +64,7 @@ def findbeam_gravity(data,mask):
     niy=np.dot(data1.T,y).flatten()
     spamy=np.dot(data1.T,oney).flatten()
     goody=((niy!=0) & (spamy!=0))
-    x1=x[goody]
+#    x1=x[goody]
     niy=niy[goody]
     spamy=spamy[goody]
     # column coordinate of the center in each row will be contained in
@@ -139,7 +139,6 @@ def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,
             starting from 1
     """
     print "Finding beam (azimuthal), please be patient..."
-    orig=np.array(orig_initial)
     if mask is None:
         mask=np.ones(data.shape)
     def targetfunc(orig,data,mask):
@@ -169,10 +168,10 @@ def findbeam_semitransparent(data,pri):
     """
     threshold=0.05
     print "Finding beam (semitransparent), please be patient..."
-    xmin=min([pri[0],pri[1]])
-    ymin=min([pri[2],pri[3]])
-    xmax=max([pri[0],pri[1]])
-    ymax=max([pri[2],pri[3]])
+#    xmin=min([pri[0],pri[1]])
+#    ymin=min([pri[2],pri[3]])
+#    xmax=max([pri[0],pri[1]])
+#    ymax=max([pri[2],pri[3]])
     C,R=np.meshgrid(np.arange(data.shape[1]),
                        np.arange(data.shape[0]))
     B=data[pri[2]:pri[3],pri[0]:pri[1]];
@@ -220,7 +219,7 @@ def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=np.inf):
 
     # remove invalid pixels (masked or falling outside [dmin,dmax])
     valid=((mask==0)&(D<=dmax)&(D>=dmin))
-    d=D[valid]
+ #   d=D[valid]
     dat=data[valid]
     if error is not None:
         err=error[valid]
