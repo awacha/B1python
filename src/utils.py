@@ -46,121 +46,68 @@ class SASDict(object):
     """
     qtolerance=0.001
     __instances=0
-    def __init__(self,**kwargs):
-        self._q=None
-        self._Intensity=None
-        self._Error=None
-        self._Area=None
-        try:
-            self._q=np.array(kwargs['q'])
-        except KeyError:
-            raise ValueError('SASDict has to be initialized with q given.')
-        try:
-            if len(kwargs['Intensity'])!=len(self._q):
-                raise ValueError('Length of Intensity should be equal to length of q.')
-            self._Intensity=np.array(kwargs['Intensity'])
-        except TypeError:
-            self._Intensity=None
-        except KeyError:
-            raise ValueError('SASDict has to be initialized with Intensity given.')
-        try:
-            if len(kwargs['Error'])!=len(self._q):
-                raise ValueError('Length of Error should be equal to length of q.')
-            self._Error=np.array(kwargs['Error'])
-        except TypeError:
-            self._Error=None
-        except KeyError:
-            self._Error=np.zeros(self._Intensity.shape)
-        try:
-            if len(kwargs['Area'])!=len(self._q):
-                raise ValueError('Length of Area should be equal to length of q.')
-            self._Area=np.array(kwargs['Area'])
-        except TypeError:
-            self._Area=None
-        except KeyError:
-            self._Area=np.zeros(self._Intensity.shape)
+    def __init__(self,q,Intensity,Error=None,**kwargs):
+        self._dict={'q':None,'Intensity':None,'Error':None}
+        self._dict['q']=np.array(q)
+        if len(Intensity)!=len(self._dict['q']):
+            raise ValueError('Intensity should be of the same length as q!')
+        self._dict['Intensity']=np.array(Intensity)
+        if Error is not None:
+            if len(Error)!=len(self._dict['q']):
+                raise ValueError('Error, if defined, should be of the same length as q!')
+            self._dict['Error']=np.array(Error)
+        for k in kwargs.keys():
+            if k in ['q','Intensity','Error','s']:
+                raise ValueError('%s cannot appear as a variable in a SAS dictionary.'%k)
+            if len(kwargs[k])!=len(self._dict['q']):
+                raise ValueError('Argument %s should be of the same length as q!'%k)
+            self._dict[k]=np.array(kwargs[k])
         SASDict.__instances+=1
-    def get_q(self):
-        return self._q
-    def get_Intensity(self):
-        return self._Intensity
-    def get_Error(self):
-        return self._Error
-    def get_Area(self):
-        return self._Area
-    def get_s(self):
-        return self._q/(2*np.pi)
-    def set_q(self,q1):
+    def __getattr__(self,key):
+        if key in object.__getattribute__(self,'_dict').keys():
+            return np.array(object.__getattribute__(self,'_dict')[key])
+        elif key=='s':
+            return np.array(object.__getattribute__(self,'_dict')[key]/(2*np.pi))
+        else: # __getattr__ is called only if the attribute has not been found in the usual places.
+            raise AttributeError('Attribute %s not found.'%key)
+    def __setattr__(self,key,value):
+        if key=='_dict':
+            return object.__setattr__(self,key,value)
+        elif key in self._dict.keys():
+            if key=='q':
+                self._setq(value)
+            elif key=='s':
+                self._setq(value*2*np.pi)
+            else:
+                if len(value)==len(self._dict['q']):
+                    self._dict[key]=np.array(value)
+                else:
+                    raise ValueError('New value for %s should be of the same length as q!' %key)
+        else:
+            return object.__setattr__(self,key,value)
+    def __getitem__(self,key):
+        return self.__getattr__(key)
+    def __setitem__(self,key,value):
+        return self.__setattr__(key,value)
+    def _setq(self,q1):
         q1=np.array(q1)
-        if (self._q is None) or (len(self._q)==len(q1)):
-            self._q=q1
+        if (len(self._dict['q'])==len(q1)):
+            self._dict['q']=q1
         else:
             # new q differs, Intensity, Error and Area have to be reset.
-            self._Intensity=None
-            self._Error=None
-            self._Area=None
-    def set_s(self,s1):
-        return self.set_q(s1/(2*np.pi))
-    def set_Intensity(self,I1):
-        I1=np.array(I1)
-        if (len(self._q)==len(I1)):
-            self._Intensity=I1
-        else:
-            raise ValueError("Intensity should be of the same length as q.")
-    def set_Error(self,E1):
-        E1=np.array(E1)
-        if (len(self._q)==len(E1)):
-            self._Error=E1
-        else:
-            raise ValueError("Error should be of the same length as q.")
-    def set_Area(self,A1):
-        A1=np.array(A1)
-        if (len(self._q)==len(A1)):
-            self._Area=A1
-        else:
-            raise ValueError("Area should be of the same length as q.")
-    q=property(fget=get_q,fset=set_q,doc='Scattering variable, 4*pi*sin(theta)/lambda')
-    s=property(fget=get_s,fset=set_s,doc='Scattering variable, 2*sin(theta)/lambda')
-    Intensity=property(fget=get_Intensity,fset=set_Intensity,doc='Scattered intensity')
-    Error=property(fget=get_Error,fset=set_Error,doc='Absolute error of scattered intensity')
-    Area=property(fget=get_Area,fset=set_Area,doc='Effective area during integration')
+            del self._dict
+            self._dict={'q':q1}
+    def keys(self):
+        return self._dict.keys()
+    def __len__(self):
+        return self._dict.__len__()
+    def values(self):
+        return self._dict.values()
     def save(self,filename):
         f=open(filename,'wt')
         f.write('#%s\n'%string.join([str(k) for k in self.keys()]))
         np.savetxt(f,np.array(self))
         f.close()
-    def keys(self):
-        list=[]
-        if self._q is not None:
-            list.append('q')
-        if self._Intensity is not None:
-            list.append('Intensity')
-        if self._Error is not None:
-            list.append('Error')
-        if self._Area is not None:
-            list.append('Area')
-        return list
-    def values(self):
-        list=[]
-        if self._q is not None:
-            list.append(self.get_q())
-        if self._Intensity is not None:
-            list.append(self.get_Intensity())
-        if self._Error is not None:
-            list.append(self.get_Error())
-        if self._Area is not None:
-            list.append(self.get_Area())
-        return list
-    def __getitem__(self,item):
-        if item=='q':
-            return self.q
-        if item=='Intensity':
-            return self.Intensity
-        if item=='Error':
-            return self.Error
-        if item=='Area':
-            return self.Area
-        raise KeyError(item)
     def copy(self):
         return SASDict(self)
     def trimq(self,qmin=-np.inf,qmax=np.inf):
@@ -173,33 +120,28 @@ class SASDict(object):
 
         Intensity, Error and Area (if present) will be trimmed.
         """
-        indices=(self._q<=qmax) & (self._q>=qmin)
-        self._q=self._q[indices]
-        if self._Intensity is not None:
-            self._Intensity=self._Intensity[indices]
-        if self._Error is not None:
-            self._Error=self._Error[indices]
-        if self._Area is not None:
-            self._Area=self._Area[indices]
+        indices=(self._dict['q']<=qmax) & (self._dict['q']>=qmin)
+        for k in self._dict.keys():
+            self._dict[k]=self._dict[k][indices]
         return self
     def trims(self,smin=-np.inf,smax=np.inf):
         return self.trimq(qmin=smin*2*np.pi,qmax=smax*2*np.pi)
     def loglog(self,*args,**kwargs):
-        pylab.loglog(self._q,self._Intensity,*args,**kwargs)
+        pylab.loglog(self.q,self.Intensity,*args,**kwargs)
     def semilogy(self,*args,**kwargs):
-        pylab.semilogy(self._q,self._Intensity,*args,**kwargs)
+        pylab.semilogy(self.q,self.Intensity,*args,**kwargs)
     def semilogx(self,*args,**kwargs):
-        pylab.semilogx(self._q,self._Intensity,*args,**kwargs)
+        pylab.semilogx(self.q,self.Intensity,*args,**kwargs)
     def plot(self,*args,**kwargs):
-        pylab.plot(self._q,self._Intensity,*args,**kwargs)
+        pylab.plot(self.q,self.Intensity,*args,**kwargs)
     def errorbar(self,*args,**kwargs):
-        pylab.errorbar(self._q,self._Intensity,self._Error,*args,**kwargs)
+        pylab.errorbar(self.q,self.Intensity,self.Error,*args,**kwargs)
     def _check_compat(self,x,die=False):
-        if len(x._q)!=len(self._q):
+        if len(x._dict['q'])!=len(self._dict['q']):
             if die:
                 raise ValueError('Incompatible SAS dicts (q-scales have different lengths)!')
             return False
-        if (2*np.absolute(x._q-self._q)/(x._q+self._q)).sum()/len(self._q)>SASDict.qtolerance:
+        if (2*np.absolute(x._dict['q']-self._dict['q'])/(x._dict['q']+self._dict['q'])).sum()/len(self._dict['q'])>SASDict.qtolerance:
             if die:
                 raise ValueError('Incompatible SAS dicts (q-scales are different)!')
             return False
@@ -210,29 +152,29 @@ class SASDict(object):
             err=x[1]
         elif isinstance(x,SASDict):
             self._check_compat(x,die=True)
-            self._q=0.5*(self._q+x._q)
-            self._Intensity=self._Intensity*x._Intensity
-            self._Error=np.sqrt((x._Intensity*self._Error)**2+(self._Intensity*x._Error)**2)
-            self._Area=None
+            self._dict['q']=0.5*(self._dict['q']+x._dict['q'])
+            self._dict['Intensity']=self._dict['Intensity']*x._dict['Intensity']
+            self._dict['Error']=np.sqrt((x._dict['Intensity']*self._dict['Error'])**2+(self._dict['Intensity']*x._dict['Error'])**2)
+            #leave other _dict items as they are
             return self
         else:
             val=x
             err=0
-        self._Error=np.sqrt((self._Intensity*err)**2+(self._Error*val)**2)
-        self._Intensity=self._Intensity*val
+        self._dict['Error']=np.sqrt((self._dict['Intensity']*err)**2+(self._dict['Error']*val)**2)
+        self._dict['Intensity']=self._dict['Intensity']*val
         return self
     def __idiv__(self,x):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
-            self*=1/x
+            self*=1/x # use __imul__ and __rdiv__
             return self
         else:
             val=x
             err=0
-        self._Error=np.sqrt((self._Intensity/(val*val)*err)**2+(self._Error/val)**2)
-        self._Intensity=self._Intensity/val
+        self._dict['Error']=np.sqrt((self._dict['Intensity']/(val*val)*err)**2+(self._dict['Error']/val)**2)
+        self._dict['Intensity']=self._dict['Intensity']/val
         return self
     def __iadd__(self,x):
         if isinstance(x,tuple) and len(x)==2:
@@ -240,33 +182,28 @@ class SASDict(object):
             err=x[1]
         elif isinstance(x,SASDict):
             self._check_compat(x,die=True)
-            self._q=0.5*(self._q+x._q)
-            self._Intensity=self._Intensity+x._Intensity
-            self._Error=np.sqrt(self._Error**2+x._Error**2)
-            self._Area=None
+            self._dict['q']=0.5*(self._dict['q']+x._dict['q'])
+            self._dict['Intensity']=self._dict['Intensity']+x._dict['Intensity']
+            self._dict['Error']=np.sqrt(self._dict['Error']**2+x._dict['Error']**2)
             return self
         else:
             val=x
             err=0
-        self._Error=np.sqrt((err)**2+(self._Error)**2)
-        self._Intensity=self._Intensity+val
+        self._dict['Error']=np.sqrt((err)**2+(self._dict['Error'])**2)
+        self._dict['Intensity']=self._dict['Intensity']+val
         return self
     def __isub__(self,x):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
-            self._check_compat(x,die=True)
-            self._q=0.5*(self._q+x._q)
-            self._Intensity=self._Intensity-x._Intensity
-            self._Error=np.sqrt(self._Error**2+x._Error**2)
-            self._Area=None
+            self+=(-x) # use __iadd__ and __neg__
             return self
         else:
             val=x
             err=0
-        self._Error=np.sqrt((err)**2+(self._Error)**2)
-        self._Intensity=self._Intensity-val
+        self._dict['Error']=np.sqrt((err)**2+(self._dict['Error'])**2)
+        self._dict['Intensity']=self._dict['Intensity']-val
         return self
     def __mul__(self,x):
         if isinstance(x,tuple) and len(x)==2:
@@ -274,29 +211,28 @@ class SASDict(object):
             err=x[1]
         elif isinstance(x,SASDict):
             self._check_compat(x,die=True)
-            q1=0.5*(self._q+x._q)
-            Intensity1=self._Intensity*x._Intensity
-            Error1=np.sqrt((x._Intensity*self._Error)**2+(self._Intensity*x._Error)**2)
-            Area1=None
-            return SASDict(q=q1,Intensity=Intensity1,Error=Error1,Area=Area1)
+            q1=0.5*(self._dict['q']+x._dict['q'])
+            Intensity1=self._dict['Intensity']*x._dict['Intensity']
+            Error1=np.sqrt((x._dict['Intensity']*self._dict['Error'])**2+(self._dict['Intensity']*x._dict['Error'])**2)
+            return SASDict(q=q1,Intensity=Intensity1,Error=Error1)
         else:
             val=x
             err=0
-        err=np.sqrt((self._Intensity*err)**2+(self._Error*val)**2)
-        val=self._Intensity*val
-        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+        err=np.sqrt((self._dict['Intensity']*err)**2+(self._dict['Error']*val)**2)
+        val=self._dict['Intensity']*val
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
     def __div__(self,x):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
-            return self*(1/x)
+            return self*(1/x) # __mul__ and __rdiv__
         else:
             val=x
             err=0
-        err=np.sqrt((self._Intensity/(val*val)*err)**2+(self._Error/val)**2)
-        val=self._Intensity/val
-        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+        err=np.sqrt((self._dict['Intensity']/(val*val)*err)**2+(self._dict['Error']/val)**2)
+        val=self._dict['Intensity']/val
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
     __itruediv__=__idiv__
     def __add__(self,x):
         if isinstance(x,tuple) and len(x)==2:
@@ -304,28 +240,27 @@ class SASDict(object):
             err=x[1]
         elif isinstance(x,SASDict):
             self._check_compat(x,die=True)
-            return SASDict(q=0.5*(self._q+x._q),Intensity=self._Intensity+x._Intensity,Error=np.sqrt(self._Error**2+x._Error**2),Area=None)
+            return SASDict(q=0.5*(self._dict['q']+x._dict['q']),Intensity=self._dict['Intensity']+x._dict['Intensity'],Error=np.sqrt(self._dict['Error']**2+x._dict['Error']**2),Area=None)
         else:
             val=x
             err=0
-        err=np.sqrt((err)**2+(self._Error)**2)
-        val=self._Intensity+val
-        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+        err=np.sqrt((err)**2+(self._dict['Error'])**2)
+        val=self._dict['Intensity']+val
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
     def __sub__(self,x):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
-            self._check_compat(x,die=True)
-            return SASDict(q=0.5*(self._q+x._q),Intensity=self._Intensity-x._Intensity,Error=np.sqrt(self._Error**2+x._Error**2),Area=None)
+            return self+(-x) # __add__ and __neg__
         else:
             val=x
             err=0
-        err=np.sqrt((err)**2+(self._Error)**2)
-        val=self._Intensity-val
-        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+        err=np.sqrt((err)**2+(self._dict['Error'])**2)
+        val=self._dict['Intensity']-val
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
     def __neg__(self):
-        return SASDict(q=self._q,Intensity=-self._Intensity,Error=self._Error,Area=self._Area)
+        return SASDict(q=self._dict['q'],Intensity=-self._dict['Intensity'],Error=self._dict['Error'],Area=self._Area)
     __itruediv__=__idiv__
     __truediv__=__div__
     __rmul__=__mul__
@@ -334,13 +269,13 @@ class SASDict(object):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
-            return x*(1/self)
+            return x*(1/self) # __mul__ and __rdiv__, but the latter with x being a scalar 1
         else:
             val=x
             err=0
-        err=np.sqrt((err/self._Intensity)**2+(val/(self._Error)**2)**2)
-        val=self._Intensity/val
-        return SASDict(q=self._q,Intensity=val,Error=err,Area=self._Area)
+        err=np.sqrt((err/self._dict['Intensity'])**2+(val/(self._dict['Error'])**2)**2)
+        val=self._dict['Intensity']/val
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
     __rtruediv__=__truediv__
     __radd__=__add__
     def __rsub__(self,x):
@@ -349,43 +284,31 @@ class SASDict(object):
         if modulus is not None:
             return NotImplemented # this is hard to implement for SAS curves.
         if exponent==0:
-            return SASDict(q=self._q,Intensity=np.zeros(self._q.shape),Error=np.zeros(self._q.shape),Area=self._Area)
+            return SASDict(q=self._dict['q'],Intensity=np.zeros(self._dict['q'].shape),Error=np.zeros(self._dict['q'].shape),Area=self._Area)
         else:
-            return SASDict(q=self._q,Intensity=np.power(self._Intensity,exponent),
-                           Error=self._Error*np.absolute((exponent)*np.power(self._Intensity,exponent-1)))
+            return SASDict(q=self._dict['q'],Intensity=np.power(self._dict['Intensity'],exponent),
+                           Error=self._dict['Error']*np.absolute((exponent)*np.power(self._dict['Intensity'],exponent-1)))
     def __array__(self):
         a=np.array(zip(*(self.values())),dtype=zip(self.keys(),[np.double]*len(self.keys())))
         return a
     def sort(self,order='q'):
         a=self.__array__()
         sorted=np.sort(a,order=order)
-        if self._q is not None:
-            self._q=sorted['q']
-        if self._Intensity is not None:
-            self._Intensity=sorted['Intensity']
-        if self._Error is not None:
-            self._Error=sorted['Error']
-        if self._Area is not None:
-            self._Area=sorted['Area']
+        for k in self._dict.keys():
+            self._dict[k]=sorted[k]
         return self
     def sanitize(self,accordingto='Intensity',thresholdmin=0,thresholdmax=np.inf,function=None):
         if hasattr(function,'__call__'):
-            indices=function(self.__getattribute__(accordingto))
+            indices=function(self._dict[accordingto])
         else:
-            indices=(self.__getattribute__(accordingto)>thresholdmin) & (self.__getattribute__(accordingto)<thresholdmax)
-        if self._q is not None:
-            self._q=self._q[indices]
-        if self._Intensity is not None:
-            self._Intensity=self._Intensity[indices]
-        if self._Error is not None:
-            self._Error=self._Error[indices]
-        if self._Error is not None:
-            self._Area=self._Area[indices]
+            indices=(self._dict[accordingto]>thresholdmin) & (self._dict[accordingto]<thresholdmax)
+        for k in self._dict.keys():
+            self._dict[k]=self._dict[k][indices]
         return self
     def modulus(self,exponent=0,errorrequested=False):
-        x=self._q
-        y=self._Intensity*self._q**exponent
-        err=self._Error*self._q**exponent
+        x=self._dict['q']
+        y=self._dict['Intensity']*self._dict['q']**exponent
+        err=self._dict['Error']*self._dict['q']**exponent
         m=np.trapz(y,x)
         dm=errtrapz(x,err)
         if errorrequested:
@@ -394,17 +317,10 @@ class SASDict(object):
             return m
     def integral(self,errorrequested=False):
         return self.modulus(errorrequested=errorrequested)
-    def __len__(self):
-        return len(self.keys())
     def __del__(self):
-        if self._q is not None:
-            del self._q
-        if self._Intensity is not None:
-            del self._Intensity
-        if self._Error is not None:
-            del self._Error
-        if self._Area is not None:
-            del self._Area
+        for k in self._dict.keys():
+            del self._dict[k]
+        del self._dict
         SASDict.__instances-=1
 #        print "An instance of SASDict has been disposed of. Remaining instances:",SASDict.__instances
 
