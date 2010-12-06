@@ -21,7 +21,21 @@ cdef extern from "math.h":
     double fabs(double)
     double M_PI
     double exp(double)
+    double log(double)
 
+cdef inline double randn():
+    cdef double x
+    cdef double y
+    cdef int notready
+    notready=1
+    while(notready):
+        x=-log(rand()/<double>RAND_MAX)
+        y=exp(-0.5*(x-1)*(x-1))
+        if (rand()/<double>RAND_MAX <y):
+            notready=0
+            if (rand()/<double>RAND_MAX<0.5):
+                x=-x
+    return x
 cdef inline double fellipsoid(double qx, double qy, double qz, double a, double b, double c):
     """Scattering factor of an ellipsoid
     
@@ -1201,3 +1215,120 @@ def charfuncgrf(double R0, np.ndarray[np.double_t, ndim=2] grf not None,
     free(mykz)
     free(myphi)
     return result
+def packspheres(Py_ssize_t N,double R,double dR):
+    cdef double *x
+    cdef double *y
+    cdef double *z
+    cdef double vx
+    cdef double vy
+    cdef double vz
+    cdef Coordtype v
+    cdef Py_ssize_t i
+    cdef Py_ssize_t j
+    cdef double *r
+    cdef double l
+    cdef double h
+    cdef double d
+    cdef double d1
+    cdef np.ndarray[np.double_t,ndim=2] result
+    
+    x=<double*>malloc(sizeof(double)*N)
+    y=<double*>malloc(sizeof(double)*N)
+    z=<double*>malloc(sizeof(double)*N)
+    r=<double*>malloc(sizeof(double)*N)
+    for i from 0<=i<N:
+        r[i]=-1;
+        while (r[i]<=0):
+           r[i]=dR*randn()+R
+        if i==0:
+            x[i]=0
+            y[i]=0
+            z[i]=0
+            continue
+        elif i==1:
+            x[i]=r[i-1]+r[i]
+            y[i]=0
+            z[i]=0
+        else:
+            # sample an isotropic direction of the new sphere.
+            v=unidirC()
+            #put the sphere into the origin
+            d=0 
+            for j from 0<=j<i:
+                l=v.x*x[j]+v.y*y[j]+v.z*z[j]
+                if l<0:
+                    continue
+                h=sqrt(x[j]*x[j]+y[j]*y[j]+z[j]*z[j]-l*l)
+                if h>r[j]+r[i]:
+                    continue
+                d1=l+sqrt((r[j]+r[i])**2-h**2)
+                if d1>d:
+                    d=d1
+            x[i]=d*v.x
+            y[i]=d*v.y
+            z[i]=d*v.z
+        
+        # we now have the coordinates and radii of i+1 spheres. Move the whole 
+        # cluster that its center of gravity (COG) coincides with the origin.
+        # To accomplish this, a few remarks:
+        # 1) we assume, that the COG of the original structure (without the
+        #    newest sphere) is the origin.
+        # 2) The vector to the new origin is: v/(i+1), where v is (x[i],y[i],z[i])
+        # 3) all spheres should be moved by -v/(i+1) to move the whole thing
+        # into the origin.
+        vx=x[i]/(i+1)
+        vy=y[i]/(i+1)
+        vz=z[i]/(i+1)
+        for j from 0<=j<=i:
+            x[j]-=vx
+            y[j]-=vy
+            z[j]-=vz
+    result=np.zeros((N,4))
+    for i from 0<=i<N:
+        result[i,0]=x[i]
+        result[i,1]=y[i]
+        result[i,2]=z[i]
+        result[i,3]=r[i]
+    free(x)
+    free(y)
+    free(z)
+    free(r)
+    return result
+
+def structurefactor(np.ndarray[np.double_t,ndim=2] points,np.ndarray[np.double_t,ndim=1] qrange):
+    cdef double *x
+    cdef double *y
+    cdef double *z
+    cdef double q
+    cdef double qd
+    cdef Py_ssize_t N
+    cdef Py_ssize_t i
+    cdef Py_ssize_t j
+    cdef Py_ssize_t k
+    cdef double S
+    cdef np.ndarray[np.double_t, ndim=1] output
+    
+    N=points.shape[0]
+    x=<double*>malloc(sizeof(double)*N)
+    y=<double*>malloc(sizeof(double)*N)
+    z=<double*>malloc(sizeof(double)*N)
+    output=np.zeros(len(qrange))
+    
+    for i from 0<=i<N:
+        x[i]=points[i,0]
+        y[i]=points[i,1]
+        z[i]=points[i,2]
+    for k from 0<=k<qrange.shape[0]:
+        q=qrange[k]
+        S=0
+        for j from 0<=j<N:
+            S+=1
+            for i from 0<=i<j:
+                qd=q*sqrt((x[i]-x[j])**2+(y[i]-y[j])**2+(z[i]-z[j])**2)
+                if qd==0:
+                    S+=2
+                else:
+                    S+=2*sin(qd)/qd
+        output[k]=S/N
+    return output
+    

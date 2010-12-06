@@ -1749,12 +1749,15 @@ def maskpilatusgaps(rownum,colnum,horizmodule=487,horizgap=7,vertmodule=195,vert
     mask[row % (vertmodule+vertgap) >=vertmodule]=0
     return mask
     
-def B1_autointegrate(A,Aerr,param,mask,qrange=None):
+def B1_autointegrate(A,Aerr,param,mask,qrange=None,maskout_needed=False):
     q,I,E,Area,maskout=utils2d.radintC(A,Aerr,param['EnergyCalibrated'],
                                param['Dist'],param['PixelSize'],
                                param['BeamPosX'],param['BeamPosY'],
                                (1-mask).astype(np.uint8),q=qrange,returnavgq=True,returnmask=True)
-    return {'q':qrange,'Intensity':I,'Error':E,'Area':Area,'qaverage':q,'maskout':maskout}
+    if maskout_needed:
+        return {'q':qrange,'Intensity':I,'Error':E,'Area':Area,'qaverage':q,'maskout':maskout}
+    else:
+        return {'q':qrange,'Intensity':I,'Error':E,'Area':Area,'qaverage':q}
 
 def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
               dirs=[],ignorescalingerror=False,qtolerance=0.05,
@@ -1806,6 +1809,8 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         the original summed intensities (read from summed*.dat) to each other
         using this factor.
     """
+    if sample is None:
+        sample=[]
     if np.isscalar(sample):
         sample=[sample]
     print "Reading logfiles of type %s"%logfiletype
@@ -1995,9 +2000,9 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
                 pylab.ylabel('Intensity (1/cm)')
                 pylab.legend(loc='best')
                 utils.pause()
+                del datalongmult
             del dataredlong
             del dataredshort
-            del datalongmult
             del datashort
             del datalong
         #we are ready with datastounite[].

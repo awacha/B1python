@@ -1,4 +1,4 @@
-from c_saxssim import theorsaxs2D,Ctheorsphere2D,Ctheorspheregas,Ctheorspheres,maxdistance,unidir,grf_saxs2D,grf_realize,ddistcylinder,ddistsphere,ddistellipsoid,ddistbrick,ftddist,ddistgrf,charfuncgrf
+from c_saxssim import theorsaxs2D,Ctheorsphere2D,Ctheorspheregas,Ctheorspheres,maxdistance,unidir,grf_saxs2D,grf_realize,ddistcylinder,ddistsphere,ddistellipsoid,ddistbrick,ftddist,ddistgrf,charfuncgrf,packspheres,structurefactor
 import numpy as np
 
 def grf_savevtk(file,grfmatrix,origin=None,spacing=None):
@@ -53,7 +53,7 @@ def spheres2povray(file,spheredata,targetx=0,targety=0,targetz=0,
     if axislen is None:
         axislen=rcamera
     if axiswid is None:
-        axiswid=spheredata[:,4].mean()/10.0
+        axiswid=spheredata[:,3].mean()/10.0
     if conelen is None:
         conelen=axislen/20.0
     if conewid is None:

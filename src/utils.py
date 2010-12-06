@@ -220,7 +220,7 @@ class SASDict(object):
             err=0
         err=np.sqrt((self._dict['Intensity']*err)**2+(self._dict['Error']*val)**2)
         val=self._dict['Intensity']*val
-        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err)
     def __div__(self,x):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
@@ -232,7 +232,7 @@ class SASDict(object):
             err=0
         err=np.sqrt((self._dict['Intensity']/(val*val)*err)**2+(self._dict['Error']/val)**2)
         val=self._dict['Intensity']/val
-        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err)
     __itruediv__=__idiv__
     def __add__(self,x):
         if isinstance(x,tuple) and len(x)==2:
@@ -240,13 +240,13 @@ class SASDict(object):
             err=x[1]
         elif isinstance(x,SASDict):
             self._check_compat(x,die=True)
-            return SASDict(q=0.5*(self._dict['q']+x._dict['q']),Intensity=self._dict['Intensity']+x._dict['Intensity'],Error=np.sqrt(self._dict['Error']**2+x._dict['Error']**2),Area=None)
+            return SASDict(q=0.5*(self._dict['q']+x._dict['q']),Intensity=self._dict['Intensity']+x._dict['Intensity'],Error=np.sqrt(self._dict['Error']**2+x._dict['Error']**2))
         else:
             val=x
             err=0
         err=np.sqrt((err)**2+(self._dict['Error'])**2)
         val=self._dict['Intensity']+val
-        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err)
     def __sub__(self,x):
         if isinstance(x,tuple) and len(x)==2:
             val=x[0]
@@ -258,9 +258,9 @@ class SASDict(object):
             err=0
         err=np.sqrt((err)**2+(self._dict['Error'])**2)
         val=self._dict['Intensity']-val
-        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err)
     def __neg__(self):
-        return SASDict(q=self._dict['q'],Intensity=-self._dict['Intensity'],Error=self._dict['Error'],Area=self._Area)
+        return SASDict(q=self._dict['q'],Intensity=-self._dict['Intensity'],Error=self._dict['Error'])
     __itruediv__=__idiv__
     __truediv__=__div__
     __rmul__=__mul__
@@ -275,7 +275,7 @@ class SASDict(object):
             err=0
         err=np.sqrt((err/self._dict['Intensity'])**2+(val/(self._dict['Error'])**2)**2)
         val=self._dict['Intensity']/val
-        return SASDict(q=self._dict['q'],Intensity=val,Error=err,Area=self._Area)
+        return SASDict(q=self._dict['q'],Intensity=val,Error=err)
     __rtruediv__=__truediv__
     __radd__=__add__
     def __rsub__(self,x):
@@ -284,7 +284,7 @@ class SASDict(object):
         if modulus is not None:
             return NotImplemented # this is hard to implement for SAS curves.
         if exponent==0:
-            return SASDict(q=self._dict['q'],Intensity=np.zeros(self._dict['q'].shape),Error=np.zeros(self._dict['q'].shape),Area=self._Area)
+            return SASDict(q=self._dict['q'],Intensity=np.zeros(self._dict['q'].shape),Error=np.zeros(self._dict['q'].shape),)
         else:
             return SASDict(q=self._dict['q'],Intensity=np.power(self._dict['Intensity'],exponent),
                            Error=self._dict['Error']*np.absolute((exponent)*np.power(self._dict['Intensity'],exponent-1)))
@@ -335,6 +335,25 @@ class SASImage(object):
             return self._param[item]
         except KeyError:
             raise
+    def _getIntensity(self):
+        return np.array(self._A)
+    def _setIntensity(self,A1):
+        if (self._A is None) or (self._A.shape==A1.shape):
+            self._A=np.array(A1)
+        else:
+            raise ValueError('Incompatible shape for Intensity matrix!')
+    def _getError(self):
+        return np.array(self._Aerr)
+    def _setError(self,A1):
+        if (self._Aerr is None) or (self._Aerr.shape==A1.shape):
+            self._Aerr=np.array(A1)
+        else:
+            raise ValueError('Incompatible shape for Error matrix!')
+    def _getq(self):
+        raise NotImplementedError
+    Intensity=property(fget=_getIntensity,fset=_setIntensity,doc='Two-dimensional scattering intensity')
+    Error=property(fget=_getError,fset=_setError,doc='Absolute error of two-dimensional scattering intensity')
+    q=property(fget=_getq,doc='length of momentum transfer vector')
     
 
 def trimq(data,qmin=-np.inf,qmax=np.inf):
