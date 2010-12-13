@@ -442,7 +442,8 @@ def guiniercrosssectionfit(data,qmin=-np.inf,qmax=np.inf,testimage=False,smearin
         the calculated error of Rg
         the calculated error of the prefactor
     """
-    data1=utils.trimq(data,qmin,qmax)
+    data1=utils.SASDict(*data)
+    data1.trimq(qmin,qmax,inplace=True)
     x1=data1['q']**2;
     err1=np.absolute(data1['Error']/data1['Intensity']*data1['q'])
     y1=np.log(data1['Intensity'])*data1['q']

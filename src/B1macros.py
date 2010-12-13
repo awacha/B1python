@@ -1844,6 +1844,9 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         datastounite=[]
         lastqsep=np.inf
         allfsns=[]
+        if len(dists)==1:
+            print "Not uniting class %d, as only one distance exists." % (i)
+            continue
         for di in range(len(dists)): # dists is ordered by utils.unique(), starts from the shortest.
             if di==0: # in this case, calculate the multiplication factor for SAXS and WAXS
                 if ignorewaxs:

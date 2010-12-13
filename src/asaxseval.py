@@ -80,7 +80,7 @@ def asaxsbasicfunctions(I,Errors,f1,f2,df1=None,df2=None,element=0):
         DM[j]=tmpe[1];
         DR[j]=tmpe[2];
     return N,M,R,DN,DM,DR
-def asaxspureresonant(I1,I2,I3,DI1,DI2,DI3,f11,f12,f13,f21,f22,f23):
+def asaxspureresonant(I1,I2,I3,DI1,DI2,DI3,f11,f12,f13,f21,f22,f23,scalesep=True):
     """Calculate the pure resonant as the "difference of differences"
     
     Inputs:
@@ -88,11 +88,13 @@ def asaxspureresonant(I1,I2,I3,DI1,DI2,DI3,f11,f12,f13,f21,f22,f23):
         DI1,DI2,DI3: error data for the intensity curves
         f11,f12,f13: f' values
         f21,f22,f23: f'' values
+        scalesep: True if separated intensities should be divided by the differences
+            in f'
     
     Outputs:
-        sep12: (I1-I2)/(f11-f12)
+        sep12: (I1-I2)/(f11-f12) or (I1-I2) if scalesep is False
         dsep12: error of sep12
-        sep23: (I2-I3)/(f12-f13)
+        sep23: (I2-I3)/(f12-f13) or (I2-I3) if scalesep is False
         dsep23: error of I2-I3
         R: the pure resonant term
         DR: the error of the pure resonant term
@@ -106,7 +108,10 @@ def asaxspureresonant(I1,I2,I3,DI1,DI2,DI3,f11,f12,f13,f21,f22,f23):
     R=(sep12 -sep23)/factor;
     dsep12=np.absolute(np.sqrt((DI1*DI1)+(DI2*DI2))/(f11-f12))
     dsep23=np.absolute(np.sqrt((DI2*DI2)+(DI3*DI3))/(f12-f13))
-    return sep12,dsep12,sep23,dsep23,R,DR
+    if scalesep:
+        return sep12,dsep12,sep23,dsep23,R,DR
+    else:
+        return (I1-I2),np.sqrt(DI1**2+DI2**2),(I2-I3),np.sqrt(DI2**2+DI3**2),R,DR
 def asaxsseqeval(data,param,asaxsenergies,chemshift,fprimefile,samples=None,seqname=None,element=0):
     """Evaluate an ASAXS sequence, derive the basic functions
     

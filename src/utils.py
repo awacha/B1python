@@ -49,6 +49,8 @@ class SASDict(object):
     def __init__(self,q,Intensity,Error=None,**kwargs):
         self._dict={'q':None,'Intensity':None,'Error':None}
         self._dict['q']=np.array(q)
+        self._transform=None
+        self._plotaxes=None
         if len(Intensity)!=len(self._dict['q']):
             raise ValueError('Intensity should be of the same length as q!')
         self._dict['Intensity']=np.array(Intensity)
@@ -64,10 +66,17 @@ class SASDict(object):
             self._dict[k]=np.array(kwargs[k])
         SASDict.__instances+=1
     def __getattr__(self,key):
-        if key in object.__getattribute__(self,'_dict').keys():
-            return np.array(object.__getattribute__(self,'_dict')[key])
+        selfdict=object.__getattribute__(self,'_dict')
+        if key in selfdict.keys():
+            return np.array(selfdict[key])
         elif key=='s':
-            return np.array(object.__getattribute__(self,'_dict')[key]/(2*np.pi))
+            return np.array(selfdict[key]/(2*np.pi))
+        elif key in ['x','y','dy']:
+            if key not in selfdict:
+                self.do_transform()
+            return selfdict[key]
+        elif key=='transform':
+            return self._transform
         else: # __getattr__ is called only if the attribute has not been found in the usual places.
             raise AttributeError('Attribute %s not found.'%key)
     def __setattr__(self,key,value):
@@ -78,11 +87,22 @@ class SASDict(object):
                 self._setq(value)
             elif key=='s':
                 self._setq(value*2*np.pi)
+            elif key in ['x','y','dy']:
+                raise ValueError('Attribute %s is read-only!'%key)
             else:
                 if len(value)==len(self._dict['q']):
                     self._dict[key]=np.array(value)
                 else:
                     raise ValueError('New value for %s should be of the same length as q!' %key)
+        elif key=='transform':
+            self._transform=value
+            try:
+                del self._dict['x']
+                del self._dict['y']
+                del self._dict['dy']
+            except KeyError:
+                pass
+            self.do_transform()
         else:
             return object.__setattr__(self,key,value)
     def __getitem__(self,key):
@@ -110,7 +130,7 @@ class SASDict(object):
         f.close()
     def copy(self):
         return SASDict(self)
-    def trimq(self,qmin=-np.inf,qmax=np.inf):
+    def trimq(self,qmin=-np.inf,qmax=np.inf,inplace=False):
         """Trim the 1D scattering data to a given q-range
         
         Inputs:
@@ -120,22 +140,54 @@ class SASDict(object):
 
         Intensity, Error and Area (if present) will be trimmed.
         """
+        newdict={}
         indices=(self._dict['q']<=qmax) & (self._dict['q']>=qmin)
         for k in self._dict.keys():
-            self._dict[k]=self._dict[k][indices]
-        return self
-    def trims(self,smin=-np.inf,smax=np.inf):
-        return self.trimq(qmin=smin*2*np.pi,qmax=smax*2*np.pi)
+            if inplace:
+                self._dict[k]=self._dict[k][indices]
+            else:
+                newdict[k]=self._dict[k][indices]
+        if inplace:
+            return self
+        else:
+            return SASDict(**newdict)
+    def trims(self,smin=-np.inf,smax=np.inf,*args,**kwargs):
+        return self.trimq(qmin=smin*2*np.pi,qmax=smax*2*np.pi,*args,**kwargs)
     def loglog(self,*args,**kwargs):
-        pylab.loglog(self.q,self.Intensity,*args,**kwargs)
+        self.do_transform()
+        pylab.loglog(self.x,self.y,*args,**kwargs)
+        if self._transform is not None:
+            pylab.xlabel(self._transform.xlabel())
+            pylab.ylabel(self._transform.ylabel())
+        self._plotaxes=pylab.gca()
     def semilogy(self,*args,**kwargs):
-        pylab.semilogy(self.q,self.Intensity,*args,**kwargs)
+        self.do_transform()
+        pylab.semilogy(self.x,self.y,*args,**kwargs)
+        if self._transform is not None:
+            pylab.xlabel(self._transform.xlabel())
+            pylab.ylabel(self._transform.ylabel())
+        self._plotaxes=pylab.gca()
     def semilogx(self,*args,**kwargs):
-        pylab.semilogx(self.q,self.Intensity,*args,**kwargs)
+        self.do_transform()
+        pylab.semilogx(self.x,self.y,*args,**kwargs)
+        if self._transform is not None:
+            pylab.xlabel(self._transform.xlabel())
+            pylab.ylabel(self._transform.ylabel())
+        self._plotaxes=pylab.gca()
     def plot(self,*args,**kwargs):
-        pylab.plot(self.q,self.Intensity,*args,**kwargs)
+        self.do_transform()
+        pylab.plot(self.x,self.y,*args,**kwargs)
+        if self._transform is not None:
+            pylab.xlabel(self._transform.xlabel())
+            pylab.ylabel(self._transform.ylabel())
+        self._plotaxes=pylab.gca()
     def errorbar(self,*args,**kwargs):
-        pylab.errorbar(self.q,self.Intensity,self.Error,*args,**kwargs)
+        self.do_transform()
+        pylab.errorbar(self.x,self.y,self.dy,*args,**kwargs)
+        if self._transform is not None:
+            pylab.xlabel(self._transform.xlabel())
+            pylab.ylabel(self._transform.ylabel())
+        self._plotaxes=pylab.gca()
     def _check_compat(self,x,die=False):
         if len(x._dict['q'])!=len(self._dict['q']):
             if die:
@@ -322,7 +374,305 @@ class SASDict(object):
             del self._dict[k]
         del self._dict
         SASDict.__instances-=1
-#        print "An instance of SASDict has been disposed of. Remaining instances:",SASDict.__instances
+        #print "An instance of SASDict has been disposed of. Remaining instances:",SASDict.__instances
+    def do_transform(self):
+        if self._transform is None:
+            self._dict['x']=self._dict['q']
+            self._dict['y']=self._dict['Intensity']
+            self._dict['dy']=self._dict['Error']
+        else:
+            self._dict.update(self._transform.do_transform(**(self._dict)))
+            
+    def fit(self,function,params_initial,full_output=False,**kwargs):
+        """Do a fit on the current dataset
+        
+        Inputs:
+            function: the fit function. Should return the calculated values for 
+                the intensity in a vector of the same length as its first
+                argument (q). Will be called as:
+                    
+                function(q,param1,param2,...).
+                
+            params_initial: initial values of the parameters, in a list
+            full_output: if True, optional output variables are returned.
+                Defaults to False.
+            
+        Keyword arguments will be forwarded to scipy.optimize.leastsq.
+        
+        Outputs: params_final, errors_final, {fittedcurve, chisquare, dof}
+            params_final: fitted parameters
+            errors_final: errors of the fitted parameters
+            fittedcurve: optional output. The fitted curve (ie. the value of
+                function() with the last parameters
+            chisquare: chi squared
+            dof: degrees of freedom
+        Will raise a ValueError if the fitting does not succeed.
+        """
+        p,cov_x,infodict,mesg,ier=scipy.optimize.leastsq(lambda p:(function(self._dict['q'],*p)-self._dict['Intensity'])/self._dict['Error'],params_initial,full_output=1,**kwargs)
+        chisquare=(infodict['fvec']**2).sum()
+        degrees_of_freedom=len(self._dict['q'])-len(p)
+        if ier<1 or ier>4:
+            raise ValueError('Fitting did not succeed. Reason: %s'%mesg)
+        errors=[ np.sqrt(cov_x[i,i]*chisquare/degrees_of_freedom) for i in range(len(p))]
+        if full_output:
+            return p,errors,function(self._dict['q'],*p),chisquare,degrees_of_freedom
+        else:
+            return p,errors
+    def _fitting_base(self,function,transformdatasettolinear=None, transformparamfromlinear=None,params_initial=None,plotinfo=None):
+        #Base fitting function, for internal usage only.
+        # parameters:
+        #    function is the fitting function to be fitted. Will be forwarded to self.fit().
+        #    transformdatasettolinear: this is a callable, eg. a subclass of SASTransform, which
+        #        will transform q,Intensity to a line, if possible. If such a linearization is
+        #        not viable, should be None
+        #    transformparamfromlinear: a callable, which transforms the parameters of a fitted line
+        #        back to values usable for a proper least-squares fit of the function. Can be
+        #        None, if no such transformation is needed.
+        #    params_initial: first guess for the parameters. Can be None if
+        #        transformdatasettolinear is defined. In other cases, this should either be a list
+        #        which will be forwarded to self.fit(). Or, it can be a callable, accepting
+        #        q and Intensity and returning a list of initial parameters forwardable to self.fit()
+        #    plotinfo: None, a dictionary, or anything.
+        #        a) None: no plotting is desired.
+        #        b) dictionary: fields needed are 'funcname' (description of the function) and
+        #            'paramnames' (list of names of the parameters). An optional field is 
+        #            'otherstringforlegend', which can be a string, which will be appended to
+        #            the legend, or a callable, which provides that string. Then its arguments
+        #            will be (q,Intensity,Error,paramsfitted,errorofparamsfitted).
+        #
+        # Returns: params,errors,curve,chi2,dof
+        #    params: values fitted
+        #    errors: errors of the fitted params
+        #    curve: the fitted curve
+        #    chi2: chi-squared (not reduced)
+        #    dof: degrees of freedom
+        
+        #try to linearize the dataset and get the initial values for the params.
+        if transformdatasettolinear is not None:
+            # do the linearization
+            d=transformdatasettolinear(self._dict['q'],self._dict['Intensity'],self._dict['Error'])
+            # do the fitting
+            a,b=scipy.polyfit(d['x'],d['y'],1)
+            # try to transform the parameters back
+            if transformparamfromlinear is not None:
+                a,b=transformparamfromlinear(a,b)
+            # set them as the initial guess
+            params_initial=[a,b]
+        # if linearization did not succeed, check if params_initial is supplied
+        elif params_initial is None:
+            raise ValueError('params_initial should not be None if transformdatasettolinear is None.')
+        # if params_initial is callable, call it to get the first guess
+        elif hasattr(params_initial,'__call__'): #in this case, it is a guessing function
+            params_initial=params_initial(self._dict['q'],self._dict['Intensity'])
+        # at this point, we have params_initial. Fitting can be carried out.
+        params,errors,curve,chi2,dof=self.fit(function,params_initial,full_output=True)
+        #check if plotting was requested.
+        if plotinfo is not None:
+            if transformdatasettolinear is not None: # if linearization is possible, linearize it.
+                pylab.errorbar(d['x'],d['y'],d['dy'],fmt='b.',label='original dataset')
+                d1=transformdatasettolinear(self._dict['q'],curve,self._dict['Error'])
+                pylab.plot(d1['x'],d1['y'],'r-',label='fitted curve')
+            else: # no linearization
+                pylab.errorbar(self._dict['q'],self._dict['Intensity'],self._dict['Error'],fmt='b.',label='original dataset')
+                pylab.plot(self._dict['q'],curve,'r-',label='fitted curve')
+            if hasattr(plotinfo,'keys'): # construct the legend.
+                fittinglog=u'Function: %s\nParameters:\n'%plotinfo['funcname']
+                for p,e,l in zip(params,errors,plotinfo['paramnames']):
+                    fittinglog=fittinglog+(u'    %s: %g +/- %g\n'%(l,p,e))
+                fittinglog=fittinglog+(u'Chi-square: %g\n'%chi2)
+                fittinglog=fittinglog+(u'Degrees of freedom: %d\n'%dof)
+                fittinglog=fittinglog+(u'RMS of residuals: %g\n'%np.sqrt(chi2/dof))
+                if hasattr(plotinfo,'otherstringforlegend'):
+                    if hasattr(plotinfo['otherstringforlegend'],'__call__'):
+                        fittinglog=fittinglog+plotinfo['otherstringforlegend'](self._dict['q'],self._dict['Intensity'],self._dict['Error'],params,errors)
+                    else:
+                        fittinglog=fittinglog+plotinfo['otherstringforlegend']
+            #plot the legend
+            pylab.text(0.95,0.95,fittinglog,ha='right',va='top',transform=pylab.gca().transAxes)
+        return params,errors,curve,chi2,dof
+        
+    def guinierfit(self,qpower=0,plot=True):
+        divisor=3-qpower
+        fitfunction=lambda q,G,R:np.power(q,qpower)*G*np.exp(-q**2*R**2/divisor)
+        paramtransform=lambda lnG,mR2div:(np.exp(lnG),np.sqrt(-divisor*mR2div))
+        if plot:
+            def legend_addendum(q,I,E,G,R,dG,dR):
+                return 'q_max*R = %g\n'%(q.max()*R)
+            plotinfo={'funcname':'G*q^%d*exp(-q^2*R^2/%d)'%(qpower,divisor),
+                      'paramnames':['G','R_g'],
+                      'otherstringforlegend':legend_addendum}
+        else:
+            plotinfo=None
+        p,e,curve,chi2,dof=self._fitting_base(fitfunction,
+                                              SASTransformGuinier(qpower),
+                                              paramtransform,
+                                              None,
+                                              plotinfo)
+        return p,e
+    def guinierthicknessfit(self,*args,**kwargs):
+        return self.guinierfit(qpower=2,*args,**kwargs)
+    def guiniercrosssectionfit(self,*args,**kwargs):
+        return self.guinierfit(qpower=1,*args,**kwargs)
+    def powerlawfit(self,plot=True):
+        fitfunction=lambda q,A,B:np.power(q,B)*A
+        paramtransform=lambda lnA,B:(np.exp(lnA),B)
+        if plot:
+            plotinfo={'funcname':'A*q^B',
+                      'paramnames':['A','B']}
+        else:
+            plotinfo=None
+        p,e,curve,chi2,dof=self._fitting_base(fitfunction,
+                                              SASTransformLogLog(),
+                                              paramtransform,
+                                              params_initial=None,
+                                              plotinfo=plotinfo)
+        return p,e
+    def powerlawconstantbackgroundfit(self,plot=True):
+        fitfunction=lambda q,A,B,C:np.power(q,B)*A+C
+        if plot:
+            plotinfo={'funcname':'A*q^B+C',
+                      'paramnames':['A','B','C']}
+        else:
+            plotinfo=None
+        p,e,curve,chi2,dof=self._fitting_base(fitfunction,
+                                              None,
+                                              None,
+                                              params_initial=[1.0,-4.0,0.0],
+                                              plotinfo=plotinfo)
+        return p,e
+    def powerlawlinearbackgroundfit(self,plot=True):
+        fitfunction=lambda q,A,B,C,D:np.power(q,B)*A+C+D*q
+        if plot:
+            plotinfo={'funcname':'A*q^B+C+D*q',
+                      'paramnames':['A','B','C','D']}
+        else:
+            plotinfo=None
+        p,e,curve,chi2,dof=self._fitting_base(fitfunction,
+                                              None,
+                                              None,
+                                              params_initial=[1.0,-4.0,0.0,1.0],
+                                              plotinfo=plotinfo)
+        return p,e
+    def porodfit(self,porod_exponent=-4,plot=True):
+        fitfunction=lambda q,A,B:np.power(q,porod_exponent)*A+B
+        paramtransform=lambda A,B:(B,A)
+        if plot:
+            plotinfo={'funcname':'A*q^(%g)+B'%(porod_exponent),
+                      'paramnames':['A','B']}
+        else:
+            plotinfo=None
+        p,e,curve,chi2,dof=self._fitting_base(fitfunction,
+                                              SASTransformPorod(porod_exponent),
+                                              paramtransform,
+                                              params_initial=None,
+                                              plotinfo=plotinfo)
+        return p,e 
+        
+    def trimzoomed(self,inplace=False):
+        if self._plotaxes is None:
+            raise ValueError('No plot axes corresponds to this SASDict')
+        limits=self._plotaxes.axis()
+        indices=(self.x>=limits[0])&(self.x<=limits[1])&(self.y>=limits[2])&(self.y<=limits[3])
+        newdict={}
+        for k in self._dict.keys():
+            if inplace:
+                self._dict[k]=self._dict[k][indices]
+            else:
+                newdict[k]=self._dict[k][indices]
+        if inplace:
+            return self
+        else:
+            return SASDict(**newdict)
+        
+        
+class SASTransform(object):
+    def __init__(self):
+        pass
+    def do_transform(self,q,Intensity,Error,**kwargs):
+        raise NotImplementedError('SASTransform is an abstract class. Please derive a class from this, overriding the do_tranform() method!')
+    def __call__(self,*args,**kwargs):
+        return self.do_transform(*args,**kwargs)
+    def xlabel(self,unit=u'1/\xc5'):
+        return u'q (%s)' %unit
+    def ylabel(self,unit=u'1/cm'):
+        return u'Intensity (%s)' % unit
+class SASTransformGuinier(SASTransform):
+    def __init__(self,qpower=0):
+        self._qpower=qpower
+    def do_transform(self,q,Intensity,Error,**kwargs):
+        d={}
+        d['x']=np.power(q,2)
+        d['y']=np.log(Intensity*np.power(q,self._qpower))
+        d['dy']=np.absolute(Error/Intensity)
+        return d
+    def xlabel(self, qunit=u'1/\xc5'):
+        return u'q^2 (%s^2)' %qunit
+    def ylabel(self,Iunit=u'1/cm',qunit=u'1/\xc5'):
+        if self._qpower!=0:
+            return u'ln (Intensity*q^%d) (ln(%s*%s^%d))' % (self._qpower,Iunit,qunit,self._qpower)
+        return u'log Intensity (log %s)' % Iunit
+
+class SASTransformLogLog(SASTransform):
+    def __init__(self,xlog=True,ylog=True):
+        self._xlog=xlog
+        self._ylog=ylog
+    def do_transform(self,q,Intensity,Error,**kwargs):
+        if self._xlog:
+            retq=np.log(q)
+        else:
+            retq=np.array(q) # make a copy!
+        if self._ylog:
+            retI=np.log(Intensity)
+            retE=np.absolute(Error/Intensity)
+        else:
+            retI=np.array(Intensity)
+            retE=np.array(Error)
+        return {'x':retq,'y':retI,'dy':retE}
+    def xlabel(self,unit=u'1/\xc5'):
+        if self._xlog:
+            return u'ln q (ln %s)' %unit
+        else:
+            return u'q (%s)' %unit
+    def ylabel(self,unit=u'1/cm'):
+        if self._ylog:
+            return u'ln Intensity (ln %s)' % unit
+        else:
+            return u'Intensity (%s)' % unit
+
+class SASTransformPorod(SASTransform):
+    def __init__(self,exponent=4):
+        self._exponent=exponent
+    def do_transform(self,q,Intensity,Error,**kwargs):
+        return {'x':np.power(q,self._exponent),
+                'y':np.power(q,self._exponent)*Intensity,
+                'dy':np.power(q,self._exponent)*Error}
+    def xlabel(self,unit=u'1/\xc5'):
+        return u'q^4 (%s^4)' %unit
+    def ylabel(self,Iunit=u'1/cm',qunit=u'1/\xc5'):
+        return u'q^4*Intensity (%s*%s^4)' % (Iunit,qunit)
+
+class SASTransformShullRoess(SASTransform):
+    def __init__(self,r0):
+        self._r0=r0
+    def do_transform(self,q,Intensity,Error,**kwargs):
+        retq=np.log(np.power(q,2)+3/self._r0**2)
+        retI=np.log(Intensity)
+        retE=np.absolute(Error/Intensity)
+        return {'x':retq,'y':retI,'dy':retE}
+    def xlabel(self,unit=u'1/\xc5'):
+        return u'ln q^2 (ln %s^2)' %unit
+    def ylabel(self,Iunit=u'1/cm'):
+        return u'ln Intensity (ln %s)' % (Iunit)
+        
+TransformGuinier=SASTransformGuinier()
+TransformGuinierThickness=SASTransformGuinier(2)
+TransformGuinierCrosssection=SASTransformGuinier(1)
+TransformPorod=SASTransformPorod()
+TransformLogLog=SASTransformLogLog(True,True)
+TransformSemilogX=SASTransformLogLog(True,False)
+TransformSemilogY=SASTransformLogLog(False,True)
+TransformLinLin=SASTransformLogLog(False,False)
+
 
 class SASImage(object):
     def __init__(self,A,Aerr=None,param=None,mask=None):
