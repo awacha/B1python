@@ -9,10 +9,25 @@ import numpy as np
 import os
 import scipy.io
 
+configfilename=os.path.expanduser('.B1guitool')
 default_inputdirs=''
 #default_inputdirs=r'r:\misc\jusifa\Projekte\2010\0420Bota; r:\misc\jusifa\Projekte\2010\0420Bota\data1; r:\misc\jusifa\Projekte\2010\0420Bota\eval1; r:\misc\jusifa\Projekte\2010\0420Bota\processing'
 default_outputdir='.'
 default_mask='mask.mat'
+try:
+    f=open(configfilename,'rt');
+    lines=f.readlines();
+    for l in lines:
+        if l.startswith('Default inputdirs:'):
+            default_inputdirs=l.strip().split(':')[1].strip()
+        elif l.startswith('Default outputdir:'):
+            default_outputdir=l.strip().split(':')[1].strip()
+        elif l.startswith('Default mask:'):
+            default_mask=l.strip().split(':')[1].strip()
+    f.close()
+except:
+    pass
+
 class MainWindow:
     def __init__(self,master):
         master.tk_strictMotif(True)
@@ -24,7 +39,7 @@ class MainWindow:
         self.master=master
         frame=Tkinter.Frame(master)
         frame.columnconfigure(1,weight=1)
-        frame.pack()
+        frame.pack(expand=True,fill='both')
         master.wm_title('B1guitool powered by B1python v%s'%B1python.VERSION)
         Tkinter.Label(frame,text='Input directories (separated by semicolons)').grid(row=0,column=0,sticky='NSW')
         self.inputdirs=Tkinter.Entry(frame)
@@ -50,25 +65,20 @@ class MainWindow:
         f1=Tkinter.Frame(f)
         f1.grid(row=0,column=1,sticky="NSEW")
         f1.columnconfigure(1,weight=1)
-        self.maskmanual=Tkinter.IntVar()
-        Tkinter.Checkbutton(f1,onvalue=1,offvalue=0,variable=self.maskmanual,text='Mask',command=self.toggleqminqmax).grid(row=0,column=0,sticky="NSW")
-        self.mask=Tkinter.Entry(f1)
-        self.mask.grid(row=0,column=1)
-        self.mask.insert(0,default_mask)
         self.qminmanual=Tkinter.IntVar()
-        Tkinter.Checkbutton(f1,onvalue=1,offvalue=0,variable=self.qminmanual,text='q min:',command=self.toggleqminqmax).grid(row=1,column=0,sticky="NSW")
+        Tkinter.Checkbutton(f1,onvalue=1,offvalue=0,variable=self.qminmanual,text='q min:',command=self.toggleqminqmax).grid(row=0,column=0,sticky="NSW")
         self.qmin=Tkinter.Entry(f1)
-        self.qmin.grid(row=1,column=1,sticky='NSEW')
+        self.qmin.grid(row=0,column=1,sticky='NSEW')
         self.qmin.insert(0,'0')
         self.qmaxmanual=Tkinter.IntVar()
-        Tkinter.Checkbutton(f1,onvalue=1,offvalue=0,variable=self.qmaxmanual,text='q max:',command=self.toggleqminqmax).grid(row=2,column=0,sticky="NSW")
+        Tkinter.Checkbutton(f1,onvalue=1,offvalue=0,variable=self.qmaxmanual,text='q max:',command=self.toggleqminqmax).grid(row=1,column=0,sticky="NSW")
         self.qmax=Tkinter.Entry(f1)
-        self.qmax.grid(row=2,column=1,sticky='NSEW')
+        self.qmax.grid(row=1,column=1,sticky='NSEW')
         self.qmax.insert(0,'0')
         self.Nqmanual=Tkinter.IntVar()
-        Tkinter.Checkbutton(f1,onvalue=1,offvalue=0,variable=self.Nqmanual,text='Nr of bins:',command=self.toggleqminqmax).grid(row=3,column=0,sticky="NSW")
+        Tkinter.Checkbutton(f1,onvalue=1,offvalue=0,variable=self.Nqmanual,text='Nr of bins:',command=self.toggleqminqmax).grid(row=2,column=0,sticky="NSW")
         self.Nq=Tkinter.Entry(f1)
-        self.Nq.grid(row=3,column=1,sticky='NSEW')
+        self.Nq.grid(row=2,column=1,sticky='NSEW')
         self.Nq.insert(0,'100')
 
         self.phi0manual=Tkinter.IntVar()
@@ -90,16 +100,31 @@ class MainWindow:
         Tkinter.Button(f1,text='Plot',command=self.replot).grid(row=0,column=0,sticky="NSEW")
         Tkinter.Button(f1,text='Clear',command=self.clearplot).grid(row=2,column=0,sticky="NSEW")
         Tkinter.Button(f1,text='Quit',command=self.quit).grid(row=3,column=0,sticky="NSEW")
+ 
+        lf=Tkinter.LabelFrame(frame,text='Mask operations')
+        lf.grid(columnspan=2,sticky="NEWS")
+        lf.columnconfigure(6,weight=1)
+        Tkinter.Button(lf,text='Create new',command=self.createmask).grid(row=0,column=0,sticky="NSEW")
+        Tkinter.Button(lf,text='Clear',command=self.clearmask).grid(row=0,column=1,sticky="NSEW")
+        Tkinter.Button(lf,text='Adjust',command=self.adjustmask).grid(row=0,column=2,sticky="NSEW")
+        Tkinter.Button(lf,text='Save to',command=self.savemask).grid(row=0,column=3,sticky="NSEW")
+        Tkinter.Button(lf,text='Load from',command=self.loadmask).grid(row=0,column=4,sticky="NSEW")
+        Tkinter.Label(lf,text='Filename:').grid(row=0,column=5,sticky='NSEW')
+        self.maskfilename=Tkinter.Entry(lf)
+        self.maskfilename.grid(row=0,column=6,sticky='NSEW')
+        self.maskfilename.insert(0,default_mask)
+
         lf=Tkinter.LabelFrame(frame,text='Operations on the current integrated dataset')
         lf.grid(columnspan=2,sticky="NEWS")
         lf.columnconfigure(4,weight=1)
         Tkinter.Button(lf,text='Fitting...',command=self.fit).grid(row=0,column=0,sticky="NSEW")
         Tkinter.Button(lf,text='Save to',command=self.saveto).grid(row=0,column=1,sticky="NSEW")
         Tkinter.Button(lf,text='Load from',command=self.loadfrom).grid(row=0,column=2,sticky="NSEW")
-        Tkinter.Label(lf,text='Filaname:').grid(row=0,column=3,sticky='NSEW')
+        Tkinter.Label(lf,text='Filename:').grid(row=0,column=3,sticky='NSEW')
         self.savefilename=Tkinter.Entry(lf)
         self.savefilename.grid(row=0,column=4,sticky='NSEW')
         self.savefilename.insert(0,'')
+
         lf=Tkinter.LabelFrame(frame,text='Log')
         lf.grid(columnspan=2,sticky="NEWS")
         lf.columnconfigure(0,weight=1)
@@ -120,11 +145,68 @@ class MainWindow:
         Tkinter.Button(f,text="Clear",command=self.clearlog).grid(row=0,column=1,sticky="NSEW")
         self.currentdataset=None
         self.currentparam=None
+        self.maskmatrix=None
+    def clearmask(self):
+        self.maskmatrix=None
+        self.logger('Mask cleared.','NORMAL')
+    def createmask(self):
+        fsn=self.getfsn()
+        data,dataerr,param=B1python.read2dintfile(fsn,dirs=self.getinputdirs())
+        if len(data)!=1 and len(dataerr)!=1 and len(param)!=1:
+            self.logger("Could not find files for FSN %d"%fsn,priority="error")
+            return
+        self.maskmatrix=np.ones(data.shape,dtype=np.uint8)
+        self.logger('Created an empty %d x %d mask'%data[0].shape)
+    def savemask(self):
+        if (self.maskmatrix is not None) and (len(self.maskfilename.get().strip())>0):
+            try:
+                matfilename=self.maskfilename.get()
+                matname=os.path.splitext(os.path.split(self.maskfilename.get())[-1])[0]
+                scipy.io.savemat(matfilename,{matname:self.maskmatrix},appendmat=True)
+            except IOError,string:
+                self.logger('Could not save file (%s)'%string,'ERROR')
+                return
+            if not matfilename.lower().endswith('.mat'):
+                matfilename='%s.mat'%matfilename
+            self.logger('Saved mask in file %s with label %s.'%(matfilename,matname))
+            
+    def loadmask(self):
+        foundindir=None
+        for d in self.getinputdirs():
+            try:
+                mat=scipy.io.loadmat(os.path.join(d,self.maskfilename.get()))
+                foundindir=d
+                matname=[x for x in mat.keys() if not x.startswith('_')]
+                if len(matname)<=0:
+                    self.logger('Malformed mask file: %s'%os.path.join(d,self.maskfilename.get()),'WARNING')
+                    foundindir=None
+                elif len(matname)>1:
+                    self.logger('Multiple masks in file %s'%os.path.join(d,self.maskfilename.get()),'WARNING')
+                    foundindir=None
+                else:
+                    self.maskmatrix=mat[matname[0]].astype(np.uint8)
+                    self.logger('%s loaded from file %s'%(matname[0],os.path.join(d,self.maskfilename.get())))
+            except IOError:
+                pass
+            if foundindir is not None:
+                break
+    def adjustmask(self):
+        fsn=self.getfsn()
+        data,dataerr,param=B1python.read2dintfile(fsn,dirs=self.getinputdirs())
+        if len(data)!=1 and len(dataerr)!=1 and len(param)!=1:
+            self.logger("Could not find files for FSN %d"%fsn,priority="error")
+            return
+        if self.maskmatrix is None:
+            self.maskmatrix=np.zeros(data[0].shape,dtype=np.uint8)
+        try:
+            self.maskmatrix=B1python.makemask(self.maskmatrix,data[0])
+        except:
+            self.logger("Mask editing was interrupted by user!",'WARNING')
     def fit(self):
         if self.currentdataset is None or self.currentparam is None:
             self.logger('Error: No integrated dataset present! Integrate or load something first!',"ERROR")
             return
-        B1python.basicfittinggui(self.currentdataset)
+        B1python.basicfittinggui(B1python.SASDict(**(self.currentdataset)))
     def loadfrom(self):
         data=B1python.readintfile(self.savefilename.get())
         if len(data)==0:
@@ -141,10 +223,6 @@ class MainWindow:
         except:
             self.logger('Error saving file %s'%self.savefilename.get(),'Error')
     def toggleqminqmax(self):
-        if self.maskmanual.get()==0:
-            self.mask['state']='disabled'
-        else:
-            self.mask['state']='normal'
         if self.qminmanual.get()==0:
             self.qmin['state']='disabled'
         else:
@@ -189,30 +267,7 @@ class MainWindow:
             return
         else:
             self.logger('Files for FSN %d loaded successfully'%fsn,priority='INFO')
-        if self.maskmanual.get():
-            maskname=self.mask.get()
-            self.logger('Loading mask %s' % maskname,priority='INFO')
-            if len(os.path.split(maskname)[0])>0: #absolute name was given
-                try:
-                    mask=scipy.io.loadmat(maskname)
-                except IOError:
-                    self.logger("Error: Could not load mask from file %s!","ERROR")
-                    return
-            else:
-                mask=None
-                for d in self.getinputdirs()+['.']:
-                    try:
-                        filename=os.path.join(d,maskname)
-                        mask=scipy.io.loadmat(filename)
-                    except IOError:
-                        self.logger("Warning: Could not load mask from file %s." % filename,"WARNING")
-            if mask is None:
-                self.logger("Error: could not load file %s from the given directories!" % maskname,"ERROR")
-                return
-            maskkey=[k for k in mask.keys() if not k.startswith('__')][0]
-            mask=mask[maskkey]
-        else:
-            mask=None
+        mask=self.maskmatrix
         if self.getplottype()=='2D':
             try:
                 self.figure.show()
@@ -220,7 +275,7 @@ class MainWindow:
                 self.figure=pylab.figure(self.figurenum)
             pylab.figure(self.figurenum)
             self.figure.clf()
-            B1python.plot2dmatrix(data[0],header=param[0],showqscale=True,mask=mask)
+            B1python.plot2dmatrix(data[0],header=param[0],showqscale=True,mask=self.maskmatrix)
             pylab.xlabel(u'q (1/%c)'%197)
             pylab.ylabel(u'q (1/%c)'%197)
             pylab.colorbar()
@@ -262,7 +317,8 @@ class MainWindow:
             t0=time.time()
             q,I,E,A,maskout=B1python.radintC(data[0],dataerr[0],param[0]['EnergyCalibrated'],param[0]['Dist'],param[0]['PixelSize'],param[0]['BeamPosX'],param[0]['BeamPosY'],1-mask,qrange,phi0=phi0,dphi=dphi,returnmask=True,returnavgq=True)
             maskout=1-maskout
-            self.currentdataset={'q':q,'Intensity':I,'Error':E,'Area':A}
+            self.currentdataset=B1python.SASDict(q,I,E,Area=A)
+            self.currentdataset.sanitize()
             self.currentparam=param[0]
             self.logger('Integration finished in %.2f seconds'%(time.time()-t0),"INFO")
             try:
@@ -273,6 +329,9 @@ class MainWindow:
             B1python.plotintegrated(data[0],q,I,E,A,qrange,maskout,param[0],mode='radial')
         pylab.draw()
         pylab.gcf().show()
+        del data
+        del dataerr
+        del param
     def getinputdirs(self):
         if self.inputdirlist is not None and self.inputdirlist[0]==self.inputdirs.get():
             return self.inputdirlist[1]
@@ -314,9 +373,18 @@ class MainWindow:
         self.replot()
     def quit(self):
         pylab.close('all')
+        try:
+            f=open(configfilename,'wt');
+            f.write('Default inputdirs: %s\n'%self.inputdirs.get())
+            f.write('Default outputdir: %s\n'%self.outputdir.get())
+            f.write('Default mask: %s\n'%self.maskfilename.get())
+            f.close()
+        except IOError:
+            pass
         self.master.destroy()
-        
+
+
+
 root=Tkinter.Tk()
 a=MainWindow(root)
 root.mainloop()
-

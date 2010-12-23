@@ -47,6 +47,18 @@ class SASDict(object):
     qtolerance=0.001
     __instances=0
     def __init__(self,q,Intensity,Error=None,**kwargs):
+        """Initialize a SASDict.
+        
+        Inputs:
+            q: one-dimensional numpy array of the q values.
+            Intensity: one-dimensional numpy array of the Intensity,
+                same length as q.
+            Error: one-dimensional numpy array of the Error values,
+                same length as q, or None if not defined.
+            other keyword arguments: names and 1D numpy arrays, ie.
+                values of functions of q, ie. Area, qerror...
+    
+        """
         self._dict={'q':None,'Intensity':None,'Error':None}
         self._dict['q']=np.array(q)
         self._transform=None
@@ -66,6 +78,14 @@ class SASDict(object):
             self._dict[k]=np.array(kwargs[k])
         SASDict.__instances+=1
     def __getattr__(self,key):
+        """Overloaded function for attribute fetching a la sasdict.<attr>.
+        In addition to normal attributes, the following are defined:
+            'q', 'Intensity', 'Error' and other vectors, which were added
+                either by __init__() or __setattr__.
+            's': q/2/pi
+            'transform': transformation object
+            'x', 'y', 'dy': transformed 'q', 'Intensity' and 'Error'
+        """
         selfdict=object.__getattribute__(self,'_dict')
         if key in selfdict.keys():
             return np.array(selfdict[key])
@@ -80,6 +100,8 @@ class SASDict(object):
         else: # __getattr__ is called only if the attribute has not been found in the usual places.
             raise AttributeError('Attribute %s not found.'%key)
     def __setattr__(self,key,value):
+        """Overloaded __setattr__ method.
+        """
         if key=='_dict':
             return object.__setattr__(self,key,value)
         elif key in self._dict.keys():
@@ -88,7 +110,7 @@ class SASDict(object):
             elif key=='s':
                 self._setq(value*2*np.pi)
             elif key in ['x','y','dy']:
-                raise ValueError('Attribute %s is read-only!'%key)
+                raise AttributeError('Attribute %s is read-only!'%key)
             else:
                 if len(value)==len(self._dict['q']):
                     self._dict[key]=np.array(value)
@@ -106,10 +128,16 @@ class SASDict(object):
         else:
             return object.__setattr__(self,key,value)
     def __getitem__(self,key):
+        """Same as __getattr__
+        """
         return self.__getattr__(key)
     def __setitem__(self,key,value):
+        """Same as __setattr__.
+        """
         return self.__setattr__(key,value)
     def _setq(self,q1):
+        """Setter function of q, usually called by __setattr__.
+        """
         q1=np.array(q1)
         if (len(self._dict['q'])==len(q1)):
             self._dict['q']=q1
@@ -118,25 +146,36 @@ class SASDict(object):
             del self._dict
             self._dict={'q':q1}
     def keys(self):
+        """keys() function, a la dict.
+        """
         return self._dict.keys()
     def __len__(self):
+        """Gives the length of the dict.
+        """
         return self._dict.__len__()
     def values(self):
+        """values() function, a la dict.
+        """
         return self._dict.values()
     def save(self,filename):
+        """Saves the SASDict to a text file with comments in the first line.
+        """
         f=open(filename,'wt')
         f.write('#%s\n'%string.join([str(k) for k in self.keys()]))
         np.savetxt(f,np.array(self))
         f.close()
     def copy(self):
-        return SASDict(self)
+        """Make a copy"""
+        return SASDict(**self)
     def trimq(self,qmin=-np.inf,qmax=np.inf,inplace=False):
         """Trim the 1D scattering data to a given q-range
         
         Inputs:
-            data: scattering data
             qmin: lowest q-value to include (default: ignore)
             qmax: highest q-value to include (default: ignore)
+            inplace: True if the data in the current SASDict should
+                be manipulated. False (default) if a new SASDict should
+                be returned.
 
         Intensity, Error and Area (if present) will be trimmed.
         """
@@ -152,8 +191,13 @@ class SASDict(object):
         else:
             return SASDict(**newdict)
     def trims(self,smin=-np.inf,smax=np.inf,*args,**kwargs):
+        """The same as trimq, but according to s (s=q/(2*pi))
+        """
         return self.trimq(qmin=smin*2*np.pi,qmax=smax*2*np.pi,*args,**kwargs)
     def loglog(self,*args,**kwargs):
+        """Plot the transformed dataset in log-log plot. Additional
+        arguments are forwarded to pylab.loglog().
+        """
         self.do_transform()
         pylab.loglog(self.x,self.y,*args,**kwargs)
         if self._transform is not None:
@@ -161,6 +205,9 @@ class SASDict(object):
             pylab.ylabel(self._transform.ylabel())
         self._plotaxes=pylab.gca()
     def semilogy(self,*args,**kwargs):
+        """Plot the transformed dataset in lin-log plot. Additional
+        arguments are forwarded to pylab.semilogy().
+        """
         self.do_transform()
         pylab.semilogy(self.x,self.y,*args,**kwargs)
         if self._transform is not None:
@@ -168,6 +215,9 @@ class SASDict(object):
             pylab.ylabel(self._transform.ylabel())
         self._plotaxes=pylab.gca()
     def semilogx(self,*args,**kwargs):
+        """Plot the transformed dataset in log-lin plot. Additional
+        arguments are forwarded to pylab.semilogx().
+        """
         self.do_transform()
         pylab.semilogx(self.x,self.y,*args,**kwargs)
         if self._transform is not None:
@@ -175,6 +225,9 @@ class SASDict(object):
             pylab.ylabel(self._transform.ylabel())
         self._plotaxes=pylab.gca()
     def plot(self,*args,**kwargs):
+        """Plot the transformed dataset in lin-lin plot. Additional
+        arguments are forwarded to pylab.plot().
+        """
         self.do_transform()
         pylab.plot(self.x,self.y,*args,**kwargs)
         if self._transform is not None:
@@ -182,6 +235,9 @@ class SASDict(object):
             pylab.ylabel(self._transform.ylabel())
         self._plotaxes=pylab.gca()
     def errorbar(self,*args,**kwargs):
+        """Plot the transformed dataset and errors in lin-lin plot. Additional
+        arguments are forwarded to pylab.errorbar().
+        """
         self.do_transform()
         pylab.errorbar(self.x,self.y,self.dy,*args,**kwargs)
         if self._transform is not None:
@@ -189,6 +245,11 @@ class SASDict(object):
             pylab.ylabel(self._transform.ylabel())
         self._plotaxes=pylab.gca()
     def _check_compat(self,x,die=False):
+        """Helper function to check the compatibility of another SASDict against
+        the current, by comparing the q-scales. If die is True, raises a
+        ValueError if x and self are incompatible. Otherwise a boolean is 
+        returned.
+        """
         if len(x._dict['q'])!=len(self._dict['q']):
             if die:
                 raise ValueError('Incompatible SAS dicts (q-scales have different lengths)!')
@@ -341,15 +402,32 @@ class SASDict(object):
             return SASDict(q=self._dict['q'],Intensity=np.power(self._dict['Intensity'],exponent),
                            Error=self._dict['Error']*np.absolute((exponent)*np.power(self._dict['Intensity'],exponent-1)))
     def __array__(self):
+        """Make a structured numpy array from the current dataset.
+        """
         a=np.array(zip(*(self.values())),dtype=zip(self.keys(),[np.double]*len(self.keys())))
         return a
     def sort(self,order='q'):
+        """Sort the current dataset according to 'order' (defaults to 'q').
+        """
         a=self.__array__()
         sorted=np.sort(a,order=order)
         for k in self._dict.keys():
             self._dict[k]=sorted[k]
         return self
     def sanitize(self,accordingto='Intensity',thresholdmin=0,thresholdmax=np.inf,function=None):
+        """Do a sanitization on this SASDict, i.e. remove invalid elements.
+        
+        Inputs:
+            accordingto: the field, which should be inspected, defaults to
+                'Intensity'
+            thresholdmin: if the inspected field is smaller than this one,
+                the line is disregarded.
+            thresholdmax: if the inspected field is larger than this one,
+                the line is disregarded.
+            function: if this is not None, the validity of the dataline is
+                decided from the boolean return value of function(value).
+                Should accept a list and return a list of booleans.
+        """        
         if hasattr(function,'__call__'):
             indices=function(self._dict[accordingto])
         else:
@@ -358,6 +436,13 @@ class SASDict(object):
             self._dict[k]=self._dict[k][indices]
         return self
     def modulus(self,exponent=0,errorrequested=False):
+        """Calculate moduli (i.e. integral from 0 to infinity of Intensity
+        times q^exponent.
+        
+        Inputs:
+            exponent: the exponent of q in the integration.
+            errorrequested: True if error should be returned.
+        """
         x=self._dict['q']
         y=self._dict['Intensity']*self._dict['q']**exponent
         err=self._dict['Error']*self._dict['q']**exponent
@@ -368,6 +453,14 @@ class SASDict(object):
         else:
             return m
     def integral(self,errorrequested=False):
+        """Integrate the scattering curve.
+        
+        Inputs:
+            errorrequested: True if error should be returned.
+        
+        Note:
+            this calculates the 0-th modulus (int_0^inf (q^0*Intensity) dq
+        """
         return self.modulus(errorrequested=errorrequested)
     def __del__(self):
         for k in self._dict.keys():
@@ -376,6 +469,9 @@ class SASDict(object):
         SASDict.__instances-=1
         #print "An instance of SASDict has been disposed of. Remaining instances:",SASDict.__instances
     def do_transform(self):
+        """Carry out the transformation (field "transform"), ie. calculate
+        fields 'x', 'y' and 'dy'.
+        """
         if self._transform is None:
             self._dict['x']=self._dict['q']
             self._dict['y']=self._dict['Intensity']
@@ -408,7 +504,10 @@ class SASDict(object):
             dof: degrees of freedom
         Will raise a ValueError if the fitting does not succeed.
         """
-        p,cov_x,infodict,mesg,ier=scipy.optimize.leastsq(lambda p:(function(self._dict['q'],*p)-self._dict['Intensity'])/self._dict['Error'],params_initial,full_output=1,**kwargs)
+        if self._dict['Error'] is None or np.any(self._dict['Error']==0):
+            p,cov_x,infodict,mesg,ier=scipy.optimize.leastsq(lambda p:(function(self._dict['q'],*p)-self._dict['Intensity']),params_initial,full_output=1,**kwargs)
+        else:
+            p,cov_x,infodict,mesg,ier=scipy.optimize.leastsq(lambda p:(function(self._dict['q'],*p)-self._dict['Intensity'])/self._dict['Error'],params_initial,full_output=1,**kwargs)
         chisquare=(infodict['fvec']**2).sum()
         degrees_of_freedom=len(self._dict['q'])-len(p)
         if ier<1 or ier>4:
@@ -419,34 +518,35 @@ class SASDict(object):
         else:
             return p,errors
     def _fitting_base(self,function,transformdatasettolinear=None, transformparamfromlinear=None,params_initial=None,plotinfo=None):
-        #Base fitting function, for internal usage only.
-        # parameters:
-        #    function is the fitting function to be fitted. Will be forwarded to self.fit().
-        #    transformdatasettolinear: this is a callable, eg. a subclass of SASTransform, which
-        #        will transform q,Intensity to a line, if possible. If such a linearization is
-        #        not viable, should be None
-        #    transformparamfromlinear: a callable, which transforms the parameters of a fitted line
-        #        back to values usable for a proper least-squares fit of the function. Can be
-        #        None, if no such transformation is needed.
-        #    params_initial: first guess for the parameters. Can be None if
-        #        transformdatasettolinear is defined. In other cases, this should either be a list
-        #        which will be forwarded to self.fit(). Or, it can be a callable, accepting
-        #        q and Intensity and returning a list of initial parameters forwardable to self.fit()
-        #    plotinfo: None, a dictionary, or anything.
-        #        a) None: no plotting is desired.
-        #        b) dictionary: fields needed are 'funcname' (description of the function) and
-        #            'paramnames' (list of names of the parameters). An optional field is 
-        #            'otherstringforlegend', which can be a string, which will be appended to
-        #            the legend, or a callable, which provides that string. Then its arguments
-        #            will be (q,Intensity,Error,paramsfitted,errorofparamsfitted).
-        #
-        # Returns: params,errors,curve,chi2,dof
-        #    params: values fitted
-        #    errors: errors of the fitted params
-        #    curve: the fitted curve
-        #    chi2: chi-squared (not reduced)
-        #    dof: degrees of freedom
+        """Base fitting function, for internal usage only.
         
+         Parameters:
+            function is the fitting function to be fitted. Will be forwarded to self.fit().
+            transformdatasettolinear: this is a callable, eg. a subclass of SASTransform, which
+                will transform q,Intensity to a line, if possible. If such a linearization is
+                not viable, should be None
+            transformparamfromlinear: a callable, which transforms the parameters of a fitted line
+                back to values usable for a proper least-squares fit of the function. Can be
+                None, if no such transformation is needed.
+            params_initial: first guess for the parameters. Can be None if
+                transformdatasettolinear is defined. In other cases, this should either be a list
+                which will be forwarded to self.fit(). Or, it can be a callable, accepting
+                q and Intensity and returning a list of initial parameters forwardable to self.fit()
+            plotinfo: None, a dictionary, or anything.
+                a) None: no plotting is desired.
+                b) dictionary: fields needed are 'funcname' (description of the function) and
+                    'paramnames' (list of names of the parameters). An optional field is 
+                    'otherstringforlegend', which can be a string, which will be appended to
+                    the legend, or a callable, which provides that string. Then its arguments
+                    will be (q,Intensity,Error,paramsfitted,errorofparamsfitted).
+        
+         Returns: params,errors,curve,chi2,dof
+            params: values fitted
+            errors: errors of the fitted params
+            curve: the fitted curve
+            chi2: chi-squared (not reduced)
+            dof: degrees of freedom
+        """
         #try to linearize the dataset and get the initial values for the params.
         if transformdatasettolinear is not None:
             # do the linearization
@@ -482,22 +582,34 @@ class SASDict(object):
                 fittinglog=fittinglog+(u'Chi-square: %g\n'%chi2)
                 fittinglog=fittinglog+(u'Degrees of freedom: %d\n'%dof)
                 fittinglog=fittinglog+(u'RMS of residuals: %g\n'%np.sqrt(chi2/dof))
-                if hasattr(plotinfo,'otherstringforlegend'):
+                fittinglog=fittinglog+(u'q in [%g, %g] 1/\xc5\n'%(self._dict['q'].min(),self._dict['q'].max()))
+                if 'otherstringforlegend' in plotinfo.keys():
                     if hasattr(plotinfo['otherstringforlegend'],'__call__'):
                         fittinglog=fittinglog+plotinfo['otherstringforlegend'](self._dict['q'],self._dict['Intensity'],self._dict['Error'],params,errors)
                     else:
                         fittinglog=fittinglog+plotinfo['otherstringforlegend']
             #plot the legend
-            pylab.text(0.95,0.95,fittinglog,ha='right',va='top',transform=pylab.gca().transAxes)
+            pylab.text(0.95,0.95,fittinglog,bbox={'facecolor':'white','alpha':0.6,'edgecolor':'black'},ha='right',va='top',multialignment='left',transform=pylab.gca().transAxes)
         return params,errors,curve,chi2,dof
-        
+ 
     def guinierfit(self,qpower=0,plot=True):
+        """Do a Guinier-fit (I=G*q^qpower*exp(-q^2*Rg^2/3)) on the dataset.
+        
+        Inputs:
+            qpower: modification for the fit function for cross-section and
+                thickness fittings (see the guinierthicknessfit and
+                guiniercrosssectionfit). Default: 0.
+            plot: if a plot is requested.
+        
+        Outputs: [G,Rg],[dG,dRg]
+            the fitted parameters and their errors.
+        """
         divisor=3-qpower
         fitfunction=lambda q,G,R:np.power(q,qpower)*G*np.exp(-q**2*R**2/divisor)
-        paramtransform=lambda lnG,mR2div:(np.exp(lnG),np.sqrt(-divisor*mR2div))
+        paramtransform=lambda mR2div,lnG:(np.exp(lnG),np.sqrt(-divisor*mR2div))
         if plot:
-            def legend_addendum(q,I,E,G,R,dG,dR):
-                return 'q_max*R = %g\n'%(q.max()*R)
+            def legend_addendum(q,I,E,params,errors):
+                return 'q_max*R = %g\n'%(q.max()*params[1])
             plotinfo={'funcname':'G*q^%d*exp(-q^2*R^2/%d)'%(qpower,divisor),
                       'paramnames':['G','R_g'],
                       'otherstringforlegend':legend_addendum}
@@ -510,24 +622,48 @@ class SASDict(object):
                                               plotinfo)
         return p,e
     def guinierthicknessfit(self,*args,**kwargs):
+        """Do a Guinier-thickness-fit (I=G*q^2*exp(-q^2*Rg^2)) on the dataset.
+        
+        This is a specialization of guinierfit() with qpower==2.
+        """
         return self.guinierfit(qpower=2,*args,**kwargs)
     def guiniercrosssectionfit(self,*args,**kwargs):
+        """Do a Guinier-cross-section-fit (I=G*q^2*exp(-q^2*Rg^2/2)) on the dataset.
+        
+        This is a specialization of guinierfit() with qpower==1.
+        """
         return self.guinierfit(qpower=1,*args,**kwargs)
     def powerlawfit(self,plot=True):
+        """Do a Power-law fit (I=A*q^B) on the dataset.
+        
+        Inputs:
+            plot: if a plot is requested.
+        
+        Outputs: [A,B],[dA,dB]
+            the fitted parameters and their errors.
+        """
         fitfunction=lambda q,A,B:np.power(q,B)*A
-        paramtransform=lambda lnA,B:(np.exp(lnA),B)
+#        paramtransform=lambda lnA,B:(np.exp(lnA),B)
         if plot:
             plotinfo={'funcname':'A*q^B',
                       'paramnames':['A','B']}
         else:
             plotinfo=None
         p,e,curve,chi2,dof=self._fitting_base(fitfunction,
-                                              SASTransformLogLog(),
-                                              paramtransform,
-                                              params_initial=None,
+                                              None,
+                                              None,
+                                              params_initial=[1.0,-4.0],
                                               plotinfo=plotinfo)
         return p,e
     def powerlawconstantbackgroundfit(self,plot=True):
+        """Do a Power-law with constant background fit (I=A*q^B+C) on the dataset.
+        
+        Inputs:
+            plot: if a plot is requested.
+        
+        Outputs: [A,B,C],[dA,dB,dC]
+            the fitted parameters and their errors.
+        """
         fitfunction=lambda q,A,B,C:np.power(q,B)*A+C
         if plot:
             plotinfo={'funcname':'A*q^B+C',
@@ -541,6 +677,14 @@ class SASDict(object):
                                               plotinfo=plotinfo)
         return p,e
     def powerlawlinearbackgroundfit(self,plot=True):
+        """Do a Power-law with linear background fit (I=A*q^B+C+D*q) on the dataset.
+        
+        Inputs:
+            plot: if a plot is requested.
+        
+        Outputs: [A,B,C,D],[dA,dB,dC,dD]
+            the fitted parameters and their errors.
+        """
         fitfunction=lambda q,A,B,C,D:np.power(q,B)*A+C+D*q
         if plot:
             plotinfo={'funcname':'A*q^B+C+D*q',
@@ -554,6 +698,15 @@ class SASDict(object):
                                               plotinfo=plotinfo)
         return p,e
     def porodfit(self,porod_exponent=-4,plot=True):
+        """Do a Porod fit (I=A*q^porod_exponent + B) on the dataset.
+        
+        Inputs:
+            porod_exponent: the fixed exponent of q. Default is -4 (Porod's law)
+            plot: if a plot is requested.
+        
+        Outputs: [A,B],[dA,dB]
+            the fitted parameters and their errors.
+        """
         fitfunction=lambda q,A,B:np.power(q,porod_exponent)*A+B
         paramtransform=lambda A,B:(B,A)
         if plot:
@@ -568,7 +721,54 @@ class SASDict(object):
                                               plotinfo=plotinfo)
         return p,e 
         
+    def guinierandpowerlawfit(self,qpower=0,plot=True,G=1e-3,R=20,A=1,B=-4):
+        """Do a simultaneous Guinier and Power-law fit on the dataset
+        ( I = A*q^B + G*q^qpower*exp(-q^2*R^2/3) )
+        
+        Inputs:
+            qpower: see guinierfit().
+            plot: if a plot is requested.
+            G: initial value for parameter G
+            R: initial value for parameter R
+            A: initial value for parameter A
+            B: initial value for parameter B
+        
+        Outputs: [G,R,A,B],[dG,dR,dA,dB]
+            the fitted parameters and their errors.
+        """
+        divisor=3-qpower
+        fitfunction=lambda q,G,R,A,B:np.power(q,qpower)*G*np.exp(-q**2*R**2/divisor)+A*np.power(q,B)
+        if plot:
+            def legend_addendum(q,I,E,params,errors):
+                return 'q_max*R = %g\n'%(q.max()*params[1])
+            plotinfo={'funcname':'G*q^%d*exp(-q^2*R^2/%d) + A*q^B'%(qpower,divisor),
+                      'paramnames':['G','R_g','A','B'],
+                      'otherstringforlegend':legend_addendum}
+        else:
+            plotinfo=None
+        p,e,curve,chi2,dof=self._fitting_base(fitfunction,
+                                              None,
+                                              None,
+                                              [G,R,A,B],
+                                              plotinfo)
+        return p,e
     def trimzoomed(self,inplace=False):
+        """Trim dataset according to the current zoom on the last plot.
+        
+        Inputs:
+            inplace: True if the current dataset is to be trimmed. If False,
+                a new SASDict is returned.
+                
+        Notes:
+            This method is useful to reduce the dataset to the currently viewed
+                range. I.e. if this SASDict was plotted using one of its plot
+                methods (e.g. plot(), loglog(), errorbar(), ...) and the graph
+                was zoomed in, then calling this function will eliminate the
+                off-graph points.
+            It is not detected if the axis is still open or the plot is still
+                there. If it is not (e.g. cla() or clf() or close() was issued),
+                the behaviour of this function is undefined.
+        """
         if self._plotaxes is None:
             raise ValueError('No plot axes corresponds to this SASDict')
         limits=self._plotaxes.axis()
