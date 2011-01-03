@@ -18,19 +18,20 @@ try:
     f=open(configfilename,'rt');
     lines=f.readlines();
     for l in lines:
-        if l.startswith('Default inputdirs:'):
-            default_inputdirs=l.strip().split(':')[1].strip()
-        elif l.startswith('Default outputdir:'):
-            default_outputdir=l.strip().split(':')[1].strip()
-        elif l.startswith('Default mask:'):
-            default_mask=l.strip().split(':')[1].strip()
+        if l.startswith('Default inputdirs='):
+            default_inputdirs=l.strip().split('=')[1].strip()
+        elif l.startswith('Default outputdir='):
+            default_outputdir=l.strip().split('=')[1].strip()
+        elif l.startswith('Default mask='):
+            default_mask=l.strip().split('=')[1].strip()
     f.close()
 except:
     pass
 
 class MainWindow:
     def __init__(self,master):
-        master.tk_strictMotif(True)
+#        master.tk_setPalette('lightblue')
+#        master.tk_strictMotif(True)
         self.inputdirlist=None
         master.protocol("WM_DELETE_WINDOW",self.quit)
         self.figure=pylab.figure()
@@ -38,8 +39,10 @@ class MainWindow:
         #self.figure.canvas.manager.window.protocol("WM_DELETE_WINDOW",self.figure.canvas.manager.window.withdraw)
         self.master=master
         frame=Tkinter.Frame(master)
+        master.columnconfigure(0,weight=1)
+        master.rowconfigure(0,weight=1)
         frame.columnconfigure(1,weight=1)
-        frame.pack(expand=True,fill='both')
+        frame.grid(sticky='NSEW')
         master.wm_title('B1guitool powered by B1python v%s'%B1python.VERSION)
         Tkinter.Label(frame,text='Input directories (separated by semicolons)').grid(row=0,column=0,sticky='NSW')
         self.inputdirs=Tkinter.Entry(frame)
@@ -96,11 +99,27 @@ class MainWindow:
 
         self.toggleqminqmax()
         f1=Tkinter.Frame(f)
+        f.columnconfigure(3,weight=1)
+        f.columnconfigure(2,weight=1)
         f1.grid(row=0,column=2,sticky="NSEW")
+        f1.columnconfigure(0,weight=1)
         Tkinter.Button(f1,text='Plot',command=self.replot).grid(row=0,column=0,sticky="NSEW")
         Tkinter.Button(f1,text='Clear',command=self.clearplot).grid(row=2,column=0,sticky="NSEW")
         Tkinter.Button(f1,text='Quit',command=self.quit).grid(row=3,column=0,sticky="NSEW")
- 
+        f1=Tkinter.LabelFrame(f,text='Flags')
+        f1.columnconfigure(0,weight=1)
+        f1.grid(row=0,column=3,sticky="NSEW")
+        self.maskflag=Tkinter.Label(f1,text='No mask',anchor='w',justify='left')
+        self.maskflag.grid(sticky='we')
+        self.intdataflag=Tkinter.Label(f1,text='No 1D data',anchor='w',justify='left')
+        self.intdataflag.grid(sticky='we')
+        self.busyflag=Tkinter.Label(f1,text='Idle',anchor='w',justify='left')
+        self.busyflag.grid(sticky='we')
+        self.setflag('mask',False)
+        self.setflag('intdata',False)
+        self.setflag('busy',False)
+        
+        
         lf=Tkinter.LabelFrame(frame,text='Mask operations')
         lf.grid(columnspan=2,sticky="NEWS")
         lf.columnconfigure(6,weight=1)
@@ -128,6 +147,8 @@ class MainWindow:
         lf=Tkinter.LabelFrame(frame,text='Log')
         lf.grid(columnspan=2,sticky="NEWS")
         lf.columnconfigure(0,weight=1)
+        lf.rowconfigure(0,weight=1)
+        frame.rowconfigure(lf.grid_info()['row'],weight=1)
         self.logtext=Tkinter.Text(lf,state='disabled',height=5)
         self.logtext.grid(row=0,column=0,columnspan=1,sticky="NSEW")
         self.logtext.tag_config("ERROR",foreground="white",background="red")
@@ -146,9 +167,21 @@ class MainWindow:
         self.currentdataset=None
         self.currentparam=None
         self.maskmatrix=None
+    def setflag(self,flag,status=True):
+        flags={'mask':(self.maskflag,{'background':None,'text':'No mask'},{'background':'green','text':'Mask loaded'}),
+               'busy':(self.busyflag,{'background':'green','text':'Idle'},{'background':'orange','text':'Busy'}),
+               'intdata':(self.intdataflag,{'background':None,'text':'No 1D data'},{'background':'green','text':'1D data present'})}
+        if flag in flags.keys():
+            for k in flags[flag][int(status)+1].keys():
+                if flags[flag][int(status)+1][k] is None:
+                    flags[flag][0][k]=self.master['background']
+                else:
+                    flags[flag][0][k]=flags[flag][int(status)+1][k]
+        self.master.update()
     def clearmask(self):
         self.maskmatrix=None
         self.logger('Mask cleared.','NORMAL')
+        self.setflag('mask',False)
     def createmask(self):
         fsn=self.getfsn()
         data,dataerr,param=B1python.read2dintfile(fsn,dirs=self.getinputdirs())
@@ -157,6 +190,7 @@ class MainWindow:
             return
         self.maskmatrix=np.ones(data.shape,dtype=np.uint8)
         self.logger('Created an empty %d x %d mask'%data[0].shape)
+        self.setflag('mask',True)
     def savemask(self):
         if (self.maskmatrix is not None) and (len(self.maskfilename.get().strip())>0):
             try:
@@ -178,10 +212,10 @@ class MainWindow:
                 foundindir=d
                 matname=[x for x in mat.keys() if not x.startswith('_')]
                 if len(matname)<=0:
-                    self.logger('Malformed mask file: %s'%os.path.join(d,self.maskfilename.get()),'WARNING')
+                    self.logger('Malformed mask file: %s. IGNORING.'%os.path.join(d,self.maskfilename.get()),'WARNING')
                     foundindir=None
                 elif len(matname)>1:
-                    self.logger('Multiple masks in file %s'%os.path.join(d,self.maskfilename.get()),'WARNING')
+                    self.logger('Multiple masks in file %s. IGNORING.'%os.path.join(d,self.maskfilename.get()),'WARNING')
                     foundindir=None
                 else:
                     self.maskmatrix=mat[matname[0]].astype(np.uint8)
@@ -190,6 +224,11 @@ class MainWindow:
                 pass
             if foundindir is not None:
                 break
+        if not foundindir:
+            #if this point is reached, mask could not be loaded. Inform the user.
+            self.logger('Mask file %s could not be found!'%self.maskfilename.get(),'ERROR')
+        else:
+            self.setflag('mask',True)
     def adjustmask(self):
         fsn=self.getfsn()
         data,dataerr,param=B1python.read2dintfile(fsn,dirs=self.getinputdirs())
@@ -213,6 +252,7 @@ class MainWindow:
             self.logger('Error: Cannot load intensity from file %s' % self.savefilename.get(),'ERROR')
         self.currentdataset=data
         self.currentparam=self.savefilename.get()
+        self.setflag('intdata',True)
     def saveto(self):
         if self.currentdataset is None or self.currentparam is None:
             self.logger('Error: No integrated dataset present! Integrate or load something first!',"ERROR")
@@ -260,14 +300,17 @@ class MainWindow:
         self.logtext.delete("0.0",Tkinter.END)
         self.logtext['state']='disabled'
     def replot(self):
+        self.setflag('busy',True)
         fsn=self.getfsn()
         data,dataerr,param=B1python.read2dintfile(fsn,dirs=self.getinputdirs())
+        self.setflag('busy',False)
         if len(data)!=1 and len(dataerr)!=1 and len(param)!=1:
             self.logger("Could not find files for FSN %d"%fsn,priority="error")
             return
         else:
             self.logger('Files for FSN %d loaded successfully'%fsn,priority='INFO')
         mask=self.maskmatrix
+        self.setflag('busy',True)
         if self.getplottype()=='2D':
             try:
                 self.figure.show()
@@ -320,6 +363,7 @@ class MainWindow:
             self.currentdataset=B1python.SASDict(q,I,E,Area=A)
             self.currentdataset.sanitize()
             self.currentparam=param[0]
+            self.setflag('intdata',True)
             self.logger('Integration finished in %.2f seconds'%(time.time()-t0),"INFO")
             try:
                 self.figure.show()
@@ -327,6 +371,9 @@ class MainWindow:
                 self.figure=pylab.figure(self.figurenum)
             pylab.figure(self.figurenum)
             B1python.plotintegrated(data[0],q,I,E,A,qrange,maskout,param[0],mode='radial')
+        elif self.setplottype()=='Azimuthal':
+            self.logger('Azimuthal integration not yet supported!','WARNING')
+        self.setflag('busy',False)
         pylab.draw()
         pylab.gcf().show()
         del data
@@ -375,9 +422,9 @@ class MainWindow:
         pylab.close('all')
         try:
             f=open(configfilename,'wt');
-            f.write('Default inputdirs: %s\n'%self.inputdirs.get())
-            f.write('Default outputdir: %s\n'%self.outputdir.get())
-            f.write('Default mask: %s\n'%self.maskfilename.get())
+            f.write('Default inputdirs= %s\n'%self.inputdirs.get())
+            f.write('Default outputdir= %s\n'%self.outputdir.get())
+            f.write('Default mask= %s\n'%self.maskfilename.get())
             f.close()
         except IOError:
             pass
