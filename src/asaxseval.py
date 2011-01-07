@@ -62,10 +62,10 @@ def asaxsbasicfunctions(I,Errors,f1,f2,df1=None,df2=None,element=0):
     if df1 is not None:
         DA[:,1]=2*df1;
         DA[:,2]=np.sqrt(4*(element+f1)**2*df1**2+4*f2**2*df2**2)
-    B=np.dot(np.inv(np.dot(A.T,A)),A.T);
+    B=np.dot(np.linalg.linalg.inv(np.dot(A.T,A)),A.T);
     ATA=np.dot(A.T,A)
     ATAerr=utils.dot_error(A.T,A,DA.T,DA)
-    invATA=np.inv(ATA)
+    invATA=np.linalg.linalg.inv(ATA)
     invATAerr=utils.inv_error(ATA,ATAerr)
     Berror=utils.dot_error(invATA,A.T,invATAerr,DA.T)
     print Berror

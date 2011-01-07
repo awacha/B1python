@@ -12,6 +12,7 @@
 #utils.py
 
 import pylab
+import matplotlib.widgets
 import numpy as np
 import time
 import types
@@ -60,22 +61,22 @@ class SASDict(object):
     
         """
         self._dict={'q':None,'Intensity':None,'Error':None}
-        self._dict['q']=np.array(q)
+        self._dict['q']=np.array(q).flatten()
         self._transform=None
         self._plotaxes=None
         if len(Intensity)!=len(self._dict['q']):
             raise ValueError('Intensity should be of the same length as q!')
-        self._dict['Intensity']=np.array(Intensity)
+        self._dict['Intensity']=np.array(Intensity).flatten()
         if Error is not None:
             if len(Error)!=len(self._dict['q']):
                 raise ValueError('Error, if defined, should be of the same length as q!')
-            self._dict['Error']=np.array(Error)
+            self._dict['Error']=np.array(Error).flatten()
         for k in kwargs.keys():
             if k in ['q','Intensity','Error','s']:
                 raise ValueError('%s cannot appear as a variable in a SAS dictionary.'%k)
             if len(kwargs[k])!=len(self._dict['q']):
                 raise ValueError('Argument %s should be of the same length as q!'%k)
-            self._dict[k]=np.array(kwargs[k])
+            self._dict[k]=np.array(kwargs[k]).flatten()
         SASDict.__instances+=1
     def __getattr__(self,key):
         """Overloaded function for attribute fetching a la sasdict.<attr>.
@@ -113,7 +114,7 @@ class SASDict(object):
                 raise AttributeError('Attribute %s is read-only!'%key)
             else:
                 if len(value)==len(self._dict['q']):
-                    self._dict[key]=np.array(value)
+                    self._dict[key]=np.array(value).flatten()
                 else:
                     raise ValueError('New value for %s should be of the same length as q!' %key)
         elif key=='transform':
@@ -138,7 +139,7 @@ class SASDict(object):
     def _setq(self,q1):
         """Setter function of q, usually called by __setattr__.
         """
-        q1=np.array(q1)
+        q1=np.array(q1).flatten()
         if (len(self._dict['q'])==len(q1)):
             self._dict['q']=q1
         else:
@@ -783,8 +784,101 @@ class SASDict(object):
             return self
         else:
             return SASDict(**newdict)
+    def basicfittinggui(self,title='',blocking=False):
+        """Graphical user interface to carry out basic (Guinier, Porod, etc.)
+        fitting to 1D scattering data.
         
+        Inputs:
+            title: title to display
+            blocking: False if the function should return just after drawing the
+                fitting gui. True if it should wait for closing the figure window.
+        Output:
+            If blocking was False then none, this leaves a figure open for further
+                user interactions.
+            If blocking was True then after the window was destroyed, a list of
+                the fits and their parameters are returned.
+        """
+        listoffits=[]
         
+        leftborder=0.05
+        topborder=0.9
+        bottomborder=0.1
+        leftbox_end=0.3
+        fig=pylab.figure()
+        pylab.clf()
+        plots=[{'name':'Guinier','transform':SASTransformGuinier(),
+                'plotmethod':'plot'},
+               {'name':'Guinier thickness','transform':SASTransformGuinier(2),
+                'plotmethod':'plot'},
+               {'name':'Guinier cross-section','transform':SASTransformGuinier(1),
+                'plotmethod':'plot'},
+               {'name':'Porod','transform':SASTransformPorod(2),
+                'plotmethod':'plot'},
+               {'name':'Double linear','transform':SASTransformLogLog(False,False),
+                'plotmethod':'plot'},
+               {'name':'Logarithmic y','transform':SASTransformLogLog(False,False),
+                'plotmethod':'semilogy'},
+               {'name':'Logarithmic x','transform':SASTransformLogLog(False,False),
+                'plotmethod':'semilogx'},
+               {'name':'Double logarithmic','transform':SASTransformLogLog(False,False),
+                'plotmethod':'loglog'}]
+        buttons=[{'name':'Guinier','fitmethod':'guinierfit'},
+                 {'name':'Guinier thickness','fitmethod':'guinierthicknessfit'},
+                 {'name':'Guinier cross-section','fitmethod':'guiniercrosssectionfit'},
+                 {'name':'Porod','fitmethod':'porodfit'},
+                 {'name':'A * q^B','fitmethod':'powerlawfit'},
+                 {'name':'A * q^B + C','fitmethod':'powerlawconstantbackgroundfit'},
+                 {'name':'A * q^B + C + D * q','fitmethod':'powerlawlinearbackgroundfit'}]
+                
+        for i in range(len(buttons)):
+            ax=pylab.axes((leftborder,topborder-(i+1)*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))))
+            but=matplotlib.widgets.Button(ax,buttons[i]['name'])
+            def onclick(A=None,B=None,data=self,type=buttons[i]['name'],fitfun=buttons[i]['fitmethod']):
+                data1=data.trimzoomed()
+                data1.transform=data.transform
+                pylab.figure()
+                res=getattr(data1,fitfun).__call__(plot=True)
+                listoffits.append({'type':type,'res':res,'time':time.time(),'qmin':data1.q.min(),'qmax':data1.q.max()})
+                pylab.gcf().show()
+            but.on_clicked(onclick)
+        ax=pylab.axes((leftborder,topborder-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))*len(plots) ))
+        pylab.title('Plot types')
+        rb=matplotlib.widgets.RadioButtons(ax,[p['name'] for p in plots],active=7)
+        pylab.gcf().blocking=blocking
+        if pylab.gcf().blocking: #if blocking mode is desired, put a "Done" button.
+            ax=pylab.axes((leftborder,0.03,leftbox_end,bottomborder-0.03))
+            b=matplotlib.widgets.Button(ax,"Done")
+            fig=pylab.gcf()
+            fig.fittingdone=False
+            def onclick1(A=None,B=None,fig=fig):
+                fig.fittingdone=True
+                pylab.gcf().blocking=False
+         #       print "blocking should now end"
+            b.on_clicked(onclick1)
+        pylab.axes((0.45,bottomborder,0.5,0.8))
+        def onselectplottype(plottype,q=self['q'],I=self['Intensity'],title=title):
+            pylab.cla()
+            plotinfo=[d for d in plots if d['name']==plottype][0]
+            self.transform=plotinfo['transform']
+            getattr(self,plotinfo['plotmethod']).__call__()
+            pylab.title(title)
+            pylab.gcf().show()
+        rb.on_clicked(onselectplottype)
+        pylab.title(title)
+        self.loglog('.')
+        pylab.gcf().show()
+        pylab.draw()
+        fig=pylab.gcf()
+        while blocking:
+            fig.waitforbuttonpress()
+    #        print "buttonpress"
+            if fig.fittingdone:
+                blocking=False
+                #print "exiting"
+        #print "returning"
+        return listoffits
+    bfg=basicfittinggui;
+    
 class SASTransform(object):
     def __init__(self):
         pass
@@ -1333,7 +1427,7 @@ def dot_error(A,B,DA,DB):
     """
     return np.sqrt(np.dot(DA**2,B**2)+np.dot(A**2,DB**2));
 def inv_error(A,DA):
-    """Calculate the error of np.inv(A) according to squared error
+    """Calculate the error of inv(A) according to squared error
     propagation.
     
     Inputs:

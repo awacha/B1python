@@ -324,11 +324,11 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
                    color='white',linewidth=3)
         pylab.gca().axis(a)
     if header is not None:
-        pylab.title("#%s: %s" % (header['FSN'], header['Title']))
+        pylab.title("#%d: %s" % (header['FSN'], header['Title']))
     if crosshair and header is not None:
         a=pylab.gca().axis()
-        pylab.plot([extent1[2],extent1[3]],[bcrow,bcrow],'-',color='white')
-        pylab.plot([bccol,bccol],[extent1[0],extent1[1]],'-',color='white')
+        pylab.plot([extent1[0],extent1[1]],[bcrow,bcrow],'-',color='white')
+        pylab.plot([bccol,bccol],[extent1[2],extent1[3]],'-',color='white')
         pylab.gca().axis(a)
 def makemask(mask,A,savefile=None):
     """Make mask matrix.
@@ -682,8 +682,8 @@ def basicfittinggui_old(data,title='',blocking=False):
     return listoffits
         
 def basicfittinggui(data,title='',blocking=False):
-    """Graphical user interface to carry out basic (Guinier, Porod) fitting
-    to 1D scattering data.
+    """Graphical user interface to carry out basic (Guinier, Porod, etc.)
+    fitting to 1D scattering data.
     
     Inputs:
         data: 1D dataset
@@ -699,87 +699,89 @@ def basicfittinggui(data,title='',blocking=False):
     
     if not isinstance(data,utils.SASDict):
         return basicfittinggui_old(data,title,blocking)
-        
-    
-    listoffits=[]
-    
-    leftborder=0.05
-    topborder=0.9
-    bottomborder=0.1
-    leftbox_end=0.3
-    fig=pylab.figure()
-    pylab.clf()
-    plots=[{'name':'Guinier','transform':utils.SASTransformGuinier(),
-            'plotmethod':'plot'},
-           {'name':'Guinier thickness','transform':utils.SASTransformGuinier(2),
-            'plotmethod':'plot'},
-           {'name':'Guinier cross-section','transform':utils.SASTransformGuinier(1),
-            'plotmethod':'plot'},
-           {'name':'Porod','transform':utils.SASTransformPorod(2),
-            'plotmethod':'plot'},
-           {'name':'Double linear','transform':utils.SASTransformLogLog(False,False),
-            'plotmethod':'plot'},
-           {'name':'Logarithmic y','transform':utils.SASTransformLogLog(False,False),
-            'plotmethod':'semilogy'},
-           {'name':'Logarithmic x','transform':utils.SASTransformLogLog(False,False),
-            'plotmethod':'semilogx'},
-           {'name':'Double logarithmic','transform':utils.SASTransformLogLog(False,False),
-            'plotmethod':'loglog'}]
-    buttons=[{'name':'Guinier','fitmethod':'guinierfit'},
-             {'name':'Guinier thickness','fitmethod':'guinierthicknessfit'},
-             {'name':'Guinier cross-section','fitmethod':'guiniercrosssectionfit'},
-             {'name':'Porod','fitmethod':'porodfit'},
-             {'name':'A * q^B','fitmethod':'powerlawfit'},
-             {'name':'A * q^B + C','fitmethod':'powerlawconstantbackgroundfit'},
-             {'name':'A * q^B + C + D * q','fitmethod':'powerlawlinearbackgroundfit'}]
-            
-    for i in range(len(buttons)):
-        ax=pylab.axes((leftborder,topborder-(i+1)*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))))
-        but=matplotlib.widgets.Button(ax,buttons[i]['name'])
-        def onclick(A=None,B=None,data=data,type=buttons[i]['name'],fitfun=buttons[i]['fitmethod']):
-            data1=data.trimzoomed()
-            data1.transform=data.transform
-            pylab.figure()
-            res=getattr(data1,fitfun).__call__(plot=True)
-            listoffits.append({'type':type,'res':res,'time':time.time(),'qmin':data1.q.min(),'qmax':data1.q.max()})
-            pylab.gcf().show()
-        but.on_clicked(onclick)
-    ax=pylab.axes((leftborder,topborder-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))*len(plots) ))
-    pylab.title('Plot types')
-    rb=matplotlib.widgets.RadioButtons(ax,[p['name'] for p in plots],active=7)
-    pylab.gcf().blocking=blocking
-    if pylab.gcf().blocking: #if blocking mode is desired, put a "Done" button.
-        ax=pylab.axes((leftborder,0.03,leftbox_end,bottomborder-0.03))
-        b=matplotlib.widgets.Button(ax,"Done")
-        fig=pylab.gcf()
-        fig.fittingdone=False
-        def onclick1(A=None,B=None,fig=fig):
-            fig.fittingdone=True
-            pylab.gcf().blocking=False
-     #       print "blocking should now end"
-        b.on_clicked(onclick1)
-    pylab.axes((0.45,bottomborder,0.5,0.8))
-    def onselectplottype(plottype,q=data['q'],I=data['Intensity'],title=title):
-        pylab.cla()
-        plotinfo=[d for d in plots if d['name']==plottype][0]
-        data.transform=plotinfo['transform']
-        getattr(data,plotinfo['plotmethod']).__call__()
-        pylab.title(title)
-        pylab.gcf().show()
-    rb.on_clicked(onselectplottype)
-    pylab.title(title)
-    data.loglog('.')
-    pylab.gcf().show()
-    pylab.draw()
-    fig=pylab.gcf()
-    while blocking:
-        fig.waitforbuttonpress()
-#        print "buttonpress"
-        if fig.fittingdone:
-            blocking=False
-            #print "exiting"
-    #print "returning"
-    return listoffits
+    else:
+        return data.basicfittinggui(title,blocking)
+#        
+#    
+#    listoffits=[]
+#    
+#    leftborder=0.05
+#    topborder=0.9
+#    bottomborder=0.1
+#    leftbox_end=0.3
+#    fig=pylab.figure()
+#    pylab.clf()
+#    plots=[{'name':'Guinier','transform':utils.SASTransformGuinier(),
+#            'plotmethod':'plot'},
+#           {'name':'Guinier thickness','transform':utils.SASTransformGuinier(2),
+#            'plotmethod':'plot'},
+#           {'name':'Guinier cross-section','transform':utils.SASTransformGuinier(1),
+#            'plotmethod':'plot'},
+#           {'name':'Porod','transform':utils.SASTransformPorod(2),
+#            'plotmethod':'plot'},
+#           {'name':'Double linear','transform':utils.SASTransformLogLog(False,False),
+#            'plotmethod':'plot'},
+#           {'name':'Logarithmic y','transform':utils.SASTransformLogLog(False,False),
+#            'plotmethod':'semilogy'},
+#           {'name':'Logarithmic x','transform':utils.SASTransformLogLog(False,False),
+#            'plotmethod':'semilogx'},
+#           {'name':'Double logarithmic','transform':utils.SASTransformLogLog(False,False),
+#            'plotmethod':'loglog'}]
+#    buttons=[{'name':'Guinier','fitmethod':'guinierfit'},
+#             {'name':'Guinier thickness','fitmethod':'guinierthicknessfit'},
+#             {'name':'Guinier cross-section','fitmethod':'guiniercrosssectionfit'},
+#             {'name':'Porod','fitmethod':'porodfit'},
+#             {'name':'A * q^B','fitmethod':'powerlawfit'},
+#             {'name':'A * q^B + C','fitmethod':'powerlawconstantbackgroundfit'},
+#             {'name':'A * q^B + C + D * q','fitmethod':'powerlawlinearbackgroundfit'}]
+#            
+#    for i in range(len(buttons)):
+#        ax=pylab.axes((leftborder,topborder-(i+1)*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))))
+#        but=matplotlib.widgets.Button(ax,buttons[i]['name'])
+#        def onclick(A=None,B=None,data=data,type=buttons[i]['name'],fitfun=buttons[i]['fitmethod']):
+#            data1=data.trimzoomed()
+#            data1.transform=data.transform
+#            pylab.figure()
+#            res=getattr(data1,fitfun).__call__(plot=True)
+#            listoffits.append({'type':type,'res':res,'time':time.time(),'qmin':data1.q.min(),'qmax':data1.q.max()})
+#            pylab.gcf().show()
+#        but.on_clicked(onclick)
+#    ax=pylab.axes((leftborder,topborder-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))*len(plots) ))
+#    pylab.title('Plot types')
+#    rb=matplotlib.widgets.RadioButtons(ax,[p['name'] for p in plots],active=7)
+#    pylab.gcf().blocking=blocking
+#    if pylab.gcf().blocking: #if blocking mode is desired, put a "Done" button.
+#        ax=pylab.axes((leftborder,0.03,leftbox_end,bottomborder-0.03))
+#        b=matplotlib.widgets.Button(ax,"Done")
+#        fig=pylab.gcf()
+#        fig.fittingdone=False
+#        def onclick1(A=None,B=None,fig=fig):
+#            fig.fittingdone=True
+#            pylab.gcf().blocking=False
+#     #       print "blocking should now end"
+#        b.on_clicked(onclick1)
+#    pylab.axes((0.45,bottomborder,0.5,0.8))
+#    def onselectplottype(plottype,q=data['q'],I=data['Intensity'],title=title):
+#        pylab.cla()
+#        plotinfo=[d for d in plots if d['name']==plottype][0]
+#        data.transform=plotinfo['transform']
+#        getattr(data,plotinfo['plotmethod']).__call__()
+#        pylab.title(title)
+#        pylab.gcf().show()
+#    rb.on_clicked(onselectplottype)
+#    pylab.title(title)
+#    data.loglog('.')
+#    pylab.gcf().show()
+#    pylab.draw()
+#    fig=pylab.gcf()
+#    while blocking:
+#        fig.waitforbuttonpress()
+##        print "buttonpress"
+#        if fig.fittingdone:
+#            blocking=False
+#            #print "exiting"
+#    #print "returning"
+#    return listoffits
 
 
 #data quality tools
@@ -954,13 +956,13 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
         pylab.grid('on')
         
     pylab.axes(axisTransm)
-    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-0*vspacing-0.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'small'})
+    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-0*vspacing-0.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'xx-small'})
     pylab.axes(axisBcX)
-    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-1*vspacing-1.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'small'})
+    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-1*vspacing-1.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'xx-small'})
     pylab.axes(axisBcY)
-    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-2*vspacing-2.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'small'})
+    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-2*vspacing-2.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'xx-small'})
     pylab.axes(axisDORIS)
-    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-3*vspacing-3.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'small'})
+    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-3*vspacing-3.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'xx-small'})
     
 def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,return_error=False):
     """GUI tool for locating peaks by zooming on them
@@ -1339,3 +1341,57 @@ def azimsectorgui(data,dataerr,param,mask):
     doreset()
     while not fig.userdata['done']:
         fig.waitforbuttonpress()
+def assessmostab(fsns,dirs='.'):
+    """Draw graphs on the current figure to assess the status of the monochromator stabilisator.
+    
+    Inputs:
+        fsns: range of file sequence numbers
+        dirs: list of directories to search header files in.
+    """
+    header=B1io.readheader('org_',fsns,'.header',dirs)
+    fsn=[h['FSN'] for h in header]
+    monitor=[h['Monitor']/h['MeasTime'] for h in header]
+    doris=[h['MonitorDORIS']/h['MeasTime'] for h in header]
+    piezo=[h['MonitorPIEZO']/h['MeasTime'] for h in header]
+    energies=[h['Energy'] for h in header]
+    pylab.clf()
+    pylab.gcf().subplotpars.wspace=0.4
+    pylab.subplot(2,2,1);
+    pylab.plot(fsn,monitor,'b',label='Monitor')
+    pylab.ylabel('Monitor cps',color='blue')
+    pylab.xlabel('FSN')
+    pylab.twinx()
+    pylab.plot(fsn,doris,'r',label='DORIS counter')
+    pylab.ylabel('DORIS cps',color='red')
+    pylab.subplot(2,2,2);
+    pylab.plot(fsn,monitor,'b',label='Monitor')
+    pylab.ylabel('Monitor cps',color='blue')
+    pylab.xlabel('FSN')
+    pylab.twinx()
+    pylab.plot(fsn,doris,'g',label='PIEZO counter')
+    pylab.ylabel('PIEZO cps',color='green')
+    pylab.subplot(2,2,3);
+    pylab.plot(fsn,monitor,'r',label='DORIS counter')
+    pylab.ylabel('DORIS cps',color='red')
+    pylab.xlabel('FSN')
+    pylab.twinx()
+    pylab.plot(fsn,doris,'g',label='PIEZO counter')
+    pylab.ylabel('PIEZO cps',color='green')
+    pylab.subplot(2,2,4);
+    pylab.plot(fsn,map(lambda a,b:a/b,piezo,doris),'k',label='ratio')
+    for e in utils.unique(energies):
+        pylab.plot([f for f,e1 in zip(fsn,energies) if e1==e],
+                   [p/d for p,d,e1 in zip(piezo,doris,energies) if e1==e],
+                   'o',label='%.2f'%e)
+    pylab.ylabel('Piezo/DORIS ratio',color='black')
+    pylab.xlabel('FSN')
+    pylab.twinx()
+    pylab.plot(fsn,map(lambda a,b:a/b,monitor,doris),'m')
+    for e in utils.unique(energies):
+        pylab.plot([f for f,e1 in zip(fsn,energies) if e1==e],
+                   [m/d for m,d,e1 in zip(monitor,doris,energies) if e1==e],
+                   'o',label='%.2f eV'%e)
+    pylab.ylabel('Monitor/DORIS ratio',color='magenta')
+    pylab.legend(loc='best',prop={'size':'x-small'})
+    pylab.gcf().show()
+    pylab.draw()

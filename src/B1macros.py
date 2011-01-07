@@ -1816,7 +1816,10 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
     print "Reading logfiles of type %s"%logfiletype
     allparams=B1io.readlogfile(fsns,dirs=dirs,norm=logfiletype,quiet=True)
     print "%d logfiles have been loaded." % len(allparams)
-    allparams=[p for p in allparams if p['Title'] in sample]
+    if len(sample)>0:
+        allparams=[p for p in allparams if p['Title'] in sample]
+    if len(allparams)<=0:
+        print "No logfiles are present from the samples"
     for p in allparams: # if uniting non-summarized measurements, update the param structures to look as if they were summed from 1 measurement
         if 'FSNs' not in p.keys():
             p['FSNs']=[p['FSN']]

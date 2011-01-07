@@ -1465,11 +1465,12 @@ def writef1f2(f1f2,filename):
         filename: file name
     """
     pylab.savetxt(filename,f1f2,delimiter='\t')
-def readabt(filename):
+def readabt(filename,dirs='.'):
     """Read abt_*.fio type files.
     
     Input:
         filename: the name of the file.
+        dirs: directories to search for files in
         
     Output:
         A dictionary with the following fields:
@@ -1480,50 +1481,88 @@ def readabt(filename):
             'dataset': a structured array a la numpy, containing the same data
                 as in 'data', but in another representation.
     """
-    try:
-        f=open(filename,'rt');
-    except IOError:
-        print 'Cannot open file %s' % filename
-        return None
-    rows=0;
-    a=f.readline(); rows=rows+1;
-    while a[:2]!='%c' and len(a)>0:
-        a=f.readline();  rows=rows+1;
-    if len(a)<=0:
-        print 'Invalid format: %c not found'
-        f.close()
-        return None
-    a=f.readline(); rows=rows+1;
-    if a[:7]==' ENERGY':
-        mode='Energy'
-    elif a[:4]==' MOT':
-        mode='Motor'
-    else:
-        print 'Unknown scan type: %s' % a
-        f.close()
-        return None
-    f.readline(); rows=rows+1;
-    title=f.readline()[:-1]; rows=rows+1;
-    while a[:2]!='%d' and len(a)>0:
-        a=f.readline(); rows=rows+1;
-    if len(a)<=0:
-        print 'Invalid format: %d not found'
-        f.close()
-        return None
-    columns=[];
-    a=f.readline(); rows=rows+1;
-    while a[:4]==' Col':
-        columns.append(a.split()[2][10:]);
-        a=f.readline(); rows=rows+1;
-        #print a
-    #print a[:4]
-    f.seek(-len(a),1)
-    rows=rows-1;
-    #print rows
-    matrix=np.loadtxt(f)
-    data=np.array([tuple(a) for a in matrix.tolist()], dtype=zip(columns,[np.double]*len(columns)))
-    f.close()
-    return {'title':title,'mode':mode,'columns':columns,'data':matrix,'dataset':data}
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    if len(dirs)==0:
+        dirs=['.']
+    ret={}
+    for d in dirs:
+        try:
+            f=open(os.path.join(d,filename),'rt');
+        except IOError:
+            print 'Cannot open file %s' % filename
+            continue
+        # now the file is open
+        lines=f.readlines()
+        #prune comment lines starting with an exclamation mark (!).
+        i=0
+        while i<len(lines):
+            lines[i]=lines[i].strip()
+            if lines[i].startswith('!') or len(lines[i])==0:
+                lines.pop(i)
+                i-=1
+            i+=1
+        # find the parameter part
+        ret['params']={}
+        idx=lines.index('%p')+1
+        while idx<len(lines) and (not lines[idx].startswith('%')):
+            ls=lines[idx].split('=')
+            if len(ls)==2:
+                ret['params'][ls[0].strip()]=float(ls[1].strip())
+            idx+=1
+        # find the comment part
+        idx=lines.index('%c')
+        # first comment line is like: MOT12-Scan started at 21-Sep-2009 13:43:56, ended 13:47:53
+        l=lines[idx+1]
+        if l.startswith('MOT'):
+            ret['mode']='Motor'
+        elif l.startswith('ENERGY'):
+            ret['mode']='Energy'
+        else:
+            print 'Unknown scan type!'
+            return None
+        # find the string containing the start time in dd-mmm-yyyy hh:mm:ss format
+        str=l[(l.index('started at ')+len('started at ')):l.index(', ended')]
+        date,time1=str.split(' ')
+        ret['params']['day'],ret['params']['month'],ret['params']['year']=date.split('-')
+        ret['params']['day']=int(ret['params']['day'])
+        ret['params']['year']=int(ret['params']['year'])
+        ret['params']['hourstart'],ret['params']['minutestart'],ret['params']['secondstart']=[int(x) for x in time1.split(':')]
+        str=l[l.index('ended')+len('ended '):]
+        ret['params']['hourend'],ret['params']['minuteend'],ret['params']['secondend']=[int(x) for x in str.split(':')]
+        
+        l=lines[idx+2]
+        if l.startswith('Name:'):
+            ret['name']=l.split(':')[1].split()[0]
+        else:
+            raise ValueError('File %s is invalid!' % filename)
+        
+        l=lines[idx+3]
+        if l.startswith('Counter readings are'):
+            ret['title']=''
+            idx-=1
+        else:
+            ret['title']=l.strip()
+        
+        #idx+4 is "Counter readings are offset corrected..."
+        l=lines[idx+5]
+        if not l.startswith('%'):
+            ret['offsets']={}
+            lis=l.split()
+            while len(lis)>0:
+                ret['offsets'][lis.pop()]=float(lis.pop())
+        idx=lines.index('%d')+1
+        ret['columns']=[];
+        while lines[idx].startswith('Col'):
+            ret['columns'].append(lines[idx].split()[2][10:])
+            idx+=1
+        datalines=lines[idx:]
+        for i in range(len(datalines)):
+            datalines[i]=[float(x) for x in datalines[i].split()]
+        ret['data']=np.array(datalines)
+        ret['dataset']=np.array([tuple(a) for a in ret['data'].tolist()], dtype=zip(ret['columns'],[np.double]*len(ret['columns'])))
+        return ret;
+    return None
 def savespheres(spheres,filename):
     """Save sphere structure in a file.
     

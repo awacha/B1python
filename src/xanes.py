@@ -36,7 +36,7 @@ def smoothabt(muddict,smoothing):
             'Mud':sm,
             'Title':("%s_smooth%lf" % (muddict['Title'],smoothing)),
             'scan':muddict['scan']}
-def execchooch(mud,element,edge,choochexecutable='/opt/chooch/bin/chooch',resolution=None):
+def execchooch(mud,element,edge,choochexecutable='chooch',resolution=None):
     """Execute CHOOCH
     
     Inputs:
@@ -65,12 +65,13 @@ def execchooch(mud,element,edge,choochexecutable='/opt/chooch/bin/chooch',resolu
     data[:,1]=tmp[:,2];
     data[:,2]=tmp[:,1];
     return data;
-def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-np.inf,endpoint=np.inf,postsmoothing=[],prechoochcutoff=[-np.inf,np.inf]):
+def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-np.inf,endpoint=np.inf,postsmoothing=[],prechoochcutoff=[-np.inf,np.inf],choochexecutable=None):
     """Calculate anomalous correction factors from a XANES scan.
     
     Inputs:
         mud: mud dictionary
-        smoothing: smoothing parameter for smoothabt().
+        smoothing: smoothing parameter for smoothabt(). If None, a GUI is presented
+            to select it.
         element: the short name of the element, as 'Cd'...
         edge: the absorption edge (eg. 'K', 'L1', ...)
         title: the title for saving files
@@ -85,6 +86,8 @@ def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-
         prechoochcutoff: A vector of two. It determines the interval which should
             be supplied to CHOOCH. You can use this to eliminate truncation
             effects introduced by spline smoothing.
+        choochexecutable: path to CHOOCH. If None (default), the default value
+            for execchooch() is used.
         
     Outputs:
         the calculated anomalous scattering factors (f' and f'')
@@ -129,8 +132,10 @@ def xanes2f1f2(mud,smoothing,element,edge,title,substitutepoints=[],startpoint=-
     # CHOOCH-ing
     B1io.writechooch(B,'choochin.tmp')
     try:
-        choochexecutable=B1macros.getconfig()['choochpath']
-        f1f2=execchooch(B,element,edge,choochexecutable=choochexecutable)
+        if choochexecutable is not None:
+            f1f2=execchooch(B,element,edge,choochexecutable=choochexecutable)
+        else:
+            f1f2=execchooch(B,element,edge)
     except KeyError:
         f1f2=execchooch(B,element,edge)
     # post-CHOOCH smoothing
