@@ -1,5 +1,6 @@
 README
 setup.py
+src/B1guitool.py
 src/B1io.py
 src/B1macros.py
 src/__init__.py
@@ -11,12 +12,14 @@ src/c_asamacros.pyx
 src/c_asaxseval.pyx
 src/c_fitting.pyx
 src/c_guitools.pyx
+src/c_saxssim.pyx
 src/c_unstable.pyx
 src/c_utils.pyx
 src/c_utils2d.pyx
 src/c_xanes.pyx
 src/fitting.py
 src/guitools.py
+src/saxssim.py
 src/unstable.py
 src/utils.py
 src/utils2d.py

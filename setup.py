@@ -4,7 +4,7 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
-VERSION='0.6.5'
+VERSION='0.6.6'
 
 try:
     f=open('src/__init__.py','rt')
@@ -33,14 +33,17 @@ ext_modules = [Extension("B1python.c_asamacros", ["src/c_asamacros.pyx"]),
                Extension("B1python.c_utils",["src/c_utils.pyx"]),
                Extension("B1python.c_utils2d",["src/c_utils2d.pyx"]),
                Extension("B1python.c_xanes",["src/c_xanes.pyx"]),
+               Extension("B1python.c_saxssim",["src/c_saxssim.pyx"]),
                Extension("B1python.c_unstable",["src/c_unstable.pyx"]),
-               Extension("B1python.c_saxssim",["src/c_saxssim.pyx"])
                ]
 
 setup(name='B1python',version=VERSION, author='Andras Wacha',
       author_email='awacha@gmail.com',url='http://github.com/awacha/B1python',
       description='Python macros for (A)SAXS evaluation',
       packages=['B1python'],
+      py_modules=['B1python.asamacros','B1python.asaxseval','B1python.B1io',
+                'B1python.B1macros','B1python.guitools','B1python.fitting','B1python.utils',
+                'B1python.utils2d','B1python.xanes','B1python.unstable','B1python.saxssim'],
       package_dir={'B1python': 'src'},
       package_data={'B1python': ['calibrationfiles/*']},
       cmdclass = {'build_ext': build_ext},
