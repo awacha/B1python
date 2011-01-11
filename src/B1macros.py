@@ -1260,7 +1260,7 @@ def reintegrateB1(fsnrange,mask,qrange=None,samples=None,savefiletype='intbinned
                 del ints
                 del errs
                 del areas
-def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
+def sumfsns(fsns,samples=None,filetype='intbinned',waxsfiletype='waxsscaled',
             dirs=[],plot=False,
             classifyfunc=lambda plist:utils.classify_params_fields(plist,'Title','Energy','Dist'),
             classifyfunc_waxs=lambda plist:utils.classify_params_fields(plist,'Title','Energy'),
@@ -1350,10 +1350,10 @@ def sumfsns(fsns,samples=None,filetype='intnorm',waxsfiletype='waxsscaled',
                     Isum=intdata['Intensity']*w
                 else:
                     if q.size!=intdata['q'].size:
-                        print 'q-range of file %s differs from the others read before. Skipping.' % filename
+                        print 'q-range of file %s differs from the others read before (different number of points. Up to now: %d. Now: %d). Skipping.' % (filename,q.size,intdata['q'].size)
                         continue
                     if np.sum(q-intdata['q'])/len(q)>q_epsilon:
-                        print 'q-range of file %s differs from the others read before. Skipping.' % filename
+                        print 'q-range of file %s differs from the others read before (same number of points but different values). Skipping.' % filename
                         continue
                     if errorpropagation=='weight':
                         w1=1/(intdata['Error']**2)*sanmask

@@ -1368,14 +1368,14 @@ def assessmostab(fsns,dirs='.'):
     pylab.ylabel('Monitor cps',color='blue')
     pylab.xlabel('FSN')
     pylab.twinx()
-    pylab.plot(fsn,doris,'g',label='PIEZO counter')
+    pylab.plot(fsn,piezo,'g',label='PIEZO counter')
     pylab.ylabel('PIEZO cps',color='green')
     pylab.subplot(2,2,3);
-    pylab.plot(fsn,monitor,'r',label='DORIS counter')
+    pylab.plot(fsn,doris,'r',label='DORIS counter')
     pylab.ylabel('DORIS cps',color='red')
     pylab.xlabel('FSN')
     pylab.twinx()
-    pylab.plot(fsn,doris,'g',label='PIEZO counter')
+    pylab.plot(fsn,piezo,'g',label='PIEZO counter')
     pylab.ylabel('PIEZO cps',color='green')
     pylab.subplot(2,2,4);
     pylab.plot(fsn,map(lambda a,b:a/b,piezo,doris),'k',label='ratio')

@@ -19,6 +19,7 @@ import types
 import scipy.special
 _pausemode=True
 import string
+import utils2d
 
 class SASDict(object):
     """Small Angle Scattering results in a dictionary-like representation.
@@ -513,12 +514,13 @@ class SASDict(object):
         degrees_of_freedom=len(self._dict['q'])-len(p)
         if ier<1 or ier>4:
             raise ValueError('Fitting did not succeed. Reason: %s'%mesg)
+            #print "Fitting did not succeed:",mesg
         errors=[ np.sqrt(cov_x[i,i]*chisquare/degrees_of_freedom) for i in range(len(p))]
         if full_output:
             return p,errors,function(self._dict['q'],*p),chisquare,degrees_of_freedom
         else:
             return p,errors
-    def _fitting_base(self,function,transformdatasettolinear=None, transformparamfromlinear=None,params_initial=None,plotinfo=None):
+    def _fitting_base(self,function,transformdatasettolinear=None, transformparamfromlinear=None,params_initial=None,plotinfo=None,**kwargs):
         """Base fitting function, for internal usage only.
         
          Parameters:
@@ -566,7 +568,7 @@ class SASDict(object):
         elif hasattr(params_initial,'__call__'): #in this case, it is a guessing function
             params_initial=params_initial(self._dict['q'],self._dict['Intensity'])
         # at this point, we have params_initial. Fitting can be carried out.
-        params,errors,curve,chi2,dof=self.fit(function,params_initial,full_output=True)
+        params,errors,curve,chi2,dof=self.fit(function,params_initial,full_output=True,**kwargs)
         #check if plotting was requested.
         if plotinfo is not None:
             if transformdatasettolinear is not None: # if linearization is possible, linearize it.
@@ -974,32 +976,51 @@ class SASImage(object):
         self._Aerr=Aerr
         self._param=param
         self._mask=mask
+        self._q=None
     def __getitem__(self,item):
         try:
             return self._param[item]
         except KeyError:
             raise
-    def _getIntensity(self):
-        return np.array(self._A)
-    def _setIntensity(self,A1):
-        if (self._A is None) or (self._A.shape==A1.shape):
-            self._A=np.array(A1)
+    def __getattr__(self,key):
+        if key in ['A','Aerr','mask','param']:
+            x=object.__getattribute__(self,key)
+            if type(x)==np.ndarray:
+                return np.array(x)
+            else:
+                return x
+        if key=='q':
+            return object.__getattribute__(self,'_getq').__call__()
+        try:
+            return object.__getattribute__(self,key)
+        except AttributeError:
+            if not key.startswith('_'):
+                return object.__getattribute__(self,'_%s'%key)
+            raise
+    def __setattr__(self,key,value):
+        if key in ['A','Aerr', 'mask']:
+            value=np.array(value)
+            if (value.shape==self.A.shape):
+                object.__setattr__(self,key,value)
+            elif key=='A':
+                object.__setattr__(self,key,value)
+                object.__setattr__(self,'Aerr',None)
+                object.__setattr__(self,'mask',None)
+            else:
+                raise ValueError('Cannot broadcast objects to a single shape!')
+        elif key in ['q','_q','_A','_Aerr','_mask']:
+            raise AttributeError('Attribute %s is read-only!'%key)
         else:
-            raise ValueError('Incompatible shape for Intensity matrix!')
-    def _getError(self):
-        return np.array(self._Aerr)
-    def _setError(self,A1):
-        if (self._Aerr is None) or (self._Aerr.shape==A1.shape):
-            self._Aerr=np.array(A1)
-        else:
-            raise ValueError('Incompatible shape for Error matrix!')
+            return object.__setattr__(self,key,value)
     def _getq(self):
-        raise NotImplementedError
-    Intensity=property(fget=_getIntensity,fset=_setIntensity,doc='Two-dimensional scattering intensity')
-    Error=property(fget=_getError,fset=_setError,doc='Absolute error of two-dimensional scattering intensity')
-    q=property(fget=_getq,doc='length of momentum transfer vector')
+        if not all([x in self._param for x in ['BeamPosX','BeamPosY','Dist','EnergyCalibrated','PixelSize']]):
+            raise ValueError('Cannot calculate q! Some parameters are missing.')
+        if self._q is None:
+            self._q=utils2d.calculateqmatrix(self.A,self['Dist'],self['EnergyCalibrated'],self['PixelSize'],self['BeamPosX'],self['BeamPosY'])
+        return self._q
+    def plot(self):
+        pass
     
-
 def trimq(data,qmin=-np.inf,qmax=np.inf):
     """Trim the 1D scattering data to a given q-range
     
