@@ -20,6 +20,10 @@ import scipy.special
 _pausemode=True
 import string
 import utils2d
+from functools import wraps
+
+HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
+
 
 class SASDict(object):
     """Small Angle Scattering results in a dictionary-like representation.
@@ -880,7 +884,25 @@ class SASDict(object):
         #print "returning"
         return listoffits
     bfg=basicfittinggui;
+
+def returnsSASDict(func):
+    """Decorator function for fit functions.
     
+    Usage:
+    
+        @returnsSASDict
+        def powerlaw(q,A,alpha):
+            return A*np.pow(q,alpha)
+        
+        will make powerlaw() to return the results in a SASDict.
+    """
+    @wraps(func)
+    def func1(q,*args,**kwargs):
+        I=func(q,*args,**kwargs)
+        return SASDict(q,I,np.zeros(q.shape))
+    return func1
+
+
 class SASTransform(object):
     def __init__(self):
         pass
@@ -969,7 +991,6 @@ TransformSemilogX=SASTransformLogLog(True,False)
 TransformSemilogY=SASTransformLogLog(False,True)
 TransformLinLin=SASTransformLogLog(False,False)
 
-
 class SASImage(object):
     def __init__(self,A,Aerr=None,param=None,mask=None):
         self._A=A
@@ -977,6 +998,11 @@ class SASImage(object):
         self._param=param
         self._mask=mask
         self._q=None
+    def __del__(self):
+        object.__delattr__(self,'_A')
+        object.__delattr__(self,'_Aerr')
+        object.__delattr__(self,'_mask')
+        object.__delattr__(self,'_q')
     def __getitem__(self,item):
         try:
             return self._param[item]
@@ -984,6 +1010,7 @@ class SASImage(object):
             raise
     def __getattr__(self,key):
         if key in ['A','Aerr','mask','param']:
+            key='_%s'%key
             x=object.__getattribute__(self,key)
             if type(x)==np.ndarray:
                 return np.array(x)
@@ -999,6 +1026,7 @@ class SASImage(object):
             raise
     def __setattr__(self,key,value):
         if key in ['A','Aerr', 'mask']:
+            key='_%s'%key
             value=np.array(value)
             if (value.shape==self.A.shape):
                 object.__setattr__(self,key,value)
@@ -1008,17 +1036,93 @@ class SASImage(object):
                 object.__setattr__(self,'mask',None)
             else:
                 raise ValueError('Cannot broadcast objects to a single shape!')
-        elif key in ['q','_q','_A','_Aerr','_mask']:
-            raise AttributeError('Attribute %s is read-only!'%key)
         else:
             return object.__setattr__(self,key,value)
     def _getq(self):
         if not all([x in self._param for x in ['BeamPosX','BeamPosY','Dist','EnergyCalibrated','PixelSize']]):
             raise ValueError('Cannot calculate q! Some parameters are missing.')
         if self._q is None:
-            self._q=utils2d.calculateqmatrix(self.A,self['Dist'],self['EnergyCalibrated'],self['PixelSize'],self['BeamPosX'],self['BeamPosY'])
+            self._q=utils2d.calculateqmatrix(self.A.astype(np.uint8),self['Dist'],self['EnergyCalibrated'],self['PixelSize'],self['BeamPosX'],self['BeamPosY'])
         return self._q
-    def plot(self):
+    def _qscalepossible(self):
+        res=False
+        if self._param is not None:
+            if all([x in self._param.keys() for x in ['BeamPosX','BeamPosY','Dist','EnergyCalibrated','PixelSize']]):
+                res=True
+        return res
+    def plot(self,maxval=np.inf,minval=-np.inf,qs=[],showqscale=True,blackinvalid=False,crosshair=True,zscaling='log'):
+        """Plots the scattering image in a 2D coloured plot
+        
+        Inputs:
+            maxval: upper saturation of the colour scale. +inf (default): auto
+            minval: lower saturation of the colour scale. -inf (default): auto
+            qs: q-values for which concentric circles will be drawn. An empty list by default.
+            showqscale: show q-scale on both the horizontal and vertical axes. True by default.
+            blackinvalid: True if nonpositive and nonfinite pixels should be
+                blacked out. False by default.
+            crosshair: True if you want to draw a beam-center testing cross-hair.
+                False by default.
+            zscaling: 'log' or 'linear' (color scaling)
+        """
+        tmp=self._A.copy()
+        tmp[tmp>maxval]=max(tmp[tmp<=maxval])
+        tmp[tmp<minval]=min(tmp[tmp>=minval])
+        nonpos=(tmp<=0)
+        invalid=-np.isfinite(tmp)
+        if zscaling.upper().startswith('LOG'):
+            tmp[nonpos]=tmp[tmp>0].min()
+            tmp=np.log(tmp);
+        tmp[invalid]=tmp[-invalid].min();
+        if showqscale:
+            if not self._qscalepossible():
+                raise ValueError('field *param* not defined in SASImage and q-scaling requested in SASImage.plot().')
+            # x: row direction (vertical on plot)
+            xmin=0-(self._param['BeamPosX']-1)*self._param['PixelSize']
+            xmax=(tmp.shape[0]-(self._param['BeamPosX']-1))*self._param['PixelSize']
+            ymin=0-(self._param['BeamPosY']-1)*self._param['PixelSize']
+            ymax=(tmp.shape[1]-(self._param['BeamPosY']-1))*self._param['PixelSize']
+            qxmin=4*np.pi*np.sin(0.5*np.arctan(xmin/self._param['Dist']))*self._param['EnergyCalibrated']/float(HC)
+            qxmax=4*np.pi*np.sin(0.5*np.arctan(xmax/self._param['Dist']))*self._param['EnergyCalibrated']/float(HC)
+            qymin=4*np.pi*np.sin(0.5*np.arctan(ymin/self._param['Dist']))*self._param['EnergyCalibrated']/float(HC)
+            qymax=4*np.pi*np.sin(0.5*np.arctan(ymax/self._param['Dist']))*self._param['EnergyCalibrated']/float(HC)
+            extent=[qymin,qymax,qxmax,qxmin]
+            bcrow=0
+            bccol=0
+        else: #not q-scaling requested
+            extent=None
+            if (self._param is not None) and ('BeamPosX' in self._param.keys()) and ('BeamPosY' in self._param.keys()):
+                bcrow=self._param['BeamPosX']
+                bccol=self._param['BeamPosY']
+            else:
+                bcrow=None
+                bccol=None
+            extent=[1,tmp.shape[0],1,tmp.shape[1]]
+        pylab.imshow(tmp,extent=extent,interpolation='nearest');
+        if blackinvalid:
+            black=np.zeros((tmp.shape[0],tmp.shape[1],4))
+            black[:,:,3][nonpos|invalid]=1
+            pylab.imshow(black,extent=extent,interpolation='nearest')
+            del black;
+        if self._mask is not None:
+            white=np.ones((self._mask.shape[0],self._mask.shape[1],4))
+            white[:,:,3]=np.array(1-self._mask).astype('float')*0.7
+            pylab.imshow(white,extent=extent,interpolation='nearest')
+            del white;
+        for q in qs:
+            a=pylab.gca().axis()
+            pylab.plot(q*np.cos(np.linspace(0,2*np.pi,2000)),
+                       q*np.sin(np.linspace(0,2*np.pi,2000)),
+                       color='white',linewidth=3)
+            pylab.gca().axis(a)
+        if (self._param is not None) and ('Title' in self._param.keys()) and ('FSN' in self._param.keys()):
+            pylab.title("#%d: %s" % (self._param['FSN'], self._param['Title']))
+        if crosshair and (bcrow is not None):
+            a=pylab.gca().axis()
+            pylab.plot([extent[0],extent[1]],[bcrow,bcrow],'-',color='white')
+            pylab.plot([bccol,bccol],[extent[2],extent[3]],'-',color='white')
+            pylab.gca().axis(a)
+        del tmp;
+    def radint(self,q=None):
         pass
     
 def trimq(data,qmin=-np.inf,qmax=np.inf):

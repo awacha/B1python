@@ -41,6 +41,7 @@ fitting_testimage_horizpos=0.95
 fitting_testimage_vertpos=0.95
 fitting_testimage_showwholecurve=True
 
+
 def CromerLiberman(energy,z,convolution=0,shutup=True):
     """Calculate anomalous scattering factors according to Cromer and Liberman,
     using ifeffit.
