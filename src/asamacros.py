@@ -74,7 +74,7 @@ def asa_copyfiles(files,fromdir,todir,saxsprefix='saxs',waxsprefix='waxs',exts=[
     return files_return
                 
 
-def readxrdml(filename):
+def readxrdml(filename,twothetashift=0):
     """Read xrdml files made by the software for Panalytical/Philips X'Pert
     
     Input:
@@ -288,6 +288,8 @@ def readxrdml(filename):
             wavelength=meas['usedwavelength']['kAlpha1']*(1-meas['usedwavelength']['ratioKAlpha2KAlpha1'])+meas['usedwavelength']['kAlpha2']*(meas['usedwavelength']['ratioKAlpha2KAlpha1'])
             scan['q']=4*np.pi*np.sin(scan['twotheta']*np.pi/180.0*0.5)/wavelength
             
+            scan['twotheta']+=twothetashift;
+
             if meas['twotheta'] is None:
                 meas['twotheta']=scan['twotheta']
                 meas['q']=scan['q']

@@ -1571,3 +1571,34 @@ def savespheres(spheres,filename):
         filename: filename
     """
     pylab.savetxt(filename,spheres,delimiter='\t')
+def readmask(filename,fieldname=None,dirs='.'):
+    """Try to load a maskfile (matlab(R) matrix file)
+    
+    Inputs:
+        filename: the input file name
+        fieldname: field in the mat file
+        dirs: list of directory names to try
+        
+    Outputs:
+        the mask in a numpy array of type np.uint8
+    """
+    if type(dirs)==type(''):
+        dirs=[dirs]
+    f=None
+    for d in dirs:
+        try:
+            f=scipy.io.loadmat(os.path.join(d,filename))
+        except IOError:
+            f=None
+            continue
+    if f is None:
+        raise IOError('Cannot find mask file in any of the given directories!')
+    if fieldname is not None:
+        return f[fieldname].astype(np.uint8)
+    else:
+        validkeys=[k for k in f.keys() if not (k.startswith('_') and k.endswith('_'))];
+        if len(validkeys)<1:
+            raise ValueError('mask file contains no masks!')
+        if len(validkeys)>1:
+            raise ValueError('mask file contains multiple masks!')
+        return f[validkeys[0]].astype(np.uint8)
