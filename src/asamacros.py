@@ -15,6 +15,7 @@ import pylab
 import fitting
 import matplotlib.widgets
 import guitools
+import utils
 import time
 from c_asamacros import smearingmatrix, trapezoidshapefunction
 import xml.dom.minidom
@@ -74,12 +75,18 @@ def asa_copyfiles(files,fromdir,todir,saxsprefix='saxs',waxsprefix='waxs',exts=[
     return files_return
                 
 
-def readxrdml(filename,twothetashift=0):
+def readxrdml(filename,twothetashift=0,returnSASDicts=False):
     """Read xrdml files made by the software for Panalytical/Philips X'Pert
     
     Input:
         filename: name of the file
-    
+        twothetashift: an additive correction for 2*theta.
+        returnSASDicts: if SASDicts are to be returned. Possible values:
+            False (default): a simple Python dictionary will be returned
+            True: a SASDict will be returned, containing the summed data of more
+                runs.
+            'scans': a list of SASDicts will be returned, each consisting of a 
+                single scan.
     Output:
         a dict of the x-ray diffraction data and much more. Field names should
             be self-explanatory.
@@ -209,6 +216,7 @@ def readxrdml(filename,twothetashift=0):
         meas['normintensity']=None
         meas['scans']=[]
         counter=0
+        returnlist=[]
         
         for s in scans:
             scan={}
@@ -302,10 +310,19 @@ def readxrdml(filename,twothetashift=0):
                     meas['Error']=meas['Error']**2+scan['Error']**2
                     counter+=1
             meas['scans'].append(scan)
+            returnlist.append(utils.SASDict(scan['q'],scan['Intensity'],scan['Error'],twotheta=scan['twotheta']))
         meas['Intensity']/=counter
         meas['Error']=np.sqrt(meas['Error'])/counter
         data['measurements'].append(meas)
-    return data
+    if returnSASDicts==False:
+        return data
+    elif returnSASDicts==True:
+        return utils.SASDict(data['measurements'][0]['q'],
+                             data['measurements'][0]['Intensity'],
+                             data['measurements'][0]['Error'],
+                             twotheta=data['measurements'][0]['twotheta'])
+    elif returnSASDicts.upper()=='SCANS':
+        return returnlist
 
 
 def directdesmear(data,smoothing,params,title='',returnerror=False):

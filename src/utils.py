@@ -519,7 +519,11 @@ class SASDict(object):
         if ier<1 or ier>4:
             raise ValueError('Fitting did not succeed. Reason: %s'%mesg)
             #print "Fitting did not succeed:",mesg
-        errors=[ np.sqrt(cov_x[i,i]*chisquare/degrees_of_freedom) for i in range(len(p))]
+        if cov_x is None:
+            errors=[np.inf]*len(p)
+            print "Infinite covariance in fitting!"
+        else:
+            errors=[ np.sqrt(cov_x[i,i]*chisquare/degrees_of_freedom) for i in range(len(p))]
         if full_output:
             return p,errors,function(self._dict['q'],*p),chisquare,degrees_of_freedom
         else:
