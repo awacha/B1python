@@ -2,6 +2,7 @@ import numpy as np
 cimport numpy as np
 from stdlib cimport *
 import warnings
+from scipy.integrate import quadrature
 
 HC=12398.419
 
@@ -88,10 +89,26 @@ cdef inline double fsphere(double q, double R):
         the values of the scattering factor in an array of the same shape as q
     """
     if q==0:
-        return R**3/3
+        return 4*M_PI*R**3/3
     else:
-        return 1/q**3*(sin(q*R)-q*R*cos(q*R))
+        return 4*M_PI/q**3*(sin(q*R)-q*R*cos(q*R))
 
+cdef inline double fsphere_normV(double q, double R):
+    """Scattering factor of a sphere, normalized to volume
+    
+    Inputs:
+        q: q value(s) (scalar or an array of arbitrary size and shape)
+        R: radius (scalar)
+        
+    Output:
+        the values of the scattering factor in an array of the same shape as q
+    """
+    if q==0:
+        return 1
+    else:
+        return 3/(q*R)**3*(sin(q*R)-q*R*cos(q*R))
+        
+        
 def theorsaxs2D(np.ndarray[np.double_t, ndim=2] data not None, double dist,
               double wavelength, Py_ssize_t Nx, Py_ssize_t Ny,
               double pixelsizex, double pixelsizey, double dx=0, double dy=0,
@@ -1332,3 +1349,30 @@ def structurefactor(np.ndarray[np.double_t,ndim=2] points,np.ndarray[np.double_t
         output[k]=S/N
     return output
     
+def _intellipsoid(double theta,double q,double R,double nu):
+    return sin(theta)*fsphere_normV(q,R*sqrt(nu*nu*cos(theta)**2+sin(theta)**2))**2
+    
+def ellipsoid_scatter(np.ndarray[np.double_t, ndim=1] q,double R,double nu,double drho=1):
+    """Calculate the isotropic scattering of an ellipsoid of revolution
+    
+    Inputs:
+        q: q-range
+        R: half length of axis of revolution
+        nu: ratio of the length of transverse axes and longitudinal axis.
+        drho: scattering contrast between the particle and its environment
+        
+    Outputs:
+        the intensity curve
+    """
+    cdef Py_ssize_t i
+    cdef Py_ssize_t N
+    cdef double scaling
+    
+    scaling=(4*M_PI*R**3/3.0*drho)**2
+    
+    N=len(q)
+    output=np.zeros(len(q),dtype=np.double)
+    
+    for i from 0<=i<N:
+        output[i]=scaling*quadrature(_intellipsoid,0,M_PI/2,(q[i],R,nu),vec_func=False)[0]
+    return output

@@ -294,9 +294,9 @@ def readxrdml(filename,twothetashift=0,returnSASDicts=False):
                 raise NotImplementedError, "scanAxis is %s, which cannot yet be handled. Please contact the author of this program!" % scan['scanAxis']
             
             wavelength=meas['usedwavelength']['kAlpha1']*(1-meas['usedwavelength']['ratioKAlpha2KAlpha1'])+meas['usedwavelength']['kAlpha2']*(meas['usedwavelength']['ratioKAlpha2KAlpha1'])
+            scan['twotheta']+=twothetashift;
             scan['q']=4*np.pi*np.sin(scan['twotheta']*np.pi/180.0*0.5)/wavelength
             
-            scan['twotheta']+=twothetashift;
 
             if meas['twotheta'] is None:
                 meas['twotheta']=scan['twotheta']
@@ -307,7 +307,7 @@ def readxrdml(filename,twothetashift=0,returnSASDicts=False):
             else:
                 if len(meas['twotheta'])==len(scan['twotheta']) and (meas['twotheta']-scan['twotheta']).sum()==0:
                     meas['Intensity']=meas['Intensity']+scan['Intensity']
-                    meas['Error']=meas['Error']**2+scan['Error']**2
+                    meas['Error']=meas['Error']+scan['Error']**2
                     counter+=1
             meas['scans'].append(scan)
             returnlist.append(utils.SASDict(scan['q'],scan['Intensity'],scan['Error'],twotheta=scan['twotheta']))

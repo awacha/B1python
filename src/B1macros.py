@@ -1836,6 +1836,8 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
                     p['FSNs']=[p['FSN']]
             classeswaxs=classifyfunc_waxs(allparamswaxs)
             if len(classes)!=len(classeswaxs):
+                print len(classes)
+                print len(classeswaxs)
                 raise RuntimeError("Number of WAXS classes differs from number of SAXS classes!")
     for i in range(len(classes)):
         currentclass=classes[i]
@@ -1847,7 +1849,7 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
         datastounite=[]
         lastqsep=np.inf
         allfsns=[]
-        if len(dists)==1:
+        if len(dists)==1 and ignorewaxs:
             print "Not uniting class %d, as only one distance exists." % (i)
             continue
         for di in range(len(dists)): # dists is ordered by utils.unique(), starts from the shortest.
@@ -1978,6 +1980,10 @@ def unitefsns(fsns,distmaskdict,sample=None,qmin=None,qmax=None,qsep=None,
             if di==0: # uniting WAXS to SAXS: save WAXS curve, normalized to SAXS
                 print "Storing multiplied WAXS curve, trimming it from below at",ourqsep
                 datastounite.append(utils.trimq(utils.multsasdict(datalong,mult1,errmult1),qmin=ourqsep))
+                if len(dists)==1:
+                    #store SAXS as well
+                    print "Only combining one SAXS and one WAXS: storing SAXS as well."
+                    datastounite.append(utils.trimq(datashort,qmax=ourqsep))
             else: # uniting long SAXS to short SAXS: save short SAXS with scaling by the previous scaling factor.
                 # first cut the previously saved SAXS curve from above. If the previously saved curve is WAXS, do not trim.
                 #  save the current short distance, normalized by the last multfactor (if this is the first SAXS to be saved, lastmult is 1, lasterrmult is 0).

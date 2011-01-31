@@ -763,6 +763,45 @@ class SASDict(object):
                                               [G,R,A,B],
                                               plotinfo)
         return p,e
+    def multigaussfit(self,m=[0],sigma=[1],scaling=[1],plot=True):
+        """Do a multiple Gauss-peaks fit on the dataset
+        
+        Inputs:
+            m: list of expected values
+            sigma: list of variances
+            scaling: list of Intensity scaling values
+            plot: if a plot is requested
+        
+        Outputs: [scaling1,m1,sigma1,scaling2,m2,sigma2,...],[dscaling1,dm1,dsigma1,dscaling2,dm2,dsigma2,...]
+            lists of the fitted parameters and their errors.
+        """
+        nargs=min(len(m),len(sigma),len(scaling))
+        def fitfunction(q,*args):
+            ret=np.zeros(q.shape)
+            for i in xrange(len(args)/3):
+                ret+=args[3*i+0]/np.sqrt(2*np.pi*args[3*i+2]**2)*np.exp(-(q-args[3*i+1])**2/(2*args[3*i+2]**2))
+            return ret
+        paramnames=[]
+        params=[]
+        for i in range(nargs):
+            paramnames.extend(['scaling%d'%(i+1),'m%d'%(i+1),'sigma%d'%(i+1)])
+            params.extend([scaling[i],m[i],sigma[i]])
+        if plot:
+            def legend_addendum(q,I,E,params,errors):
+                return 'q_max*R = %g\n'%(q.max()*params[1])
+            plotinfo={'funcname':'%d Gauss peak(s)'%(nargs),
+                      'paramnames':paramnames,
+                      'otherstringforlegend':legend_addendum}
+        else:
+            plotinfo=None
+        p,e,curve,chi2,dof=self._fitting_base(fitfunction,
+                                              None,
+                                              None,
+                                              params,
+                                              plotinfo)
+        return p,e
+
+
     def trimzoomed(self,inplace=False):
         """Trim dataset according to the current zoom on the last plot.
         
@@ -1126,8 +1165,40 @@ class SASImage(object):
             pylab.plot([bccol,bccol],[extent[2],extent[3]],'-',color='white')
             pylab.gca().axis(a)
         del tmp;
-    def radint(self,q=None):
-        pass
+    def radint(self,q=None,returnmask=False):
+        q1,I1,err1,Area1,mask1=utils2d.radintC(self._A,self._Aerr,
+                                       self._param['EnergyCalibrated'],
+                                       self._param['Dist'],
+                                       self._param['PixelSize'],
+                                       self._param['BeamPosX'],
+                                       self._param['BeamPosY'],
+                                       self._mask,q,returnavgq=True,
+                                       returnmask=returnmask)
+        return SASDict(q=q1,Intensity=I1,Error=err1,Area=Area1)
+    @staticmethod
+    def loadmatfile(matfile):
+        a=scipy.io.loadmat(matfile)
+        if ('Intensity' in a.keys()) and ('Error' in a.keys()):
+            return SASImage(a['Intensity'],a['Error'])
+        else:
+            vars=[x for x in a.keys() if not ((x.startswith('__') or x.endswith('__')))]
+            if len(vars)==1:
+                return SASImage(a[vars[0]])
+            else:
+                raise IOError('Invalid mat file %s'%matfile)
+    @staticmethod
+    def loadnumpyfile(numpyfile):
+        a=np.load(numpyfile)
+        if ('Intensity' in a.files) and ('Error' in a.files):
+            return SASImage(a['Intensity'],a['Error'])
+        else:
+            vars=[x for x in a.files if not ((x.startswith('__') or (x.endswith('__'))))]
+            if len(vars)==1:
+                return SASImage(a[vars[0]])
+            else:
+                raise IOError('Invalid numpy file %s'%numpyfile)
+        
+        
     
 def trimq(data,qmin=-np.inf,qmax=np.inf):
     """Trim the 1D scattering data to a given q-range
