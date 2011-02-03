@@ -25,6 +25,8 @@ cdef extern from "math.h":
     double log(double)
 
 cdef inline double randn():
+    """Standard normal distribution
+    """
     cdef double x
     cdef double y
     cdef int notready
@@ -37,6 +39,7 @@ cdef inline double randn():
             if (rand()/<double>RAND_MAX<0.5):
                 x=-x
     return x
+    
 cdef inline double fellipsoid(double qx, double qy, double qz, double a, double b, double c):
     """Scattering factor of an ellipsoid
     
@@ -94,7 +97,7 @@ cdef inline double fsphere(double q, double R):
         return 4*M_PI/q**3*(sin(q*R)-q*R*cos(q*R))
 
 cdef inline double fsphere_normV(double q, double R):
-    """Scattering factor of a sphere, normalized to volume
+    """Scattering factor of a sphere, normalized to volume (I(q=0)=1)
     
     Inputs:
         q: q value(s) (scalar or an array of arbitrary size and shape)
@@ -107,7 +110,85 @@ cdef inline double fsphere_normV(double q, double R):
         return 1
     else:
         return 3/(q*R)**3*(sin(q*R)-q*R*cos(q*R))
-        
+
+cdef inline float bessj0(double x):
+    """Returns the Bessel function J0 (x) for any real x.
+    
+    Taken from Numerical Recipes
+    """
+    cdef float ax
+    cdef float z
+    cdef double xx,y,ans,ans1,ans2
+    ax=fabs(x)
+    if (ax < 8.0):
+        y=x*x;
+        ans1=57568490574.0+y*(-13362590354.0+y*(651619640.7
+            +y*(-11214424.18+y*(77392.33017+y*(-184.9052456)))));
+        ans2=57568490411.0+y*(1029532985.0+y*(9494680.718
+            +y*(59272.64853+y*(267.8532712+y*1.0))));
+        ans=ans1/ans2;
+    else:
+        z=8.0/ax;
+        y=z*z;
+        xx=ax-0.785398164;
+        ans1=1.0+y*(-0.1098628627e-2+y*(0.2734510407e-4
+            +y*(-0.2073370639e-5+y*0.2093887211e-6)));
+        ans2 = -0.1562499995e-1+y*(0.1430488765e-3
+            +y*(-0.6911147651e-5+y*(0.7621095161e-6
+            -y*0.934945152e-7)));
+        ans=sqrt(0.636619772/ax)*(cos(xx)*ans1-z*sin(xx)*ans2);
+    return ans;
+
+cdef inline float bessj1(double x):
+    """Returns the Bessel function J1 (x) for any real x.
+    
+    Taken from Numerical Recipes
+    """
+
+    cdef float ax,z
+    cdef double xx,y,ans,ans1,ans2
+    ax=fabs(x)
+    if (ax < 8.0):
+        y=x*x;
+        ans1=x*(72362614232.0+y*(-7895059235.0+y*(242396853.1
+            +y*(-2972611.439+y*(15704.48260+y*(-30.16036606))))));
+        ans2=144725228442.0+y*(2300535178.0+y*(18583304.74
+            +y*(99447.43394+y*(376.9991397+y*1.0))));
+        ans=ans1/ans2;
+    else:
+        z=8.0/ax;
+        y=z*z;
+        xx=ax-2.356194491;
+        ans1=1.0+y*(0.183105e-2+y*(-0.3516396496e-4
+            +y*(0.2457520174e-5+y*(-0.240337019e-6))));
+        ans2=0.04687499995+y*(-0.2002690873e-3
+            +y*(0.8449199096e-5+y*(-0.88228987e-6
+            +y*0.105787412e-6)));
+        ans=sqrt(0.636619772/ax)*(cos(xx)*ans1-z*sin(xx)*ans2);
+        if (x < 0.0):
+            ans = -ans;
+    return ans
+    
+#distance of two spheres, taking their radii into account as well
+cdef inline double distspheres(double x1, double y1, double z1, double R1,
+                               double x2, double y2, double z2, double R2):
+    cdef double tmp
+    tmp=sqrt((x1-x2)**2+(y1-y2)**2+(z1-z2)**2)-R1-R2
+    if tmp>0:
+        return tmp
+    else:
+        return 0
+
+cdef inline Coordtype unidirC(): #uniform distribution of points on the surface of a sphere
+    cdef Coordtype ret
+    cdef double phi
+    cdef double rho
+    phi=rand()/<double>RAND_MAX*2*M_PI
+    ret.z=rand()/<double>RAND_MAX*2-1
+    rho=sqrt(1-(ret.z)**2)
+    ret.x=rho*cos(phi)
+    ret.y=rho*sin(phi)
+    return ret
         
 def theorsaxs2D(np.ndarray[np.double_t, ndim=2] data not None, double dist,
               double wavelength, Py_ssize_t Nx, Py_ssize_t Ny,
@@ -300,6 +381,7 @@ def Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
     warnings.warn(DeprecationWarning("The use of Ctheorsphere2D is deprecated. Please use theorsaxs2D instead. In further versions, this function may be removed."))
     return theorsaxs2D(data,dist,wavelength,Nx,Ny,pixelsizex,pixelsizey,dx,dy,
                        headerout,FSN,Title)
+
 def Ctheorspheregas(np.ndarray[np.double_t, ndim=1] qrange not None,
                     np.ndarray[np.double_t, ndim=1] R not None,
                     np.ndarray[np.double_t, ndim=1] rho not None):
@@ -450,74 +532,6 @@ def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
     free(myR)
     return Intensity            
 
-
-cdef inline float bessj0(double x):
-    """Returns the Bessel function J0 (x) for any real x.
-    
-    Taken from Numerical Recipes
-    """
-    cdef float ax
-    cdef float z
-    cdef double xx,y,ans,ans1,ans2
-    ax=fabs(x)
-    if (ax < 8.0):
-        y=x*x;
-        ans1=57568490574.0+y*(-13362590354.0+y*(651619640.7
-            +y*(-11214424.18+y*(77392.33017+y*(-184.9052456)))));
-        ans2=57568490411.0+y*(1029532985.0+y*(9494680.718
-            +y*(59272.64853+y*(267.8532712+y*1.0))));
-        ans=ans1/ans2;
-    else:
-        z=8.0/ax;
-        y=z*z;
-        xx=ax-0.785398164;
-        ans1=1.0+y*(-0.1098628627e-2+y*(0.2734510407e-4
-            +y*(-0.2073370639e-5+y*0.2093887211e-6)));
-        ans2 = -0.1562499995e-1+y*(0.1430488765e-3
-            +y*(-0.6911147651e-5+y*(0.7621095161e-6
-            -y*0.934945152e-7)));
-        ans=sqrt(0.636619772/ax)*(cos(xx)*ans1-z*sin(xx)*ans2);
-    return ans;
-
-cdef inline float bessj1(double x):
-    """Returns the Bessel function J1 (x) for any real x.
-    
-    Taken from Numerical Recipes
-    """
-
-    cdef float ax,z
-    cdef double xx,y,ans,ans1,ans2
-    ax=fabs(x)
-    if (ax < 8.0):
-        y=x*x;
-        ans1=x*(72362614232.0+y*(-7895059235.0+y*(242396853.1
-            +y*(-2972611.439+y*(15704.48260+y*(-30.16036606))))));
-        ans2=144725228442.0+y*(2300535178.0+y*(18583304.74
-            +y*(99447.43394+y*(376.9991397+y*1.0))));
-        ans=ans1/ans2;
-    else:
-        z=8.0/ax;
-        y=z*z;
-        xx=ax-2.356194491;
-        ans1=1.0+y*(0.183105e-2+y*(-0.3516396496e-4
-            +y*(0.2457520174e-5+y*(-0.240337019e-6))));
-        ans2=0.04687499995+y*(-0.2002690873e-3
-            +y*(0.8449199096e-5+y*(-0.88228987e-6
-            +y*0.105787412e-6)));
-        ans=sqrt(0.636619772/ax)*(cos(xx)*ans1-z*sin(xx)*ans2);
-        if (x < 0.0):
-            ans = -ans;
-    return ans
-    
-cdef inline double distspheres(double x1, double y1, double z1, double R1,
-                               double x2, double y2, double z2, double R2):
-    cdef double tmp
-    tmp=sqrt((x1-x2)**2+(y1-y2)**2+(z1-z2)**2)-R1-R2
-    if tmp>0:
-        return tmp
-    else:
-        return 0
-        
 def maxdistance(np.ndarray[np.double_t, ndim=2] data not None):
     cdef Py_ssize_t i,j
     cdef double maxdistance2
@@ -536,18 +550,15 @@ def maxdistance(np.ndarray[np.double_t, ndim=2] data not None):
                 max2=j
     return sqrt(maxdistance2)
 
-cdef inline Coordtype unidirC():
-    cdef Coordtype ret
-    cdef double phi
-    cdef double rho
-    phi=rand()/<double>RAND_MAX*2*M_PI
-    ret.z=rand()/<double>RAND_MAX*2-1
-    rho=sqrt(1-(ret.z)**2)
-    ret.x=rho*cos(phi)
-    ret.y=rho*sin(phi)
-    return ret
-
 def unidir(double len=1):
+    """Sample a point on the surface of a sphere with uniform distribution.
+    
+    Input:
+        len: the radius of the sphere
+    
+    Output:
+        a tuple containing the Cartesian coordinates of the point
+    """
     cdef double x
     cdef double y
     cdef double z
@@ -645,6 +656,7 @@ def grf_saxs2D(np.ndarray[np.double_t, ndim=2] data not None, double sigma,
                        'FSN':FSN,'Title':Title}
     else:
         return output
+        
 def grf_realize(np.ndarray[np.double_t, ndim=2] grf not None,
                 double x0, double y0, double z0,
                 double x1, double y1, double z1,
@@ -886,8 +898,6 @@ def ddistellipsoid(double a, double b, double c,np.ndarray[np.double_t,ndim=1] d
     free(myd)
     free(myresult)
     return result
-
-    
     
 def ddistbrick(double a, double b, double c,np.ndarray[np.double_t,ndim=1] d not None,Py_ssize_t NMC):
     """Calculate the distance distribution function p(r) for a rectangular brick.
@@ -1232,7 +1242,19 @@ def charfuncgrf(double R0, np.ndarray[np.double_t, ndim=2] grf not None,
     free(mykz)
     free(myphi)
     return result
+
 def packspheres(Py_ssize_t N,double R,double dR):
+    """Tight packing of spheres
+    
+    Inputs:
+        N: number of spheres
+        R: mean value of radius
+        dR: variance of radius
+    
+    Outputs:
+        a two-dimensional array. Each row corresponds to a single sphere. The
+        contents of the rows are [x,y,z,R]
+    """
     cdef double *x
     cdef double *y
     cdef double *z
@@ -1313,6 +1335,19 @@ def packspheres(Py_ssize_t N,double R,double dR):
     return result
 
 def structurefactor(np.ndarray[np.double_t,ndim=2] points,np.ndarray[np.double_t,ndim=1] qrange):
+    """Calculate the structure factor of the point system
+    
+    Inputs:
+        points: an array of at least three columns and any number of rows,
+            consisting of the x,y,z coordinates of each point.
+        qrange: a one-dimensional numpy array with the q-scale
+    
+    Output:
+        the structure factor
+        
+    Notes:
+        S(q)=sum_i sum_j sin(q*d_ij)/(q*d_ij)
+    """
     cdef double *x
     cdef double *y
     cdef double *z
@@ -1350,6 +1385,19 @@ def structurefactor(np.ndarray[np.double_t,ndim=2] points,np.ndarray[np.double_t
     return output
     
 def _intellipsoid(double theta,double q,double R,double nu):
+    """Internal integrand function for ellipsoid_scatter().
+    
+    Inputs:
+        theta: variable of integration
+        q: q value (scalar)
+        R: half length of the longitudinal axis
+        nu: ratio of the longitudinal and transverse axes.
+    
+    Outputs:
+        sin(theta)*K^2(q*R*sqrt(nu^2*cos(theta)^2+sin(theta)^2))
+        
+        where K is the normalized (I(q=0)=1) form factor of the sphere 
+    """
     return sin(theta)*fsphere_normV(q,R*sqrt(nu*nu*cos(theta)**2+sin(theta)**2))**2
     
 def ellipsoid_scatter(np.ndarray[np.double_t, ndim=1] q,double R,double nu,double drho=1):
@@ -1359,10 +1407,18 @@ def ellipsoid_scatter(np.ndarray[np.double_t, ndim=1] q,double R,double nu,doubl
         q: q-range
         R: half length of axis of revolution
         nu: ratio of the length of transverse axes and longitudinal axis.
+            If nu<1: oblate ellipsoid (transverse axes are longer than the
+                longitudinal)
+            If nu>1: prolate ellipsoid
+            nu=1: sphere
         drho: scattering contrast between the particle and its environment
         
     Outputs:
         the intensity curve
+        
+    Notes: the ellipsoid of revolution has two transverse axes (orthogonal to
+        the axis of rotation) and one longitudinal (parallel with the axis of
+        rotation)
     """
     cdef Py_ssize_t i
     cdef Py_ssize_t N
@@ -1376,3 +1432,4 @@ def ellipsoid_scatter(np.ndarray[np.double_t, ndim=1] q,double R,double nu,doubl
     for i from 0<=i<N:
         output[i]=scaling*quadrature(_intellipsoid,0,M_PI/2,(q[i],R,nu),vec_func=False)[0]
     return output
+    

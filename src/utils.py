@@ -21,10 +21,120 @@ _pausemode=True
 import string
 import utils2d
 from functools import wraps
+import math
 
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
+class FittingError(Exception):
+    pass
 
+class ValueAndError(object):
+    def __init__(self,value=0,error=0):
+        self.value=value
+        self.error=error
+    def __float__(self):
+        return float(self.value)
+    def __unicode__(self):
+        return u'%s +/- %s'%(unicode(self.value),unicode(self.error))
+    __str__=__unicode__
+    def __getitem__(self,v):
+        if v==0:
+            return self.value
+        elif v==1:
+            return self.error
+        else:
+            raise IndexError
+    def __len__(self):
+        return 2
+    def __setitem__(self,k,v):
+        if k==0:
+            self.value=v
+        elif k==1:
+            self.error=v
+        else:
+            raise IndexError
+    def __add__(self,x):
+        if isinstance(x,tuple) or isinstance(x,list):
+            x=ValueAndError(*x)
+        if isinstance(x,ValueAndError):
+            v=self.value+x.value
+            e=math.sqrt(self.error**2+x.error**2)
+        elif np.isscalar(x):
+            v=self.value+x
+            e=self.error
+        else:
+            return NotImplemented
+        return ValueAndError(v,e)
+    __radd__=__add__
+    def __iadd__(self,x):
+        v=self+x
+        self.value=v.value
+        self.error=v.error
+    def __rsub__(self,x):
+        return x + (-self)
+    def __sub__(self,x):
+        return - (x-self)
+    def __isub__(self,x):
+        v=self-x
+        self.value=v.value
+        self.error=v.error
+    def __neg__(self):
+        return ValueAndError(-self.value,self.error)
+    def __mul__(self,x):
+        if isinstance(x,tuple) or isinstance(x,list):
+            x=ValueAndError(*x)
+        if isinstance(x,ValueAndError):
+            v=self.value*x.value
+            e=math.sqrt(self.error**2*x.value**2+x.error**2*self.value**2)
+        elif np.isscalar(x):
+            v=self.value*x
+            e=self.error
+        else:
+            return NotImplemented
+        return ValueAndError(v,e)
+    __rmul__=__mul__
+    def __div__(self,x):
+        if isinstance(x,tuple) or isinstance(x,list):
+            x=ValueAndError(*x)
+        if isinstance(x,ValueAndError):
+            v=self.value/x.value
+            e=math.sqrt(self.error**2/x.value**2+x.error**2*self.value**2/x.error**4)
+        elif np.isscalar(x):
+            v=self.value/x
+            e=self.error/x
+        else:
+            return NotImplemented
+        return ValueAndError(v,e)
+    def __rdiv__(self,x): # x/self
+        if isinstance(x,tuple) or isinstance(x,list):
+            x=ValueAndError(*x)
+        if isinstance(x,ValueAndError):
+            v=x.value/self.value
+            e=math.sqrt(x.error**2/self.value**2+self.error**2*x.value**2/self.error**4)
+        elif np.isscalar(x):
+            v=x/self.value
+            e=x*self.error/self.value**2
+        else:
+            return NotImplemented
+        return ValueAndError(v,e)
+    def __idiv__(self,x):
+        v=self/x
+        self.value=v.value
+        self.error=v.error
+    __truediv__=__div__
+    __rtruediv__=__rdiv__
+    __itruediv__=__div__
+    def __pow__(self,x):
+        v=pow(self.value,x)
+        e=abs(x*pow(self.value,x-1))*self.error
+        return ValueAndError(v,e)
+    def __abs__(self):
+        return ValueAndError(abs(self.value),self.error)
+    def __repr__(self):
+        return unicode(self)
+    def relative(self):
+        return abs(self.error6self.value)
+        
 class SASDict(object):
     """Small Angle Scattering results in a dictionary-like representation.
     
@@ -163,12 +273,17 @@ class SASDict(object):
         """values() function, a la dict.
         """
         return self._dict.values()
-    def save(self,filename):
+    def save(self,filename,cols=['q','Intensity','Error']):
         """Saves the SASDict to a text file with comments in the first line.
+        
+        Inputs:
+            filename: name of the file
+            cols [optional]: column names to save.
         """
+        keys=[k for k in cols if k in self.keys()]
         f=open(filename,'wt')
-        f.write('#%s\n'%string.join([str(k) for k in self.keys()]))
-        np.savetxt(f,np.array(self))
+        f.write('#%s\n'%string.join([str(k) for k in keys()]))
+        np.savetxt(f,np.array(self,keys))
         f.close()
     def copy(self):
         """Make a copy"""
@@ -266,7 +381,7 @@ class SASDict(object):
             return False
         return True
     def __imul__(self,x):
-        if isinstance(x,tuple) and len(x)==2:
+        if (isinstance(x,tuple) and len(x)==2) or isinstance(x,ValueAndError):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
@@ -283,7 +398,7 @@ class SASDict(object):
         self._dict['Intensity']=self._dict['Intensity']*val
         return self
     def __idiv__(self,x):
-        if isinstance(x,tuple) and len(x)==2:
+        if (isinstance(x,tuple) and len(x)==2) or isinstance(x,ValueAndError):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
@@ -296,7 +411,7 @@ class SASDict(object):
         self._dict['Intensity']=self._dict['Intensity']/val
         return self
     def __iadd__(self,x):
-        if isinstance(x,tuple) and len(x)==2:
+        if (isinstance(x,tuple) and len(x)==2) or isinstance(x,ValueAndError):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
@@ -312,7 +427,7 @@ class SASDict(object):
         self._dict['Intensity']=self._dict['Intensity']+val
         return self
     def __isub__(self,x):
-        if isinstance(x,tuple) and len(x)==2:
+        if (isinstance(x,tuple) and len(x)==2) or isinstance(x,ValueAndError):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
@@ -325,7 +440,7 @@ class SASDict(object):
         self._dict['Intensity']=self._dict['Intensity']-val
         return self
     def __mul__(self,x):
-        if isinstance(x,tuple) and len(x)==2:
+        if (isinstance(x,tuple) and len(x)==2) or isinstance(x,ValueAndError):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
@@ -341,7 +456,7 @@ class SASDict(object):
         val=self._dict['Intensity']*val
         return SASDict(q=self._dict['q'],Intensity=val,Error=err)
     def __div__(self,x):
-        if isinstance(x,tuple) and len(x)==2:
+        if (isinstance(x,tuple) and len(x)==2) or isinstance(x,ValueAndError):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
@@ -354,7 +469,7 @@ class SASDict(object):
         return SASDict(q=self._dict['q'],Intensity=val,Error=err)
     __itruediv__=__idiv__
     def __add__(self,x):
-        if isinstance(x,tuple) and len(x)==2:
+        if (isinstance(x,tuple) and len(x)==2) or isinstance(x,ValueAndError):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
@@ -367,7 +482,7 @@ class SASDict(object):
         val=self._dict['Intensity']+val
         return SASDict(q=self._dict['q'],Intensity=val,Error=err)
     def __sub__(self,x):
-        if isinstance(x,tuple) and len(x)==2:
+        if (isinstance(x,tuple) and len(x)==2) or isinstance(x,ValueAndError):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
@@ -384,7 +499,7 @@ class SASDict(object):
     __truediv__=__div__
     __rmul__=__mul__
     def __rdiv__(self,x):
-        if isinstance(x,tuple) and len(x)==2:
+        if (isinstance(x,tuple) and len(x)==2) or isinstance(x,ValueAndError):
             val=x[0]
             err=x[1]
         elif isinstance(x,SASDict):
@@ -407,10 +522,15 @@ class SASDict(object):
         else:
             return SASDict(q=self._dict['q'],Intensity=np.power(self._dict['Intensity'],exponent),
                            Error=self._dict['Error']*np.absolute((exponent)*np.power(self._dict['Intensity'],exponent-1)))
-    def __array__(self):
+    def __array__(self,keys=None):
         """Make a structured numpy array from the current dataset.
         """
-        a=np.array(zip(*(self.values())),dtype=zip(self.keys(),[np.double]*len(self.keys())))
+        if keys==None:
+            keys=self.keys()
+            values=self.values()
+        else:
+            values=[self[k] for k in keys]
+        a=np.array(zip(*values),dtype=zip(keys,[np.double]*len(keys)))
         return a
     def sort(self,order='q'):
         """Sort the current dataset according to 'order' (defaults to 'q').
@@ -569,6 +689,8 @@ class SASDict(object):
                 a,b=transformparamfromlinear(a,b)
             # set them as the initial guess
             params_initial=[a,b]
+            if not np.isfinite(params_initial).all():
+                raise FittingError('Linearization did not succeed')
         # if linearization did not succeed, check if params_initial is supplied
         elif params_initial is None:
             raise ValueError('params_initial should not be None if transformdatasettolinear is None.')
@@ -576,7 +698,8 @@ class SASDict(object):
         elif hasattr(params_initial,'__call__'): #in this case, it is a guessing function
             params_initial=params_initial(self._dict['q'],self._dict['Intensity'])
         # at this point, we have params_initial. Fitting can be carried out.
-        params,errors,curve,chi2,dof=self.fit(function,params_initial,full_output=True,**kwargs)
+        if not linearization_error:
+            params,errors,curve,chi2,dof=self.fit(function,params_initial,full_output=True,**kwargs)
         #check if plotting was requested.
         if plotinfo is not None:
             if transformdatasettolinear is not None: # if linearization is possible, linearize it.
@@ -731,7 +854,30 @@ class SASDict(object):
                                               params_initial=None,
                                               plotinfo=plotinfo)
         return p,e 
+
+    def zimmfit(self,plot=True):
+        """Do a Zimm fit (I=I0/(1+xi^2*q^2)) on the dataset.
         
+        Inputs:
+            plot: if a plot is requested.
+        
+        Outputs: [I0,xi],[dI0,dxi]
+            the fitted parameters and their errors.
+        """
+        fitfunction=lambda q,I0,xi:I0/(1+xi*xi*q*q)
+        paramtransform=lambda A,B:(1/B,np.sqrt(A/B))
+        if plot:
+            plotinfo={'funcname':'I0/(1+xi^2*q^2)',
+                      'paramnames':['I0','xi']}
+        else:
+            plotinfo=None
+        p,e,curve,chi2,dof=self._fitting_base(fitfunction,
+                                              SASTransformZimm(),
+                                              paramtransform,
+                                              params_initial=None,
+                                              plotinfo=plotinfo)
+        return p,e 
+
     def guinierandpowerlawfit(self,qpower=0,plot=True,G=1e-3,R=20,A=1,B=-4):
         """Do a simultaneous Guinier and Power-law fit on the dataset
         ( I = A*q^B + G*q^qpower*exp(-q^2*R^2/3) )
@@ -763,6 +909,7 @@ class SASDict(object):
                                               [G,R,A,B],
                                               plotinfo)
         return p,e
+
     def multigaussfit(self,m=[0],sigma=[1],scaling=[1],plot=True):
         """Do a multiple Gauss-peaks fit on the dataset
         
@@ -801,7 +948,6 @@ class SASDict(object):
                                               plotinfo)
         return p,e
 
-
     def trimzoomed(self,inplace=False):
         """Trim dataset according to the current zoom on the last plot.
         
@@ -833,6 +979,7 @@ class SASDict(object):
             return self
         else:
             return SASDict(**newdict)
+
     def basicfittinggui(self,title='',blocking=False):
         """Graphical user interface to carry out basic (Guinier, Porod, etc.)
         fitting to 1D scattering data.
@@ -870,14 +1017,19 @@ class SASDict(object):
                {'name':'Logarithmic x','transform':SASTransformLogLog(False,False),
                 'plotmethod':'semilogx'},
                {'name':'Double logarithmic','transform':SASTransformLogLog(False,False),
-                'plotmethod':'loglog'}]
+                'plotmethod':'loglog'},
+               {'name':'Zimm','transform':SASTransformZimm(),
+                'plotmethod':'plot'},
+                ]
         buttons=[{'name':'Guinier','fitmethod':'guinierfit'},
                  {'name':'Guinier thickness','fitmethod':'guinierthicknessfit'},
                  {'name':'Guinier cross-section','fitmethod':'guiniercrosssectionfit'},
                  {'name':'Porod','fitmethod':'porodfit'},
                  {'name':'A * q^B','fitmethod':'powerlawfit'},
                  {'name':'A * q^B + C','fitmethod':'powerlawconstantbackgroundfit'},
-                 {'name':'A * q^B + C + D * q','fitmethod':'powerlawlinearbackgroundfit'}]
+                 {'name':'A * q^B + C + D * q','fitmethod':'powerlawlinearbackgroundfit'},
+                 {'name':'I0/(1+xi^2*q*2)','fitmethod':'zimmfit'}
+                 ]
                 
         for i in range(len(buttons)):
             ax=pylab.axes((leftborder,topborder-(i+1)*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))))
@@ -945,7 +1097,6 @@ def returnsSASDict(func):
         return SASDict(q,I,np.zeros(q.shape))
     return func1
 
-
 class SASTransform(object):
     def __init__(self):
         pass
@@ -957,6 +1108,7 @@ class SASTransform(object):
         return u'q (%s)' %unit
     def ylabel(self,unit=u'1/cm'):
         return u'Intensity (%s)' % unit
+
 class SASTransformGuinier(SASTransform):
     def __init__(self,qpower=0):
         self._qpower=qpower
@@ -1024,6 +1176,20 @@ class SASTransformShullRoess(SASTransform):
         return u'ln q^2 (ln %s^2)' %unit
     def ylabel(self,Iunit=u'1/cm'):
         return u'ln Intensity (ln %s)' % (Iunit)
+
+class SASTransformZimm(SASTransform):
+    def __init__(self):
+        pass
+    def do_transform(self,q,Intensity,Error,**kwargs):
+        retq=np.power(q,2)
+        retI=1/Intensity
+        retE=Error*retI
+        return {'x':retq,'y':retI,'dy':retE}
+    def xlabel(self,unit=u'1/\xc5'):
+        return u'q^2 (%s^2)' %unit
+    def ylabel(self,Iunit=u'1/cm'):
+        return u'Reciprocal intensity (1/(%s))' % (Iunit)
+
         
 TransformGuinier=SASTransformGuinier()
 TransformGuinierThickness=SASTransformGuinier(2)
@@ -1033,6 +1199,7 @@ TransformLogLog=SASTransformLogLog(True,True)
 TransformSemilogX=SASTransformLogLog(True,False)
 TransformSemilogY=SASTransformLogLog(False,True)
 TransformLinLin=SASTransformLogLog(False,False)
+TransformZimm=SASTransformZimm()
 
 class SASImage(object):
     def __init__(self,A,Aerr=None,param=None,mask=None):
