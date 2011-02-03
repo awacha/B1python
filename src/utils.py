@@ -282,8 +282,8 @@ class SASDict(object):
         """
         keys=[k for k in cols if k in self.keys()]
         f=open(filename,'wt')
-        f.write('#%s\n'%string.join([str(k) for k in keys()]))
-        np.savetxt(f,np.array(self,keys))
+        f.write('#%s\n'%string.join([str(k) for k in keys]))
+        np.savetxt(f,self.__array__(keys=keys))
         f.close()
     def copy(self):
         """Make a copy"""
