@@ -698,8 +698,7 @@ class SASDict(object):
         elif hasattr(params_initial,'__call__'): #in this case, it is a guessing function
             params_initial=params_initial(self._dict['q'],self._dict['Intensity'])
         # at this point, we have params_initial. Fitting can be carried out.
-        if not linearization_error:
-            params,errors,curve,chi2,dof=self.fit(function,params_initial,full_output=True,**kwargs)
+        params,errors,curve,chi2,dof=self.fit(function,params_initial,full_output=True,**kwargs)
         #check if plotting was requested.
         if plotinfo is not None:
             if transformdatasettolinear is not None: # if linearization is possible, linearize it.
