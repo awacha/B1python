@@ -16,7 +16,7 @@ import utils
 import time
 import types
 import B1io
-from c_asaxseval import asaxsbasicfunctions
+from c_asaxseval import asaxsbasicfunctions,reconstructfrompsfs
 
 def asaxspureresonant(I1,I2,I3,DI1,DI2,DI3,f11,f12,f13,f21,f22,f23,scalesep=True):
     """Calculate the pure resonant as the "difference of differences"

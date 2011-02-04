@@ -1,14 +1,16 @@
 import numpy as np
 cimport numpy as np
 import utils
+from stdlib cimport *
 
 cdef extern from "stdlib.h":
     Py_ssize_t RAND_MAX
     Py_ssize_t rand()
-
+    
 cdef extern from "math.h":
     double log(double)
     double exp(double)
+    double sqrt(double)
 
 cdef inline double randn():
     """Standard normal distribution
@@ -45,6 +47,8 @@ def asaxsbasicfunctions(np.ndarray[np.double_t, ndim=2] I not None,
             shape as I.
         f1: vector of the f' values for the corresponding columns of I.
         f2: vector of the f'' values for the corresponding columns of I.
+        df1: error vector of the f' values for the corresponding columns of I.
+        df2: error vector of the f'' values for the corresponding columns of I.
         element: the atomic number of the resonant atom. If zero (default),
             derive the basic functions according to Stuhrmann. If nonzero, the
             partial structure factors of the nonresonant part (N), and the
@@ -71,10 +75,16 @@ def asaxsbasicfunctions(np.ndarray[np.double_t, ndim=2] I not None,
     cdef np.ndarray[np.double_t, ndim=1] DM
     cdef np.ndarray[np.double_t, ndim=1] DR
     cdef np.ndarray[np.double_t, ndim=2] A
+    cdef np.ndarray[np.double_t, ndim=2] ATA
     cdef np.ndarray[np.double_t, ndim=2] B
     cdef np.ndarray[np.double_t, ndim=2] I1
+    cdef np.ndarray[np.double_t,ndim=1] tmp
+    cdef np.ndarray[np.double_t,ndim=1] tmpe
+    cdef double *DN1
+    cdef double *DM1
+    cdef double *DR1
     cdef double r1,r2,r3
-    cdef Py_ssize_t i    
+    cdef Py_ssize_t i,j
     
     Nenergies=I.shape[1];
     Ilen=I.shape[0];
@@ -89,7 +99,10 @@ def asaxsbasicfunctions(np.ndarray[np.double_t, ndim=2] I not None,
     DM=np.zeros(Ilen);
     DR=np.zeros(Ilen);
     if NMC==0: #no Monte Carlo, just simple error propagation
-        #construct matrix A, i.e. dot(A,[N(q),M(q),R(q)]^T)=[I_1(q),I_2(q),...I_N(q)]^T for each q.        
+        #construct matrix A, i.e. for which A.p=I where p is the vector of partial
+        # structure factors ([Snn,Snr,Srr] where n is nonresonant, r is resonant),
+        # and I is the vector of intensities ([I(E1),I(E2),...I(EN)] for energies)
+        # In all cases, q is fixed, a loop is performed through q-s.
         A=np.ones((Nenergies,3)); 
         A[:,1]=2*(element+f1);
         A[:,2]=(element+f1)**2+f2**2;
@@ -113,7 +126,7 @@ def asaxsbasicfunctions(np.ndarray[np.double_t, ndim=2] I not None,
             print "Condition number of inv(A'*A)*A' is ",np.linalg.linalg.cond(B)
         #for each q, calculate N,M,R and their errors.
         for j in range(0,Ilen):
-            tmp=np.dot(B,I[j,:])
+            tmp=np.linalg.linalg.solve(ATA,np.dot(A.T,I[j,:]))
             N[j]=tmp[0];
             M[j]=tmp[1];
             R[j]=tmp[2];
@@ -122,17 +135,25 @@ def asaxsbasicfunctions(np.ndarray[np.double_t, ndim=2] I not None,
             DM[j]=tmpe[1];
             DR[j]=tmpe[2];
     else: # Monte Carlo error propagation
+    
+        DN1=<double*>malloc(sizeof(double)*Ilen)
+        DM1=<double*>malloc(sizeof(double)*Ilen)
+        DR1=<double*>malloc(sizeof(double)*Ilen)
         # first, calculate the true value of N,M,R in a similar way as in the
         # non-MC case above.
         A=np.ones((Nenergies,3))
         A[:,1]=2*(element+f1);
         A[:,2]=(element+f1)**2+f2**2;
-        B=np.dot(np.linalg.linalg.inv(np.dot(A.T,A)),A.T);
-        for j in range(0,Ilen):
-            tmp=np.dot(B,I[j,:])
+        ATA=np.dot(A.T,A)
+        for j from 0<=j<Ilen:
+            tmp=np.linalg.linalg.solve(ATA,np.dot(A.T,I[j,:]))
             N[j]=tmp[0];
             M[j]=tmp[1];
             R[j]=tmp[2];
+            #zero the D?1 arrays if we are looping
+            DN1[j]=0
+            DM1[j]=0
+            DR1[j]=0
         # Monte Carlo routine: manipulate each quantity (Intensities, anomalous
         # coefficients) by a random gaussian.
         for i from 0<=i<NMC:
@@ -147,21 +168,110 @@ def asaxsbasicfunctions(np.ndarray[np.double_t, ndim=2] I not None,
                 r2=randn()*df2[j]
                 A[j,1]=2*(element+f1[j]+r1)
                 A[j,2]=(element+f1[j]+r1)**2+((f2[j]+r2)**2)
-            #find the LSQ matrix.
-            B=np.dot(np.linalg.linalg.inv(np.dot(A.T,A)),A.T);
             # for each q, find the squared difference of the expected value
             # and the just calculated value of each basic function. Summarize
             # these over the MC loop.
             for j from 0<=j<Ilen:
-                tmp=np.dot(B,I1[j,:])
-                DN[j]+=(N[j]-tmp[0])**2
-                DM[j]+=(M[j]-tmp[1])**2
-                DR[j]+=(R[j]-tmp[2])**2
+                tmp=np.linalg.linalg.solve(ATA,np.dot(A.T,I1[j,:]))
+                DN1[j]+=(N[j]-tmp[0])**2
+                DM1[j]+=(M[j]-tmp[1])**2
+                DR1[j]+=(R[j]-tmp[2])**2
         #Just after the Monte Carlo loop, the D? vectors hold the sums of
         # squared differences. Divide them by (NMC-1) and take the square
         # root to get the standard deviations.
-        DN=np.sqrt(DN/(NMC-1))
-        DR=np.sqrt(DM/(NMC-1))
-        DR=np.sqrt(DR/(NMC-1))
+        for j from 0<=j<Ilen:
+            DN[j]=sqrt(DN1[j]/(NMC-1))
+            DR[j]=sqrt(DM1[j]/(NMC-1))
+            DR[j]=sqrt(DR1[j]/(NMC-1))
+        free(DN1)
+        free(DM1)
+        free(DR1)
     # return with the results (both MC and non-MC).
     return N,M,R,DN,DM,DR
+
+def reconstructfrompsfs(np.ndarray[np.double_t, ndim=1] N not None,
+                        np.ndarray[np.double_t, ndim=1] M not None,
+                        np.ndarray[np.double_t, ndim=1] R not None,
+                        np.ndarray[np.double_t, ndim=1] f1 not None,
+                        np.ndarray[np.double_t, ndim=1] f2 not None,
+                        np.ndarray[np.double_t, ndim=1] DN=None,
+                        np.ndarray[np.double_t, ndim=1] DM=None,
+                        np.ndarray[np.double_t, ndim=1] DR=None,
+                        np.ndarray[np.double_t, ndim=1] df1=None,
+                        np.ndarray[np.double_t, ndim=1] df2=None,
+                        unsigned int element=0):
+    """Reconstruct the scattering intensity from the partial structure factors
+    and the anomalous scattering factors.
+    
+    Inputs:
+        N: nonresonant part or Snn
+        M: mixed part or Snr
+        R: resonant part or Srr
+        f1: real part of the anomalous scattering factors
+        f2: imaginary part of the anomalous scattering factors
+        DN [optional]: error of the nonresonant part or Snn
+        DM [optional]: error of the mixed part or Snr
+        DR [optional]: error of the resonant part or Srr
+        df1 [optional]: error of the real part of the anomalous scattering factors
+        df2 [optional]: error of the imaginary part of the anomalous scattering factors
+        element: atomic number. If 0, input arguments are treated as the basic
+            functions. If it is defined, arguments are supposed to be the PSFs.
+            
+        All input arguments except element are 1D numpy arrays (dype: double)
+            
+    Outputs: Ints, [Errs]
+        Ints: intensities in a 2D array.
+        Errs [only if errors are given]: error matrix
+    """
+    cdef Py_ssize_t Nenergies
+    cdef Py_ssize_t Ilen
+    cdef np.ndarray[np.double_t, ndim=2] A
+    cdef np.ndarray[np.double_t, ndim=2] Ints
+    cdef np.ndarray[np.double_t, ndim=2] Errs
+    cdef Py_ssize_t i    
+    cdef bool errorneeded
+    
+    errorneeded=True    
+    Nenergies=len(f1);
+    Ilen=len(N);
+    if DN is None:
+        errorneeded=False
+        DN=np.zeros(Ilen,dtype=np.double)
+    if DM is None:
+        errorneeded=False
+        DM=np.zeros(Ilen,dtype=np.double)
+    if DR is None:
+        errorneeded=False
+        DR=np.zeros(Ilen,dtype=np.double)
+    if df1 is None:
+        errorneeded=False
+        df1=np.zeros(Nenergies,dtype=np.double)
+    if df2 is None:
+        errorneeded=False
+        df2=np.zeros(Nenergies,dtype=np.double)
+    if len(f2) != Nenergies:
+        raise ValueError("length of the f'' vector should match the number of energies.")
+    if len(df2) != Nenergies:
+        raise ValueError("length of the df'' vector should match the number of energies.")
+    if len(df1) != Nenergies:
+        raise ValueError("length of the df' vector should match the number of energies.")
+    if (len(DN) != Ilen) or (len(DM) != Ilen) or (len(DR) != Ilen) or \
+         (len(M) != Ilen) or (len(R) != Ilen):
+        raise ValueError("Lengths of vectors N, M, R, DN, DM, DN should match!")
+    Ints=np.zeros((Ilen,Nenergies),dtype=np.double)
+    Errs=np.zeros((Ilen,Nenergies),dtype=np.double)
+    A=np.ones((Nenergies,3)); 
+    A[:,1]=2*(element+f1);
+    A[:,2]=(element+f1)**2+f2**2;
+    #construct the error matrix of A.        
+    DA=np.zeros((A.shape[0],A.shape[1]))
+    if df1 is not None:
+        DA[:,1]=2*df1;
+        DA[:,2]=np.sqrt(4*(element+f1)**2*df1**2+4*f2**2*df2**2)
+    for i in range(0,Ilen):
+        Ints[i,:]=np.dot(A,np.array([N[i],M[i],R[i]]))
+        Errs[i,:]=utils.dot_error(A,np.array([N[i],M[i],R[i]]),DA,np.array([DN[i],DM[i],DR[i]]))        
+    if errorneeded:
+        return Ints,Errs
+    else:
+        return Ints

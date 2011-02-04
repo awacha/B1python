@@ -4,7 +4,7 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
-VERSION='0.7.2a'
+VERSION='0.7.3'
 
 try:
     f=open('src/__init__.py','rt')
