@@ -17,7 +17,7 @@ import matplotlib.widgets
 import guitools
 import utils
 import time
-from c_asamacros import smearingmatrix, trapezoidshapefunction
+from c_asamacros import smearingmatrix, trapezoidshapefunction, smearingmatrixtth
 import xml.dom.minidom
 import os
 import shutil

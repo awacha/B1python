@@ -36,7 +36,7 @@ def smoothabt(muddict,smoothing):
             'Mud':sm,
             'Title':("%s_smooth%lf" % (muddict['Title'],smoothing)),
             'scan':muddict['scan']}
-def execchooch(mud,element,edge,choochexecutable='chooch',resolution=None):
+def execchooch(mud,element,edge,choochexecutable='chooch',resolution=None,quiet=False):
     """Execute CHOOCH
     
     Inputs:
@@ -45,17 +45,26 @@ def execchooch(mud,element,edge,choochexecutable='chooch',resolution=None):
         edge: the absorption edge to use, eg. 'K' or 'L1'
         choochexecutable: the path where the CHOOCH executable can be found.
         resolution: the resolution of the monochromator, if you want to take
-            this into account.
+            this into account (delta E/E).
     
     Outputs:
         f1f2 matrix. An exception is raised if running CHOOCH fails.
     """
     B1io.writechooch(mud,'choochin.tmp');
+    
     if resolution is None:
-        cmd='%s -v 0 -e %s -a %s -o choochout.tmp choochin.tmp' % (choochexecutable, element, edge)
+        rescmd=''
     else:
-        cmd='%s -v 0 -e %s -a %s -r %lf -o choochout.tmp choochin.tmp' % (choochexecutable, element, edge, resolution)
-    print 'Running CHOOCH with command: ', cmd
+        rescmd='-r %lf'%resolution
+    if quiet:
+        verbosecmd='-r 0'
+        outputredir='>/dev/null 2>/dev/null'
+    else:
+        verbosecmd='-s'
+        outputredir=''
+    cmd='%s %s -e %s -a %s %s -o choochout.tmp choochin.tmp %s' % (choochexecutable, verbosecmd, element, edge,rescmd,outputredir)
+    if not quiet:    
+        print 'Running CHOOCH with command: ', cmd
     a=os.system(cmd);
     if (a==32512):
         raise IOError( "The chooch executable cannot be found at %s. Please supply another path." % choochexecutable)

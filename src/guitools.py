@@ -1011,6 +1011,7 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
     def lorentzcostfun(p,x,y):
         tmp=y-p[3]-p[0]*utils.lorentzian(p[2],p[1],x)
         return tmp
+    x2=np.linspace(x1.min(),x1.max(),len(x1)*10)
     if mode=='Gauss':
         sigma0=0.25*(x1[-1]-x1[0])
         p0=((y1.max()-y1.min())/(1/np.sqrt(2*np.pi*sigma0**2)),
@@ -1022,9 +1023,9 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
         cov=res[1]
         if not blind:
             if scaling=='log':
-                pylab.semilogy(x1,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
+                pylab.semilogy(x2,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x2-p1[2])**2/(2*p1[1]**2)),'r-')
             else:
-                pylab.plot(x1,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x1-p1[2])**2/(2*p1[1]**2)),'r-')
+                pylab.plot(x2,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x2-p1[2])**2/(2*p1[1]**2)),'r-')
     elif mode=='Lorentz':
         sigma0=0.25*(x1[-1]-x1[0])
         p0=((y1.max()-y1.min())/(1/sigma0),
@@ -1036,13 +1037,14 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
         cov=res[1]
         if not blind:
             if scaling=='log':
-                pylab.semilogy(x1,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x1),'r-')
+                pylab.semilogy(x2,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x2),'r-')
             else:
-                pylab.plot(x1,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x1),'r-')
+                pylab.plot(x2,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x2),'r-')
     else:
         raise ValueError('Only Gauss and Lorentz modes are supported in findpeak()')
     if not blind:
         pylab.gcf().show()
+        pylab.draw()
     if return_error:
         return p1[2],np.sqrt(cov[2][2])
     else:

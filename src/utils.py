@@ -1331,15 +1331,17 @@ class SASImage(object):
             pylab.plot([bccol,bccol],[extent[2],extent[3]],'-',color='white')
             pylab.gca().axis(a)
         del tmp;
-    def radint(self,q=None,returnmask=False):
+    def radint(self,q=None):
+        if not self._qscalepossible():
+            raise ValueError("Radial integration could not be carried out (either params or mask absent).")
         q1,I1,err1,Area1,mask1=utils2d.radintC(self._A,self._Aerr,
                                        self._param['EnergyCalibrated'],
                                        self._param['Dist'],
                                        self._param['PixelSize'],
                                        self._param['BeamPosX'],
                                        self._param['BeamPosY'],
-                                       self._mask,q,returnavgq=True,
-                                       returnmask=returnmask)
+                                       (1-self._mask).astype(np.uint8),q,returnavgq=True,
+                                       returnmask=True)
         return SASDict(q=q1,Intensity=I1,Error=err1,Area=Area1)
     @staticmethod
     def loadmatfile(matfile):

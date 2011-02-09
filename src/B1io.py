@@ -1134,6 +1134,7 @@ def readlogfile(fsn,dirs=[],norm=True,quiet=False):
         if not filefound and not quiet:
             print 'Cannot find file %s in any of the given directories.' % filebasename
     return params;
+            
 def writelogfile(header,ori,thick,dc,realenergy,distance,mult,errmult,reffsn,
                  thickGC,injectionGC,injectionEB,pixelsize,mode='Pilatus',norm=True):
     """Write logfiles.
@@ -1576,7 +1577,7 @@ def readmask(filename,fieldname=None,dirs='.'):
     
     Inputs:
         filename: the input file name
-        fieldname: field in the mat file
+        fieldname: field in the mat file. None to autodetect.
         dirs: list of directory names to try
         
     Outputs:
@@ -1591,6 +1592,8 @@ def readmask(filename,fieldname=None,dirs='.'):
         except IOError:
             f=None
             continue
+        else:
+            break
     if f is None:
         raise IOError('Cannot find mask file in any of the given directories!')
     if fieldname is not None:
@@ -1602,3 +1605,128 @@ def readmask(filename,fieldname=None,dirs='.'):
         if len(validkeys)>1:
             raise ValueError('mask file contains multiple masks!')
         return f[validkeys[0]].astype(np.uint8)
+def writeparamfile(filename,param):
+    """Write the param structure into a logfile. See writelogfile() for an explanation.
+    
+    Inputs:
+        filename: name of the file.
+        param: param structure (dictionary).
+        
+    Notes:
+        exceptions pass through to the caller.
+    """
+    logfile_dict_float={'FSN':'FSN',
+                        'Sample-to-detector distance (mm)':'Dist',
+                        'Sample thickness (cm)':'Thickness',
+                        'Sample transmission':'Transm',
+                        'Sample position (mm)':'PosSample',
+                        'Temperature':'Temperature',
+                        'Measurement time (sec)':'MeasTime',
+                        'Scattering on 2D detector (photons/sec)':'ScatteringFlux',
+                        'Dark current subtracted (cps)':'dclevel',
+                        'Dark current FSN':'FSNdc',
+                        'Empty beam FSN':'FSNempty',
+                        'Glassy carbon FSN':'FSNref1',
+                        'Glassy carbon thickness (cm)':'Thicknessref1',
+                        'Energy (eV)':'Energy',
+                        'Calibrated energy (eV)':'EnergyCalibrated',
+                        'Calibrated energy':'EnergyCalibrated',
+                        'Beam x y for integration':('BeamPosX','BeamPosY'),
+                        'Normalisation factor (to absolute units)':'NormFactor',
+                        'Relative error of normalisation factor (percentage)':'NormFactorRelativeError',
+                        'Beam size X Y (mm)':('BeamsizeX','BeamsizeY'),
+                        'Pixel size of 2D detector (mm)':'PixelSize',
+                        'Primary intensity at monitor (counts/sec)':'Monitor',
+                        'Primary intensity calculated from GC (photons/sec/mm^2)':'PrimaryIntensity',
+                        'Sample rotation around x axis':'RotXsample',
+                        'Sample rotation around y axis':'RotYsample'
+                        }
+    #this dict. contains the string parameters
+    logfile_dict_str={'Sample name':'Title',
+                      'Sample title':'Title'}
+    #this dict. contains the bool parameters
+    logfile_dict_bool={'Injection between Empty beam and sample measurements?':'InjectionEB',
+                       'Injection between Glassy carbon and sample measurements?':'InjectionGC'
+                       }
+    logfile_dict_list={'FSNs':'FSNs'}
+    logfile_order=['FSN','Title','Dist','Thickness','Transm','PosSample',
+                   'Temperature','MeasTime','ScatteringFlux','dclevel','FSNdc',
+                   'FSNempty','InjectionEB','FSNref1','Thicknessref1',
+                   'InjectionGC','Energy','EnergyCalibrated',('BeamPosX','BeamPosY'),
+                   'NormFactor','NormFactorRelativeError',('BeamsizeX','BeamsizeY'),
+                   'PixelSize','Monitor','PrimaryIntensity','RotXsample','RotYsample']
+    allkeys=param.keys()
+    def boolrepr(x):
+        if x:
+            return 'y'
+        else:
+            return 'n'
+    listrepr=lambda l:' '.join([str(x) for x in l])
+    f=open(filename,'wt')
+    def writekey(k,allkeys=allkeys):
+        #try if it is a float argument
+        k1=[x for x in logfile_dict_float.keys() if logfile_dict_float[x]==k]
+        if len(k1)>0:
+            if type(k)==type(''):
+                k=[k,]
+            k=[x for x in k if x in allkeys]
+            if len(k)==0:
+                return
+            f.write(k1[0])
+            f.write(':\t')
+            f.write(' '.join([str(param[x]) for x in k]))
+            f.write('\n')
+            for x in k:
+                allkeys.remove(x)
+            return
+        #try if it is a str argument
+        k1=[x for x in logfile_dict_str.keys() if logfile_dict_str[x]==k]
+        if len(k1)>0:
+            if type(k)==type(''):
+                k=[k,]
+            k=[x for x in k if x in allkeys]
+            if len(k)==0:
+                return
+            f.write(k1[0])
+            f.write(':\t')
+            f.write(' '.join([str(param[x]) for x in k]))
+            f.write('\n')
+            for x in k:
+                allkeys.remove(x)
+            return
+        #try if it is a bool argument
+        k1=[x for x in logfile_dict_bool.keys() if logfile_dict_bool[x]==k]
+        if len(k1)>0:
+            if type(k)==type(''):
+                k=[k,]
+            k=[x for x in k if x in allkeys]
+            if len(k)==0:
+                return
+            f.write(k1[0])
+            f.write(':\t')
+            f.write(' '.join([boolrepr(param[x]) for x in k]))
+            f.write('\n')
+            for x in k:
+                allkeys.remove(x)
+            return
+        #try if it is a list
+        k1=[x for x in logfile_dict_list.keys() if logfile_dict_list[x]==k]
+        if len(k1)>0:
+            if type(k)==type(''):
+                k=[k,]
+            k=[x for x in k if x in allkeys]
+            if len(k)==0:
+                return
+            f.write(k1[0])
+            f.write(':\t')
+            f.write(' '.join([listrepr(param[x]) for x in k]))
+            f.write('\n')
+            for x in k:
+                allkeys.remove(x)
+            return
+                
+    for k in logfile_order:
+        writekey(k)
+    for k in allkeys:
+        writekey(k)
+    f.close()

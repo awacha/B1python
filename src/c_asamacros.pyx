@@ -5,6 +5,9 @@ from stdlib cimport malloc, free
 cdef extern from "math.h":
     double sqrt(double)
     double floor(double)
+    double atan(double)
+    double tan(double)
+    double cos(double)
     
 cdef double *ctrapezoidshapefunction(double lengthbase,double lengthtop, double *x, Py_ssize_t lenx):
     cdef double * T
@@ -149,6 +152,18 @@ def smearingmatrix(Py_ssize_t pixelmin, Py_ssize_t pixelmax, double beamcenter,
     
 
 def trapezoidshapefunction(lengthbase,lengthtop,x):
+    """def trapezoidshapefunction(lengthbase,lengthtop,x):
+        
+    Return a trapezoid centered at zero
+    
+    Inputs:
+        lengthbase: the length of the base
+        lengthtop: the length of the top (normally smaller than lengthbase)
+        x: the coordinates
+    
+    Output:
+        the shape function in a numpy array.
+    """
     x=np.array(x)
     if len(x)<2:
         return np.array(1)
@@ -162,6 +177,71 @@ def trapezoidshapefunction(lengthbase,lengthtop,x):
     T[indslopeleft]=4.0/(lengthbase**2-lengthtop**2)*x[indslopeleft]+lengthbase*2.0/(lengthbase**2-lengthtop**2)
     T[indofflimits]=0
     return T
+
+def smearingmatrixtth(np.ndarray[np.double_t,ndim=1] tth,
+                      np.ndarray[np.double_t, ndim=2] p,
+                      np.ndarray[np.double_t,ndim=1] x,
+                      np.ndarray[np.double_t, ndim=1] y, double L0,tth_to_L):
+    """def smearingmatrixtth(tth,p,x,y,L0,tth_to_L):
+
+    Construct a smearing matrix.
+    
+    Inputs:
+        tth: two-theta scale. Should be sorted.
+        p: beam profile matrix (length: along rows. Height: along columns)
+        x: coordinate vector of the beam length
+        y: coordinate vector of the beam height
+        L0: sample-to-detector distance (detector at 0 angles)
+        tth_to_L: function which converts two theta to L. Arguments: tth, L0.
+            Special values: 'flat' for a flat detector or 'gonio' for goniometer.
+            Otherwise a function.
+    
+    Output:
+        the smearing matrix of size len(tth) x len(tth)
+        
+    Notes: you usually would want to add a longer two-theta scale and later trim
+        the matrix to avoid edge effects.
+    """
+    cdef bool flatdetector
+    cdef bool gonio
+    cdef np.ndarray[np.double_t, ndim=2] mat
+    cdef double X,Y,P,L,TTH,prop
+    cdef Py_ssize_t idxprev,idxnext,ix,iy,itth,Nx,Ny,Ntth
+    if tth_to_L.lower().startswith('flat'):
+        flatdetector=True
+    else:
+        flatdetector=False
+    if tth_to_L.lower().startswith('gonio'):
+        gonio=True
+    else:
+        gonio=False        
+    mat=np.zeros((len(tth),len(tth)),dtype=np.double)
+    Nx=len(x)
+    Ny=len(y)
+    Ntth=len(tth)
+    for itth from 0<=itth<Ntth:
+        #column index in mat is itth
+        TTH=tth[itth]
+        if gonio:
+            L=L0*cos(TTH)
+        elif flatdetector:
+            L=L0
+        else:
+            L=tth_to_L(TTH,L0)
+        for ix from 0<=ix<Nx:
+            X=x[ix]/L
+            for iy from 0<=iy<Ny:
+                Y=y[iy]/L
+                P=p[iy,ix]
+                tthnew=atan(sqrt((tan(TTH)-Y)**2+X**2))
+                idxnext=tth.searchsorted(tthnew)
+                idxprev=idxnext-1
+                if idxprev>=0 and idxnext<Ntth:
+                    prop=(tthnew-tth[idxprev])/(tth[idxnext]-tth[idxprev])
+                    mat[itth,idxprev]+=P*(1-prop)
+                    mat[itth,idxnext]+=P*prop
+    return mat
+
    
 #----------------RETIRED MACROS----------------------
 
