@@ -178,68 +178,107 @@ def trapezoidshapefunction(lengthbase,lengthtop,x):
     T[indofflimits]=0
     return T
 
-def smearingmatrixtth(np.ndarray[np.double_t,ndim=1] tth,
+def smearingmatrixgonio(double tthmin, double tthmax, Py_ssize_t Ntth,
                       np.ndarray[np.double_t, ndim=2] p,
                       np.ndarray[np.double_t,ndim=1] x,
-                      np.ndarray[np.double_t, ndim=1] y, double L0,tth_to_L):
-    """def smearingmatrixtth(tth,p,x,y,L0,tth_to_L):
+                      np.ndarray[np.double_t, ndim=1] y, double L0):
+    """def smearingmatrixgonio(tthmin,tthmax,Ntth,p,x,y,L0):
 
-    Construct a smearing matrix.
+    Construct a smearing matrix for line focus, goniometer.
     
     Inputs:
-        tth: two-theta scale. Should be sorted.
+        tthmin, tthmax, Ntth: two-theta scale. Ends are included.
         p: beam profile matrix (length: along rows. Height: along columns)
         x: coordinate vector of the beam length
         y: coordinate vector of the beam height
         L0: sample-to-detector distance (detector at 0 angles)
-        tth_to_L: function which converts two theta to L. Arguments: tth, L0.
-            Special values: 'flat' for a flat detector or 'gonio' for goniometer.
-            Otherwise a function.
     
     Output:
-        the smearing matrix of size len(tth) x len(tth)
+        the smearing matrix of size Ntth x Ntth
         
     Notes: you usually would want to add a longer two-theta scale and later trim
         the matrix to avoid edge effects.
     """
-    cdef bool flatdetector
-    cdef bool gonio
     cdef np.ndarray[np.double_t, ndim=2] mat
-    cdef double X,Y,P,L,TTH,prop
-    cdef Py_ssize_t idxprev,idxnext,ix,iy,itth,Nx,Ny,Ntth
-    if tth_to_L.lower().startswith('flat'):
-        flatdetector=True
-    else:
-        flatdetector=False
-    if tth_to_L.lower().startswith('gonio'):
-        gonio=True
-    else:
-        gonio=False        
-    mat=np.zeros((len(tth),len(tth)),dtype=np.double)
+    cdef double X,Y,P,L,TTH,prop,tthnew
+    cdef double tmp
+    cdef Py_ssize_t idxprev,ix,iy,itth,Nx,Ny
+    
+    mat=np.zeros((Ntth,Ntth),dtype=np.double)
     Nx=len(x)
     Ny=len(y)
-    Ntth=len(tth)
     for itth from 0<=itth<Ntth:
         #column index in mat is itth
-        TTH=tth[itth]
-        if gonio:
-            L=L0*cos(TTH)
-        elif flatdetector:
-            L=L0
-        else:
-            L=tth_to_L(TTH,L0)
+        TTH=tthmin+(tthmax-tthmin)/(Ntth-1)*itth
+        L=L0*cos(TTH)
         for ix from 0<=ix<Nx:
             X=x[ix]/L
             for iy from 0<=iy<Ny:
                 Y=y[iy]/L
                 P=p[iy,ix]
                 tthnew=atan(sqrt((tan(TTH)-Y)**2+X**2))
-                idxnext=tth.searchsorted(tthnew)
-                idxprev=idxnext-1
-                if idxprev>=0 and idxnext<Ntth:
-                    prop=(tthnew-tth[idxprev])/(tth[idxnext]-tth[idxprev])
+                tmp=(tthnew-tthmin)/(tthmax-tthmin)*(Ntth-1)
+                idxprev=int(floor(tmp))
+                prop=(tmp-idxprev)
+                if idxprev>=0 and idxprev<Ntth:
                     mat[itth,idxprev]+=P*(1-prop)
-                    mat[itth,idxnext]+=P*prop
+                if idxprev+1>=0 and idxprev+1<Ntth:
+                    mat[itth,idxprev+1]+=P*prop
+    return mat
+
+def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
+                      np.ndarray[np.double_t, ndim=2] p,
+                      np.ndarray[np.double_t,ndim=1] x,
+                      np.ndarray[np.double_t, ndim=1] y, double L0):
+    """def smearingmatrixflat(pixmin,pixmax,pixsize,p,x,y,L0):
+
+    Construct a smearing matrix for line focus, flat detector.
+    
+    Inputs:
+        pixmin: pixel coordinate of the first point
+        pixmax: pixel coordinate of the last point
+        pixsize: the width of a pixel (mm)
+        p: beam profile matrix (length: along rows. Height: along columns)
+        x: coordinate vector of the beam width
+        y: coordinate vector of the beam length
+        L0: sample-to-detector distance (detector at 0 angles)
+    
+    Output:
+        the smearing matrix of size Ntth x Ntth
+        
+    Notes:
+        you usually would want to add a longer two-theta scale and later trim
+            the matrix to avoid edge effects.
+        pixel 0 corresponds to the primary beam.
+        
+    """
+    cdef np.ndarray[np.double_t, ndim=2] mat
+    cdef double X,Y,P,prop,pixnew
+    cdef double tmp,pix
+    cdef Py_ssize_t idxprev,ix,iy,ipix,Nx,Ny,Npix
+    print "Smearingmatrixflat"
+    print "pixmin:",pixmin
+    print "pixmax:",pixmax    
+    Npix=long(pixmax-pixmin+1)
+    print "Npix:",Npix
+    mat=np.zeros((Npix,Npix),dtype=np.double)
+    Nx=len(x)
+    Ny=len(y)
+    for ipix from 0<=ipix<Npix:
+        pix=pixmin+ipix*(pixmax-pixmin)/(Npix-1)
+        for ix from 0<=ix<Nx:
+            X=x[ix]/L0
+            for iy from 0<=iy<Ny:
+                Y=y[iy]/L0
+                P=p[ix,iy]
+                pixnew=L0*atan(sqrt((pix*pixsize/L0-Y)**2+X**2))/pixsize
+                tmp=(pixnew-pixmin)/(pixmax-pixmin)*(Npix-1)
+                idxprev=int(floor(tmp))
+                prop=(tmp-idxprev)
+                if idxprev>=0 and idxprev<Npix:
+                    mat[ipix,idxprev]+=P*(1-prop)
+                if idxprev+1>=0 and idxprev+1<Npix:
+                    mat[ipix,idxprev+1]+=P*prop
     return mat
 
    

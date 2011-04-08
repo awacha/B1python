@@ -17,10 +17,12 @@ import matplotlib.widgets
 import guitools
 import utils
 import time
-from c_asamacros import smearingmatrix, trapezoidshapefunction, smearingmatrixtth
+from c_asamacros import smearingmatrix, trapezoidshapefunction, smearingmatrixgonio, smearingmatrixflat
 import xml.dom.minidom
 import os
 import shutil
+import warnings
+import B1io
 
 _asa_config={'dataroot':'/afs/.bionano/misc/measurements'}
 
@@ -324,6 +326,156 @@ def readxrdml(filename,twothetashift=0,returnSASDicts=False):
     elif returnSASDicts.upper()=='SCANS':
         return returnlist
 
+def generate_beamprofile_trapezoid(width,length,lengthtop,Nwid,Nlen):
+    """Generate a beam profile dict, to a trapezoid approximation.
+    
+    Inputs:
+        width: beam width
+        length: beam length
+        lengthtop: length of the top of the trapezoid (beam length)
+        Nwid: number of points in the beam width direction
+        Nlen: number of points in the beam length direction
+
+    Outputs:
+        a beam profile dict created by generate_beamprofile().
+    
+    Notes:
+        The beam profile is the outer product of the width and length profile.
+        The width profile is a simple upright triangle, the length profile is
+        a symmetrical trapezoid, its bottom being <length> long, while its top
+        is <lengthtop> long.
+        Normalization: areas under width and height profiles are unity.
+    
+    """
+    x=np.linspace(-width*0.5,width*0.5,Nwid)
+    y=np.linspace(-length*0.5,length*0.5,Nlen)
+    return generate_beamprofile(x,y,lambda x:trapezoidshapefunction(width,0,x),lambda y:trapezoidshapefunction(length,lengthtop,y))
+
+def generate_beamprofile(x,y,funcx,funcy=None):
+    """Generate a beam profile dict, which can be fed to directdesmear*()
+    
+    Inputs:
+        x: beam width coordinates (mm), this is the direction parallel to the detector
+        y: beam length coordinates (mm), this is the direction orthogonal to the detector
+        funcx, funcy: if funcy is not None, both need to be unary functions,
+            returning the value of the beam profile in the given direction. If
+            funcy is None, funcx needs to be a binary function. In either case,
+            they should accept matrices as arguments.
+    
+    Outputs:
+        a beam profile structure with the following keys:
+            'x': x coordinates
+            'y': y coordinates
+            'p': profile matrix (x: top-bottom, y: left-right)
+    """
+    if funcy is not None:
+        p=np.outer(funcx(x),funcy(y))
+    else:
+        p=np.outer(funcx(x,y))
+    return {'x':x,'y':y,'p':p}
+
+def directdesmeargonio(tth,Intensity,Error,beamprofile_or_mat,L,NMC=0):
+    """Do a direct desmear (Singh, Ghosh, Shannon) on a scattering curve recorded
+    by a goniometer.
+    
+    Inputs:
+        tth: two-theta range. Should be equally spaced.
+        Intensity: intensity curve corresponding to tth
+        Error: error curve
+        beamprofile_or_mat: beam profile dict, as returned by the function
+            generate_beamprofile() or a smearing matrix.
+        L: sample-detector distance (goniometer radius)
+        NMC: number of Monte-Carlo iterations for error propagation        
+    Outputs: Idesm, [Edesm], mat
+        Idesm: desmeared intensity
+        Edesm: error of the desmeared intensity (returned only if NMC>=2)
+        mat: smearing matrix
+    """
+    if type(beamprofile_or_mat)==type({}):
+        beamprofile_or_mat=smearingmatrixgonio(tth.min(),tth.max(),len(tth),
+                                               beamprofile_or_mat['p'],
+                                               beamprofile_or_mat['x'],
+                                               beamprofile_or_mat['y'],L)
+    idesm=np.linalg.linalg.solve(beamprofile_or_mat,(Intensity).flatten())
+    if NMC<2:
+        return idesm,beamprofile_or_mat
+    edesm=np.zeros(idesm.shape,np.double)
+    for i in range(NMC):
+        id1=np.linalg.linalg.solve(beamprofile_or_mat,(Intensity+Error*np.random.randn(len(Error))).flatten())
+        edesm+=(idesm-id1)**2
+    return idesm,np.sqrt(edesm)/(NMC-1),beamprofile_or_mat
+                                               
+def directdesmearflat(pix,Intensity,Error,beamprofile_or_mat,L,pixelsize,NMC=0):
+    """Do a direct desmear (Singh, Ghosh, Shannon) on a scattering curve recorded
+    with a flat detector.
+    
+    Inputs:
+        pix: pixel coordinates of the intensity. Should be equally spaced. Pixel
+            zero corresponds to the primary beam position.
+        Intensity: intensity curve corresponding to pix
+        Error: error curve
+        beamprofile_or_mat: beam profile dict, as returned by the function
+            generate_beamprofile() or a smearing matrix.
+        L: sample-detector distance
+        pixelsize: pixel size (in mm)
+        NMC: number of Monte-Carlo iterations for error propagation.
+        
+    Outputs: Idesm, [Edesm], mat
+        Idesm: desmeared intensity
+        Edesm: error of the desmeared intensity (only if NMC>=2)
+        mat: smearing matrix
+    """
+    if type(beamprofile_or_mat)==type({}):
+        beamprofile_or_mat=smearingmatrixflat(pix.min(),pix.max(),pixelsize,
+                                               beamprofile_or_mat['p'],
+                                               beamprofile_or_mat['x'],
+                                               beamprofile_or_mat['y'],L)
+    idesm=np.linalg.linalg.solve(beamprofile_or_mat,(Intensity).flatten())
+    if NMC<2:
+        return idesm,beamprofile_or_mat
+    edesm=np.zeros(idesm.shape,np.double)
+    for i in range(NMC):
+        id1=np.linalg.linalg.solve(beamprofile_or_mat,(Intensity+Error*np.random.randn(len(Error))).flatten())
+        edesm+=(idesm-id1)**2
+    return idesm,np.sqrt(edesm)/(NMC-1),beamprofile_or_mat
+
+def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title='',NMC=1000):
+    """De-smear scattering curves (flat detector)
+    
+    Inputs:
+        x: pixel coordinates (0 is the beam position)
+        Intensity: intensity
+        Error: error
+        beamprofile_or_mat: a valid input for directdesmearflat()
+        smoothing: smoothing parameter
+        L: sample-detector distance
+        pixelsize: pixel size
+        title: title to write over the smoothing diagram
+        NMC: Number of Monte Carlo steps for the error propagation.
+        
+    Outputs:
+        Idesm: de-smeared intensity
+        Edesm: error of de-smeared intensity
+        mat: smearing matrix
+    """
+    #set up smoothing
+    if type(beamprofile_or_mat)==type({}):
+        beamprofile_or_mat=smearingmatrixflat(x.min(),x.max(),pixelsize,
+                                              beamprofile_or_mat['p'],
+                                              beamprofile_or_mat['x'],
+                                              beamprofile_or_mat['y'],L)
+    def cbfunc(sm,ysm,axes,matrix=beamprofile_or_mat):
+        Idesm,mat=directdesmearflat(x,ysm,Error,beamprofile_or_mat,L,pixelsize,NMC=0)
+        matrix['mat']=mat
+        axes.plot(x,Idesm)
+        axes.set_title(title)
+    sm,ysm=guitools.testsmoothing(x,Intensity,smoothing,
+                                  slidermin=np.power(10,np.log10(smoothing)-2),
+                                  slidermax=np.power(10,np.log10(smoothing)+2),
+                                  returnsmoothed=True,callback=cbfunc)
+    Idesm,Edesm,mat=directdesmearflat(x,ysm,Error,beamprofile_or_mat,L,
+                                      pixelsize,NMC=NMC)
+    return Idesm,Edesm,mat
 
 def directdesmear(data,smoothing,params,title='',returnerror=False):
     """Desmear the scattering data according to the direct desmearing
@@ -377,6 +529,7 @@ def directdesmear(data,smoothing,params,title='',returnerror=False):
         desmerror: absolute error of the desmeared curve (returned only if
             returnerror was True)
     """
+    warnings.warn(DeprecationWarning("Function directdesmear() is deprecated, it will be removed in the future. Use desmearflat() or desmeargonio() instead."))
     #default values
     dparams={'pixelmin':-np.inf,'pixelmax':np.inf,
              'beamnumh':1024,'beamnumv':0}
@@ -475,7 +628,8 @@ def directdesmear(data,smoothing,params,title='',returnerror=False):
             raise ValueError('Invalid value for smoothingmode: %s',
                              smoothing['mode'])
         res=smooth_and_desmear(pixels,data,params,sm,smoothing['smoothmode'],returnerror)
-        return res        
+        return res    
+        
 def agstcalib(xdata,ydata,peaks,peakmode='Lorentz',wavelength=1.54,d=48.68,returnq=True):
     """Find q-range from AgSt (or AgBeh) measurements.
     
@@ -577,3 +731,114 @@ def tripcalib(xdata,ydata,peakmode='Lorentz',wavelength=1.54,qvals=2*np.pi*np.ar
         return a*xdata+b
     else:
         return a,b,aerr,berr
+
+def findbeamasa(asa,beampos=None,oriidx=None):
+    """Finds the beam position of an ASA measurement.
+    
+    Inputs:
+        asa: ASA dictionary (with the fields 'pixels' and 'position') or a list of them.
+        beampos: if None (default): a figure is presented for user interaction.
+            Otherwise it should be a floating point value, the beam position.
+        oriidx: if *asa* is not a list, this is ignored. Otherwise this is the
+            index in the list according to which the primary beam position is to
+            be determined. Special values are None (determine beam position
+            one-by-one), or 'avg' (to determine the beam position one-by-one and
+            average them).
+    """
+    if type(asa)!=type([]) and type(asa)!=type(tuple()):
+        asa=[asa]
+        oriidx=None
+    if beampos is not None: #we already have a beam position, set oriidx to None to skip beam finding.
+        oriidx=None
+    if type(oriidx)==type(1): #find the peak position acccording to the oriidx-th measurement
+        pylab.clf()
+        beampos=guitools.findpeak(asa[oriidx]['pixels'],asa[oriidx]['position'],
+            prompt='Select the beam area and press ENTER or an empty area to cancel.')
+    elif oriidx=='avg': # find all beam positions and average
+        bps=np.zeros(len(asa))
+        for i in range(len(asa)):
+            pylab.clf()
+            bps[i]=guitools.findpeak(asa[i]['pixel'],asa[i]['position'],
+                prompt='Select the beam area and press ENTER or an empty area to cancel.')
+        beampos=bps.mean()
+    for a in asa:
+        # If we are here, two cases are possible:
+        #    1) we already have a beampos value
+        #    2) beampos is None and oriidx is None.
+        if beampos is not None: #1
+            beampos1=beampos 
+        else: #2
+            pylab.clf()
+            beampos1=guitools.findpeak(a['pixels'],a['position'],
+                prompt='Select the beam area and press ENTER or an empty area to cancel.')
+        a['params']['BeamPos']=beampos1
+    return
+
+def setdistanceasa(asa,dist,distminus):
+    """Set the distance in ASA dicts.
+    
+    Inputs:
+        asa: either a single ASA dict, or a list of them
+        dist: distance in mm-s
+        distminus: subtractive distance correction. Either a scalar, or a dict,
+            with its keys being sample names and optionally None (default distminus).
+    
+    Outputs:
+        none, asa dict(s) will be updated.
+    """
+    if type(asa)!=type([]) and type(asa)!=type(tuple()):
+        asa=[asa]
+    if type(distminus)!=type({}):
+        distminus={None:distminus}
+    for a in asa:
+        if a['params']['basename'] in distminus.keys():
+            a['params']['Dist']=dist-distminus[a['params']['basename']]
+        elif None in distminus.keys():
+            a['params']['Dist']=dist-distminus[None]
+        else:
+            a['params']['Dist']=dist
+    return
+    
+def pixelsizefromagalkanoateasa(asa,peaks,d=48.68,peakmode='Lorentz'):
+    hperl=agstcalib(asa['pixels'],asa['position'],peaks,peakmode,asa['params']['wavelength'],d)[0]
+    return hperl*asa['params']['Dist']
+
+def setpixelsizeasa(asa,pixelsize):
+    if type(asa)!=type([]) and type(asa)!=type(tuple()):
+        asa=[asa]
+    for a in asa:
+        a['params']['PixelSize']=pixelsize
+        a['q']=calcqrangefrom1D(a['pixels'],a['params']['BeamPos'],
+                                a['params']['Dist'],a['params']['PixelSize'],
+                                a['params']['wavelength'])
+
+def setasaparams(asa,**kwargs):
+    if type(asa)!=type([]) and type(asa)!=type(tuple()):
+        asa=[asa]
+    for a in asa:
+        for k in kwargs.keys():
+            a['params'][k]=kwargs[k]
+
+def processasa(filenames,dist,distminus,pixelsize,beamprofile_or_mat,wavelength=1.54,dirs='.'):
+    if type(filenames)==type(''):
+        filenames=[filenames]
+    asas=B1io.readasa(filenames,dirs)
+    setdistanceasa(asas,dist,distminus)
+    for a in asas:
+        a['params']['wavelength']=wavelength
+    findbeamasa(asas)
+    setpixelsizeasa(asas,pixelsize)
+    for a in asas:
+        a['Intensity']=a['position']
+        a['Error']=a['poserror']
+        if beamprofile_or_mat is None:
+            continue
+        Idesm,Edesm,mat=desmearflat(a['pixels']-a['params']['BeamPos'],
+                                    a['position'],a['poserror'],
+                                    beamprofile_or_mat,1,a['params']['Dist'],
+                                    a['params']['PixelSize'],
+                                    a['params']['Title'],NMC=1000)
+        a['Idesm']=Idesm
+        a['Edesm']=Edesm
+        a['smearingmatrix']=mat
+    return asas

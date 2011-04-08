@@ -701,124 +701,76 @@ def basicfittinggui(data,title='',blocking=False):
         return basicfittinggui_old(data,title,blocking)
     else:
         return data.basicfittinggui(title,blocking)
-#        
-#    
-#    listoffits=[]
-#    
-#    leftborder=0.05
-#    topborder=0.9
-#    bottomborder=0.1
-#    leftbox_end=0.3
-#    fig=pylab.figure()
-#    pylab.clf()
-#    plots=[{'name':'Guinier','transform':utils.SASTransformGuinier(),
-#            'plotmethod':'plot'},
-#           {'name':'Guinier thickness','transform':utils.SASTransformGuinier(2),
-#            'plotmethod':'plot'},
-#           {'name':'Guinier cross-section','transform':utils.SASTransformGuinier(1),
-#            'plotmethod':'plot'},
-#           {'name':'Porod','transform':utils.SASTransformPorod(2),
-#            'plotmethod':'plot'},
-#           {'name':'Double linear','transform':utils.SASTransformLogLog(False,False),
-#            'plotmethod':'plot'},
-#           {'name':'Logarithmic y','transform':utils.SASTransformLogLog(False,False),
-#            'plotmethod':'semilogy'},
-#           {'name':'Logarithmic x','transform':utils.SASTransformLogLog(False,False),
-#            'plotmethod':'semilogx'},
-#           {'name':'Double logarithmic','transform':utils.SASTransformLogLog(False,False),
-#            'plotmethod':'loglog'}]
-#    buttons=[{'name':'Guinier','fitmethod':'guinierfit'},
-#             {'name':'Guinier thickness','fitmethod':'guinierthicknessfit'},
-#             {'name':'Guinier cross-section','fitmethod':'guiniercrosssectionfit'},
-#             {'name':'Porod','fitmethod':'porodfit'},
-#             {'name':'A * q^B','fitmethod':'powerlawfit'},
-#             {'name':'A * q^B + C','fitmethod':'powerlawconstantbackgroundfit'},
-#             {'name':'A * q^B + C + D * q','fitmethod':'powerlawlinearbackgroundfit'}]
-#            
-#    for i in range(len(buttons)):
-#        ax=pylab.axes((leftborder,topborder-(i+1)*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))))
-#        but=matplotlib.widgets.Button(ax,buttons[i]['name'])
-#        def onclick(A=None,B=None,data=data,type=buttons[i]['name'],fitfun=buttons[i]['fitmethod']):
-#            data1=data.trimzoomed()
-#            data1.transform=data.transform
-#            pylab.figure()
-#            res=getattr(data1,fitfun).__call__(plot=True)
-#            listoffits.append({'type':type,'res':res,'time':time.time(),'qmin':data1.q.min(),'qmax':data1.q.max()})
-#            pylab.gcf().show()
-#        but.on_clicked(onclick)
-#    ax=pylab.axes((leftborder,topborder-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))*len(plots) ))
-#    pylab.title('Plot types')
-#    rb=matplotlib.widgets.RadioButtons(ax,[p['name'] for p in plots],active=7)
-#    pylab.gcf().blocking=blocking
-#    if pylab.gcf().blocking: #if blocking mode is desired, put a "Done" button.
-#        ax=pylab.axes((leftborder,0.03,leftbox_end,bottomborder-0.03))
-#        b=matplotlib.widgets.Button(ax,"Done")
-#        fig=pylab.gcf()
-#        fig.fittingdone=False
-#        def onclick1(A=None,B=None,fig=fig):
-#            fig.fittingdone=True
-#            pylab.gcf().blocking=False
-#     #       print "blocking should now end"
-#        b.on_clicked(onclick1)
-#    pylab.axes((0.45,bottomborder,0.5,0.8))
-#    def onselectplottype(plottype,q=data['q'],I=data['Intensity'],title=title):
-#        pylab.cla()
-#        plotinfo=[d for d in plots if d['name']==plottype][0]
-#        data.transform=plotinfo['transform']
-#        getattr(data,plotinfo['plotmethod']).__call__()
-#        pylab.title(title)
-#        pylab.gcf().show()
-#    rb.on_clicked(onselectplottype)
-#    pylab.title(title)
-#    data.loglog('.')
-#    pylab.gcf().show()
-#    pylab.draw()
-#    fig=pylab.gcf()
-#    while blocking:
-#        fig.waitforbuttonpress()
-##        print "buttonpress"
-#        if fig.fittingdone:
-#            blocking=False
-#            #print "exiting"
-#    #print "returning"
-#    return listoffits
 
 
-#data quality tools
-def testsmoothing(x,y,smoothing=1e-5,slidermin=1e-6,slidermax=1e-2):
-    ax=pylab.axes((0.2,0.85,0.7,0.05));
-    sl=matplotlib.widgets.Slider(ax,'',np.log10(slidermin),np.log10(slidermax),np.log10(smoothing));
+def testsmoothing(x,y,smoothing=1e-5,slidermin=None,slidermax=None,
+                  xscaling='linear',yscaling='log',smoothingmode='spline',
+                  callback=None,returnsmoothed=False):
+    """Tool to test and adjust smoothing of a curve.
+    
+    Inputs:
+        x: abscissa
+        y: ordinate
+        smoothing: initial value of the smoothing parameter
+        slidermin: minimum value of the slider. If None, defaults to 10^(log10(smoothing)-2)
+        slidermax: maximum value of the slider. If None, defaults to 10^(log10(smoothing)+2)
+        xscaling: scaling ('log' or 'linear') of the abscissa
+        yscaling: scaling ('log' or 'linear') of the ordinate
+        smoothingmode: mode of smoothing (see fitting.smoothcurve() for valid
+            entries)
+        callback: either None (do nothing) or a callable, accepting three
+            arguments (the smoothing parameter, the smoothed curve and the axes)
+            to do something, even plot.
+        returnsmoothed: if the smoothed curve is to be returned [False by default]            
+    Outputs: s, [smoothedy]
+        s: the final smoothing parameter
+        smoothedy: the smoothed curve (if returnsmoothed was True)
+        
+    Notes:
+        a matplotlib figure will be presented with a slider to allow the user to
+        change the smoothing parameter.
+    """
+    #create the slider above
     fig=pylab.gcf()
+    fig.clf()
+    if slidermin is None:
+        slidermin=np.power(10,np.log10(smoothing)-2)
+    if slidermax is None:
+        slidermax=np.power(10,np.log10(smoothing)+2)
+    ax=fig.add_axes((0.2,0.85,0.7,0.05));
+    sl=matplotlib.widgets.Slider(ax,'',np.log10(slidermin),np.log10(slidermax),np.log10(smoothing));
     fig.smoothingdone=False
-    ax=pylab.axes((0.1,0.85,0.1,0.05));
-    def butoff(a=None):
-        pylab.gcf().smoothingdone=True
+    ax=fig.add_axes((0.1,0.85,0.1,0.05));
+    def butoff(a=None,fig=fig):
+        """This is going to be called if the OK button is pressed"""
+        fig.smoothingdone=True
     but=matplotlib.widgets.Button(ax,'Ok')
     but.on_clicked(butoff)
-    pylab.axes((0.1,0.1,0.8,0.7))
-    pylab.cla()
-    pylab.plot(x,y,'.')
-    smoothing=pow(10,sl.val);
-    y1=fitting.smoothcurve(x,y,smoothing,mode='spline')
-    pylab.plot(x,y1,linewidth=2)
-    def fun(a):
-        ax=pylab.axis()
-        pylab.cla()
-        pylab.plot(x,y,'.')
-        smoothing=pow(10,sl.val);
-        y1=fitting.smoothcurve(x,y,smoothing,mode='spline')
-        pylab.plot(x,y1,linewidth=2)
-        pylab.axis(ax)
+    
+    axes=fig.add_axes((0.1,0.1,0.8,0.7))
+    def fun(a,fig=fig,axes=axes,xscale=xscaling,yscale=yscaling,x=x,y=y,sl=sl,smoothmode=smoothingmode,callback=callback,thisisthefirstplot=False):
+        ax=axes.axis()
+        axes.cla()
+        axes.plot(x,y,'.')
+        axes.set_xscale(xscale)
+        axes.set_yscale(yscale)
+        fig.smoothing=pow(10.0,sl.val);
+        fig.ysmoothed=fitting.smoothcurve(x,y,fig.smoothing,mode=smoothmode)
+        axes.plot(x,fig.ysmoothed,linewidth=2)
+        if not thisisthefirstplot:
+            axes.axis(ax)
+        if callback is not None:
+            callback(fig.smoothing,fig.ysmoothed,axes)
+        pylab.draw()
+        fig.show()
     sl.on_changed(fun)
-    fun(1e-5)
+    fun(1e-5,thisisthefirstplot=True)
     while not fig.smoothingdone:
         pylab.waitforbuttonpress()
-    pylab.clf()
-    pylab.plot(x,y,'.')
-    y1=fitting.smoothcurve(x,y,pow(10,sl.val),mode='spline')
-    pylab.plot(x,y1,linewidth=2)
-    pylab.draw()
-    return pow(10,sl.val)
+    if returnsmoothed:
+        return fig.smoothing,fig.ysmoothed
+    else:
+        return fig.smoothing
 
 def testorigin(data,orig,mask=None,dmin=None,dmax=None):
     """Shows several test plots by which the validity of the determined origin

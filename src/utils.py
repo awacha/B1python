@@ -946,7 +946,7 @@ class SASDict(object):
                                               params,
                                               plotinfo)
         return p,e
-
+        
     def trimzoomed(self,inplace=False):
         """Trim dataset according to the current zoom on the last plot.
         

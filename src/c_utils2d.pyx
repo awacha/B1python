@@ -433,7 +433,7 @@ def azimintpixC(np.ndarray[np.double_t, ndim=2] data not None,
 def imageintC(np.ndarray[np.double_t,ndim=2] data not None,
               orig,
               np.ndarray[np.uint8_t,ndim=2] mask not None,
-              fi=None, dfi=None):
+              fi=None, dfi=None,np.ndarray[np.double_t,ndim=1] pix=None):
     """Perform radial averaging on the image.
     
     Inputs:
@@ -442,16 +442,18 @@ def imageintC(np.ndarray[np.double_t,ndim=2] data not None,
         mask: mask matrix; 1 means masked, 0 means non-masked
         fi: starting angle for sector averaging, in degrees
         dfi: angle extent for sector averaging, in degrees
+        pix [optional]: abscissa of the integrated data (in pixel coordinates)
     Outputs:
+        [vector of the abscissa, only if pix is not None]
         vector of integrated values
         vector of effective areas
         
     Note: based on the work of Mika Torkkeli
     """
     cdef double bcx,bcy,fi1,dfi1
-    cdef Py_ssize_t i,j,d
+    cdef Py_ssize_t i,j,d,k
     cdef Py_ssize_t Nrow,Ncol,Nbins
-    cdef double x,y,phi
+    cdef double x,y,phi,d1
     cdef int sectormode
     cdef double * C1
     cdef double * NC1
@@ -460,9 +462,14 @@ def imageintC(np.ndarray[np.double_t,ndim=2] data not None,
     bcy=orig[1]-1
     Nrow=data.shape[0]
     Ncol=data.shape[1]
-    Nbins=<Py_ssize_t>ceil(sqrt(Nrow**2+Ncol**2))+1
+    if pix is not None:
+        Nbins=len(pix)
+    else:
+        Nbins=<Py_ssize_t>ceil(sqrt(Nrow**2+Ncol**2))+1
+    #allocate C1 and N1 vectors
     C1=<double*>malloc(Nbins*sizeof(double))
     NC1=<double*>malloc(Nbins*sizeof(double))
+    #initialize C1 and NC1 vectors    
     for i from 0<=i<Nbins:
         C1[i]=0
         NC1[i]=0
@@ -474,37 +481,73 @@ def imageintC(np.ndarray[np.double_t,ndim=2] data not None,
         sectormode=0
         fi1=0
         dfi1=2*M_PI
-    for i from 0<=i<Nrow:
-        for j from 0<=j<Ncol:
-            if mask[i,j]:
-                continue
-            x=i-bcx
-            y=j-bcy
-            if sectormode:
-                phi=fmod(atan2(y,x)-fi1+10*M_PI,2*M_PI)
-                if phi>dfi1:
+    if pix is None:
+        for i from 0<=i<Nrow:
+            for j from 0<=j<Ncol:
+                if mask[i,j]:
                     continue
-            d=<Py_ssize_t>floor(sqrt(x*x+y*y))
-            C1[d]+=data[i,j]
-            NC1[d]+=1
-    #find the last nonzero bin
-    for d from 0<=d<Nbins:
-        if NC1[Nbins-1-d]>0:
-            break
-    #create return np.ndarrays
-    C=np.zeros(Nbins-d,dtype=np.double)
-    NC=np.zeros(Nbins-d,dtype=np.double)
-    #copy results
-    for i from 0<=i<Nbins:
-        if (NC1[i]>0):
-            C[i]=C1[i]/NC1[i]
-            NC[i]=NC1[i]
-    #free allocated variables
-    free(C1)
-    free(NC1)
-    #return
-    return C,NC
-
+                x=i-bcx
+                y=j-bcy
+                if sectormode:
+                    phi=fmod(atan2(y,x)-fi1+10*M_PI,2*M_PI)
+                    if phi>dfi1:
+                        continue
+                d=<Py_ssize_t>floor(sqrt(x*x+y*y))
+                C1[d]+=data[i,j]
+                NC1[d]+=1
+        #find the last nonzero bin
+        for d from 0<=d<Nbins:
+            if NC1[Nbins-1-d]>0:
+                break
+        #create return np.ndarrays
+        C=np.zeros(Nbins-d,dtype=np.double)
+        NC=np.zeros(Nbins-d,dtype=np.double)
+        #copy results
+        for i from 0<=i<Nbins:
+            if (NC1[i]>0):
+                C[i]=C1[i]/NC1[i]
+                NC[i]=NC1[i]
+        #free allocated variables
+        free(C1)
+        free(NC1)
+        #return
+        return C,NC
+    else: # pix is not None
+        for i from 0<=i<Nrow:
+            x=i-bcx
+            for j from 0<=j<Ncol:
+                if mask[i,j]:
+                    continue
+                y=j-bcy
+                if sectormode:
+                    phi=fmod(atan2(y,x)-fi1+10*M_PI,2*M_PI)
+                    if phi>dfi1:
+                        continue
+                d1=sqrt(x*x+y*y)
+                if d1<pix[0] or d1>pix[-1]:
+                    continue
+                for k from 0<=k<Nbins-1:
+                    if d1<(pix[k]+pix[k+1])*0.5:
+                        C1[k]+=data[i,j]
+                        NC1[k]+=1
+                        break
+                if k==Nbins-1:
+                    C1[Nbins-1]+=data[i,j]
+                    NC1[Nbins-1]+=1
+        #create return np.ndarrays
+        C=np.zeros(Nbins,dtype=np.double)
+        NC=np.zeros(Nbins,dtype=np.double)
+        #copy results
+        for i from 0<=i<Nbins:
+            if NC1[i]>0:
+                C[i]=C1[i]/NC1[i]
+                NC[i]=NC1[i]
+        #free allocated variables
+        free(C1)
+        free(NC1)
+        #return
+        return pix,C,NC
+        
 def azimintqC(np.ndarray[np.double_t, ndim=2] data not None,
               np.ndarray[np.double_t, ndim=2] error, # error can be None
               double energy,
@@ -690,3 +733,43 @@ def calculateDmatrix(np.ndarray[np.uint8_t, ndim=2] mask,res,double bcx,double b
         for j from 0<=j<N:
             D[i,j]=sqrt((res0*(i-bcx+1))**2+(res1*(j-bcy+1))**2)
     return D
+
+def twodimfromonedim(Py_ssize_t Nrows, Py_ssize_t Ncols, double pixelsize,
+                     Py_ssize_t Nsubdiv, double bcx, double bcy, curvefunc):
+    """def twodimfromonedim(Nrows, Ncols, pixelsize, Nsubdiv, bcx, bcy, curvefunc):
+    
+    Generate a two-dimensional matrix from a one-dimensional curve
+    
+    Inputs:
+        Nrows: number of rows in the output matrix
+        Ncols: number of columns in the output matrix
+        pixelsize: the size of the pixel (i.e. mm)
+        Nsubdiv: number of subpixels in each direction (to take the finite pixel
+            size of real detectors into account)
+        bcx: row coordinate of the beam center in pixels, counting starts with 1
+        bcy: column coordinate of the beam center in pixels, counting starts
+            with 1
+        curvefunc: a Python function. Takes exactly one argument and should
+            return a scalar (double).
+            
+    Output:
+        the scattering matrix.
+    """
+    cdef Py_ssize_t i,j,k,l
+    cdef np.ndarray[np.double_t, ndim=2] out
+    cdef double tmp,r
+    cdef double h
+    cdef double x,y
+    out=np.zeros((Nrows,Ncols),np.double)
+    h=pixelsize/Nsubdiv
+    for i from 0<=i<Nrows:
+        x=(i-bcx+1)*pixelsize
+        for j from 0<=j<Ncols:
+            tmp=0
+            y=(j-bcy+1)*pixelsize
+            for k from 0<=k<Nsubdiv:
+                for l from 0<=l<Nsubdiv:
+                    r=sqrt((x+(k+0.5)*h)**2+(y+(l+0.5)*h)**2)
+                    tmp+=curvefunc(r)
+            out[i,j]=tmp
+    return out

@@ -15,7 +15,7 @@ import pylab
 import numpy as np
 import scipy.optimize
 import types
-from c_utils2d import polartransform, radintC,imageintC,azimintpixC, azimintqC, bin2D, calculateDmatrix
+from c_utils2d import polartransform, radintC,imageintC,azimintpixC, azimintqC, bin2D, calculateDmatrix, twodimfromonedim
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 
 def findbeam_gravity(data,mask):
@@ -119,6 +119,7 @@ def findbeam_slices(data,orig_initial,mask=None,maxiter=0):
         return ret
     orig=scipy.optimize.leastsq(targetfunc,np.array(orig_initial),args=(data,1-mask),maxfev=maxiter,epsfcn=0.0001)
     return orig[0]
+
 def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,dmax=np.inf):
     """Find beam center using azimuthal integration
     
@@ -153,6 +154,38 @@ def findbeam_azimuthal(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,
         return abs(p[0])
     orig1=scipy.optimize.fmin(targetfunc,np.array(orig_initial),args=(data,1-mask),maxiter=maxiter)
     return orig1
+
+def findbeam_azimuthal_fold(data,orig_initial,mask=None,maxiter=100,Ntheta=50,dmin=0,dmax=np.inf):
+    """Find beam center using azimuthal integration and folding
+    
+    Inputs:
+        data: scattering matrix
+        orig_initial: estimated value for x (row) and y (column)
+            coordinates of the beam center, starting from 1.
+        mask: mask matrix. If None, nothing will be masked. Otherwise it
+            should be of the same size as data. Nonzero means non-masked.
+        maxiter: maximum number of iterations for scipy.optimize.fmin
+        Ntheta: the number of theta points for the azimuthal integration.
+            Should be even!
+        dmin: pixels nearer to the origin than this will be excluded from
+            the azimuthal integration
+        dmax: pixels farther from the origin than this will be excluded from
+            the azimuthal integration
+    Output:
+        a vector of length 2 with the x and y coordinates of the origin,
+            starting from 1
+    """
+    print "Finding beam (azimuthal_fold), please be patient..."
+    if Ntheta%2:
+        raise ValueError('Ntheta should be even in function findbeam_azimuthal_fold()!')
+    if mask is None:
+        mask=np.ones(data.shape)
+    def targetfunc(orig,data,mask):
+        t,I,a=azimintpixC(data,None,orig,mask.astype('uint8'),Ntheta,dmin,dmax)
+        return np.sum((I[:Ntheta/2]-I[Ntheta/2:])**2)/Ntheta
+    orig1=scipy.optimize.fmin(targetfunc,np.array(orig_initial),args=(data,1-mask),maxiter=maxiter)
+    return orig1
+
 def findbeam_semitransparent(data,pri):
     """Find beam with 2D weighting of semitransparent beamstop area
 

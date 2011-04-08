@@ -418,6 +418,90 @@ def Ctheorspheregas(np.ndarray[np.double_t, ndim=1] qrange not None,
             Intensity[i]+=(rho[j]*fsphere(q,R[j]))**2
     return Intensity            
 
+def Ctheorspheres_azim(np.ndarray[np.double_t, ndim=1] x not None,
+                       np.ndarray[np.double_t, ndim=1] y not None,
+                       np.ndarray[np.double_t, ndim=1] z not None,
+                       np.ndarray[np.double_t, ndim=1] R not None,
+                       np.ndarray[np.double_t, ndim=1] rho not None,
+                       double q,
+                       Py_ssize_t Nalpha=360, alphastart=0):
+    """def Ctheorspheres_azim(x,y,z,R,rho,q,Nalpha=360,alphastart=0)
+    
+    Calculate azimuthal scattering of an ensemble of spheres
+    
+    Inputs:
+        x: 1d (double) vector of x coordinates
+        y: 1d (double) vector of y coordinates
+        z: 1d (double) vector of z coordinates
+        R: 1d (double) vector of radii
+        rho: 1d (double) vector of electron densities
+        q: radius of q ring
+        Nalpha: number of points (defaults to 360).
+        alphastart: starting value of alpha (defaults to 0)
+    Outputs: alpha,Int
+        alpha: azimuth angle (rad)
+        Int: intensity        
+    """
+    cdef double I
+    cdef Py_ssize_t i,j,k
+    cdef Py_ssize_t lensphere
+    cdef double dq
+    cdef double factor1,factor
+    cdef double *myx
+    cdef double *myy
+    cdef double *myz
+    cdef double *myR
+    cdef double *myrho
+    cdef np.ndarray[np.double_t, ndim=1] Intensity
+    
+    lensphere=len(x)
+    if lensphere!=len(y):
+        raise ValueError('argument x and y should be of the same length!')
+    if lensphere!=len(z):
+        raise ValueError('argument x and z should be of the same length!')
+    if lensphere!=len(R):
+        raise ValueError('argument x and R should be of the same length!')
+    if lensphere!=len(rho):
+        raise ValueError('argument x and rho should be of the same length!')
+    
+    myx=<double*>malloc(lensphere*sizeof(double))
+    myy=<double*>malloc(lensphere*sizeof(double))
+    myz=<double*>malloc(lensphere*sizeof(double))
+    myR=<double*>malloc(lensphere*sizeof(double))
+    myrho=<double*>malloc(lensphere*sizeof(double))
+    
+    for i from 0<=i<lensphere:
+        myx[i]=x[i]
+        myy[i]=y[i]
+        myz[i]=z[i]
+        myR[i]=R[i]
+        myrho[i]=rho[i]
+    
+    Intensity=np.zeros(Nalpha,dtype=np.double)
+    for i from 0<=i<Nalpha:
+        alpha=i*M_PI*2/Nalpha+alphastart
+        qx=q*cos(alpha)
+        qy=q*sin(alpha)
+        I=0
+        for j from 0<=j<lensphere:
+            factor1=myrho[j]*fsphere(q,myR[j])
+            I+=factor1**2
+            for k from j<k<lensphere:
+                dq=(myx[j]-myx[k])*qx+(myz[j]-myz[k])*qy
+                if (dq==0):
+                    factor=1
+                else:
+                    factor=cos(dq)
+                I+=myrho[k]*fsphere(q,myR[k])*factor1*factor*2
+        Intensity[i]=I
+    free(myrho)
+    free(myx)
+    free(myy)
+    free(myz)
+    free(myR)
+    return Intensity            
+    
+
 def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
                   np.ndarray[np.double_t, ndim=1] x not None,
                   np.ndarray[np.double_t, ndim=1] y not None,

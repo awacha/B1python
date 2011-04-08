@@ -4,25 +4,7 @@
 #
 # Author:      Andras Wacha
 #
-# Created:     2010/02/22
-# RCS-ID:      $Id: B1io.py $
-# Copyright:   (c) 2010
-# Licence:     GPLv2
 #-----------------------------------------------------------------------------
-#       This program is free software; you can redistribute it and/or modify
-#       it under the terms of the GNU General Public License as published by
-#       the Free Software Foundation; either version 2 of the License, or
-#       (at your option) any later version.
-#       
-#       This program is distributed in the hope that it will be useful,
-#       but WITHOUT ANY WARRANTY; without even the implied warranty of
-#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#       GNU General Public License for more details.
-#       
-#       You should have received a copy of the GNU General Public License
-#       along with this program; if not, write to the Free Software
-#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-#       MA 02110-1301, USA.
 
 import pylab
 import numpy as np
@@ -36,7 +18,7 @@ import utils
 import re
 import warnings
 import fitting
-
+import datetime
 
 from c_B1io import cbfdecompress
 HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
@@ -46,6 +28,63 @@ try:
     import Image
 except ImportError:
     warnings.warn('Cannot import module Image (Python Imaging Library). Only Pilatus300k and Gabriel images can be loaded (Pilatus100k, 1M etc. NOT).')
+
+def readyellowsubmarine(nameformat,fsns=None,dirs='.'):
+    """
+    """
+    if fsns is None:
+        filenames=[nameformat]
+    else:
+        filenames=[nameformat%f for f in fsns]
+    if type(dirs)!=type([]) and type(dirs)!=type(tuple()):
+        dirs=[dirs]
+    datas=[]
+    params=[]
+    for fn in filenames:
+        for d in dirs:
+            try:
+                f=open(os.path.join(d,fn),'r')
+            except IOError:
+                continue
+            try:
+                s=f.read()            
+                f.close()
+                par={}
+                par['FSN']=int(s[2:6])
+                par['Owner']=s[6:0x18].split()[0]
+                par['Title']='_'.join(s[6:0x18].split()[1:])
+                par['MeasTime']=long(s[0x18:0x1e])
+                par['Monitor']=long(s[0x1e:0x26])
+                par['Day']=int(s[0x26:0x28])
+                par['Month']=int(s[0x29:0x2b])
+                par['Year']=int(s[0x2c:0x30])
+                par['Hour']=int(s[0x30:0x32])
+                par['Minute']=int(s[0x33:0x35])
+                par['Second']=int(s[0x36:0x38])
+                par['PosSample']=int(s[0x60:0x65])
+                par['PosBS']=int(s[0x5b:0x60])
+                par['PosDetector']=int(s[0x56:0x5b])
+                par['max']=long(s[0x38:0x3d])
+                par['selector_speed']=long(s[0x3d:0x42])
+                par['wavelength']=long(s[0x42:0x44])
+                par['Dist_Ech_det']=long(s[0x44:0x49])
+                par['comments']=s[0x6d:0x100]
+                par['sum']=long(s[0x65:0x6d])
+                par['BeamPosX']=float(s[0x49:0x4d])
+                par['BeamPosY']=float(s[0x4d:0x51])
+                par['AngleBase']=float(s[0x51:0x56])
+                par['Datetime']=datetime.datetime(par['Year'],par['Month'],par['Day'],par['Hour'],par['Minute'],par['Second'])
+                
+                params.append(par)
+                datas.append(np.fromstring(s[0x100:],np.uint16).astype(np.double).reshape((64,64)))
+                break
+            except ValueError:
+                print "File %s is invalid! Skipping."%fn
+                continue
+    if fsns is None:
+        return datas[0],params[0]
+    else:
+        return datas,params
 
 
 def readcbf(name):
@@ -278,17 +317,19 @@ def bdf_read(filename):
             bdf['CT'][t_list[j]]=t_value[j]
     fid.close()
     return bdf
+
 def readasa(basename,dirs=[]):
     """Load SAXS/WAXS measurement files from ASA *.INF, *.P00 and *.E00 files.
     
     Input:
-        basename: the basename (without extension) of the files
+        basename: the basename (without extension) of the files. Can also be a
+            list of strings
         dirs: list of directories (or just a single directory) to search files
             in. P00, INF and E00 should reside in the same directory.
     Output:
-        An ASA dictionary of the following fields:
-            position: the counts for each pixel (numpy array)
-            energy: the energy spectrum (numpy array)
+        An ASA dictionary (or a list of them) with the following fields:
+            position: the counts for each pixel (numpy array), in cps
+            energy: the energy spectrum (numpy array), in cps
             params: parameter dictionary. It has the following fields:
                 Month: The month of the measurement
                 Day: The day of the measurement
@@ -307,93 +348,110 @@ def readasa(basename,dirs=[]):
                 Realtime: real time in seconds
                 Livetime: live time in seconds
             pixels: the pixel numbers.
+            poserror: estimated error of the position (cps)
+            energyerror: estimated error of the energy (cps)
     """
     if type(dirs)==type(''):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
-    for d in dirs:
-        try:
-            p00=np.loadtxt(os.path.join(d,'%s.P00' % basename))
-        except IOError:
+    if type(basename)==type(''):
+        basenames=[basename]
+        basename_scalar=True
+    else:
+        basenames=basename
+        basename_scalar=False
+    ret=[]
+    for basename in basenames:
+        for d in dirs:
             try:
-                p00=np.loadtxt(os.path.join(d,'%s.p00' % basename))
-            except:
-                p00=None
-        if p00 is not None:
-            p00=p00[1:] # cut the leading -1
-        try:
-            e00=np.loadtxt(os.path.join(d,'%s.E00' % basename))
-        except IOError:
-            try:
-                e00=pylab.loadtxt(os.path.join(d,'%s.e00' % basename))
-            except:
-                e00=None
-        if e00 is not None:
-            e00=e00[1:] # cut the leading -1
-        try:
-            inffile=open(os.path.join(d,'%s.inf' % basename))
-        except IOError:
-            try:
-                inffile=open(os.path.join(d,'%s.Inf' % basename))
+                p00=np.loadtxt(os.path.join(d,'%s.P00' % basename))
             except IOError:
                 try:
-                    inffile=open(os.path.join(d,'%s.INF' % basename))
+                    p00=np.loadtxt(os.path.join(d,'%s.p00' % basename))
                 except:
-                    inffile=None
-                    params=None
-        if (p00 is not None) and (e00 is not None) and (inffile is not None):
-            break
-        else:
-            p00=None
-            e00=None
-            inffile=None
-    if (p00 is None) or (e00 is None) or (inffile is None):
-        print "Cannot find every file (*.P00, *.INF, *.E00) for sample %s in any directory" %basename
-        return None
-    if inffile is not None:
-        params={}
-        l1=inffile.readlines()
-        l=[]
-        for line in l1:
-            if len(line.strip())>0:
-                l.append(line)
-        def getdate(str):
+                    p00=None
+            if p00 is not None:
+                p00=p00[1:] # cut the leading -1
             try:
-                month=int(str.split()[0].split('-')[0])
-                day=int(str.split()[0].split('-')[1])
-                year=int(str.split()[0].split('-')[2])
-                hour=int(str.split()[1].split(':')[0])
-                minute=int(str.split()[1].split(':')[1])
-                second=int(str.split()[1].split(':')[2])
-            except:
-                return None
-            return {'Month':month,'Day':day,'Year':year,'Hour':hour,'Minute':minute,'Second':second}
-        if getdate(l[0]) is None:
-            params['Title']=l[0].strip()
-            offset=1
-        else:
-            params['Title']=basename
-            offset=0
-        d=getdate(l[offset])
-        params.update(d)
-        for line in l:
-            if line.strip().startswith('PSD1 Lower Limit'):
-                params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
-            elif line.strip().startswith('PSD1 Upper Limit'):
-                params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
-            elif line.strip().startswith('Realtime'):
-                params['Realtime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
-            elif line.strip().startswith('Lifetime'):
-                params['Livetime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
-            elif line.strip().startswith('Lower Limit'):
-                params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
-            elif line.strip().startswith('Upper Limit'):
-                params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
-            elif line.strip().startswith('Stop Condition'):
-                params['Stopcondition']=line.strip().split(':')[1].strip().replace(',','.')
-        params['basename']=basename.split(os.sep)[-1]
-    return {'position':p00,'energy':e00,'params':params,'pixels':pylab.arange(len(p00))}
+                e00=np.loadtxt(os.path.join(d,'%s.E00' % basename))
+            except IOError:
+                try:
+                    e00=pylab.loadtxt(os.path.join(d,'%s.e00' % basename))
+                except:
+                    e00=None
+            if e00 is not None:
+                e00=e00[1:] # cut the leading -1
+            try:
+                inffile=open(os.path.join(d,'%s.inf' % basename))
+            except IOError:
+                try:
+                    inffile=open(os.path.join(d,'%s.Inf' % basename))
+                except IOError:
+                    try:
+                        inffile=open(os.path.join(d,'%s.INF' % basename))
+                    except:
+                        inffile=None
+                        params=None
+            if (p00 is not None) and (e00 is not None) and (inffile is not None):
+                break
+            else:
+                p00=None
+                e00=None
+                inffile=None
+        if (p00 is None) or (e00 is None) or (inffile is None):
+            print "Cannot find every file (*.P00, *.INF, *.E00) for sample %s in any directory" %basename
+            continue
+        if inffile is not None:
+            params={}
+            l1=inffile.readlines()
+            l=[]
+            for line in l1:
+                if len(line.strip())>0:
+                    l.append(line)
+            def getdate(str):
+                try:
+                    month=int(str.split()[0].split('-')[0])
+                    day=int(str.split()[0].split('-')[1])
+                    year=int(str.split()[0].split('-')[2])
+                    hour=int(str.split()[1].split(':')[0])
+                    minute=int(str.split()[1].split(':')[1])
+                    second=int(str.split()[1].split(':')[2])
+                except:
+                    return None
+                return {'Month':month,'Day':day,'Year':year,'Hour':hour,'Minute':minute,'Second':second}
+            if getdate(l[0]) is None:
+                params['Title']=l[0].strip()
+                offset=1
+            else:
+                params['Title']=basename
+                offset=0
+            d=getdate(l[offset])
+            params.update(d)
+            for line in l:
+                if line.strip().startswith('PSD1 Lower Limit'):
+                    params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
+                elif line.strip().startswith('PSD1 Upper Limit'):
+                    params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
+                elif line.strip().startswith('Realtime'):
+                    params['Realtime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
+                elif line.strip().startswith('Lifetime'):
+                    params['Livetime']=float(line.strip().split(':')[1].split()[0].replace(',','.').replace('\xa0',''))
+                elif line.strip().startswith('Lower Limit'):
+                    params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
+                elif line.strip().startswith('Upper Limit'):
+                    params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
+                elif line.strip().startswith('Stop Condition'):
+                    params['Stopcondition']=line.strip().split(':')[1].strip().replace(',','.')
+            params['basename']=basename.split(os.sep)[-1]
+        ret.append({'position':p00/params['Livetime'],'energy':e00/params['Livetime'],
+                'params':params,'pixels':pylab.arange(len(p00)),
+                'poserror':np.sqrt(p00)/params['Livetime'],
+                'energyerror':np.sqrt(e00)/params['Livetime']})
+    if basename_scalar:
+        return ret[0]
+    else:
+        return ret
 def readheader(filename,fsn=None,fileend=None,dirs=[],quiet=False):
     """Reads header data from measurement files
     

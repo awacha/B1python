@@ -4,12 +4,17 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
-VERSION='0.7.4'
+
+VERSION='0.7.5'
 
 try:
     f=open('src/__init__.py','rt')
     lines=f.readlines()
     f.close()
+    verline=[l for l in lines if l.strip().startswith('VERSION')][0]
+    verline=verline.split('=')[1].strip()[1:-1]
+    if verline==VERSION:
+        raise RuntimeError # to quit this try block
     f1=open('src/__init__.py','w+t')
     for l in lines:
         if l.strip().startswith('VERSION'):
@@ -23,6 +28,8 @@ try:
     print ""
 except IOError:
     print "Cannot update VERSION in src/__init__.py"
+except RuntimeError:
+    pass
 
 ext_modules = [Extension("B1python.c_asamacros", ["src/c_asamacros.pyx"]),
                Extension("B1python.c_asaxseval",["src/c_asaxseval.pyx"]),
