@@ -347,6 +347,7 @@ def readasa(basename,dirs=[]):
                 Stopcondition: stop condition in a string
                 Realtime: real time in seconds
                 Livetime: live time in seconds
+                Datetime: date and time in a datetime.datetime struct.
             pixels: the pixel numbers.
             poserror: estimated error of the position (cps)
             energyerror: estimated error of the energy (cps)
@@ -419,7 +420,9 @@ def readasa(basename,dirs=[]):
                     second=int(str.split()[1].split(':')[2])
                 except:
                     return None
-                return {'Month':month,'Day':day,'Year':year,'Hour':hour,'Minute':minute,'Second':second}
+                return {'Month':month,'Day':day,'Year':year,
+                        'Hour':hour,'Minute':minute,'Second':second,
+                        'Datetime':datetime.datetime(year,month,day,hour,minute,second)}
             if getdate(l[0]) is None:
                 params['Title']=l[0].strip()
                 offset=1
@@ -447,7 +450,9 @@ def readasa(basename,dirs=[]):
         ret.append({'position':p00/params['Livetime'],'energy':e00/params['Livetime'],
                 'params':params,'pixels':pylab.arange(len(p00)),
                 'poserror':np.sqrt(p00)/params['Livetime'],
-                'energyerror':np.sqrt(e00)/params['Livetime']})
+                'energyerror':np.sqrt(e00)/params['Livetime'],
+                'vectors':['pixels','position','poserror'],
+                'x_is':'pixels','y_is':'position','dy_is':'poserror'})
     if basename_scalar:
         return ret[0]
     else:

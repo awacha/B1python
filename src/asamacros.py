@@ -465,8 +465,9 @@ def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title
                                               beamprofile_or_mat['x'],
                                               beamprofile_or_mat['y'],L)
     def cbfunc(sm,ysm,axes,matrix=beamprofile_or_mat):
-        Idesm,mat=directdesmearflat(x,ysm,Error,beamprofile_or_mat,L,pixelsize,NMC=0)
-        matrix['mat']=mat
+        Idesm,mat=directdesmearflat(x,ysm,Error,matrix,L,pixelsize,NMC=0)
+        if type(matrix)==type({}):
+            matrix['mat']=mat # the smearing matrix won't change during the iterations, better fix it to avoid re-calculation
         axes.plot(x,Idesm)
         axes.set_title(title)
     sm,ysm=guitools.testsmoothing(x,Intensity,smoothing,

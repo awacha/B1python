@@ -229,7 +229,7 @@ def smearingmatrixgonio(double tthmin, double tthmax, Py_ssize_t Ntth,
 def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
                       np.ndarray[np.double_t, ndim=2] p,
                       np.ndarray[np.double_t,ndim=1] x,
-                      np.ndarray[np.double_t, ndim=1] y, double L0):
+                      np.ndarray[np.double_t, ndim=1] y, double L0,callback=None):
     """def smearingmatrixflat(pixmin,pixmax,pixsize,p,x,y,L0):
 
     Construct a smearing matrix for line focus, flat detector.
@@ -238,10 +238,14 @@ def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
         pixmin: pixel coordinate of the first point
         pixmax: pixel coordinate of the last point
         pixsize: the width of a pixel (mm)
-        p: beam profile matrix (length: along rows. Height: along columns)
-        x: coordinate vector of the beam width
-        y: coordinate vector of the beam length
+        p: beam profile matrix (length: along rows. Height: along columns. I.e.
+            in normal case, the matrix has more columns than rows).
+        x: coordinate vector of the beam width (number of elements= number of rows in the matrix)
+        y: coordinate vector of the beam length (number of elements= number of columns in the matrix)
         L0: sample-to-detector distance (detector at 0 angles)
+        callback: callback function (will be called (pixmax-pixmin+1) times)
+            during the calculation, if not None. Intended for eg. progress bars.
+            
     
     Output:
         the smearing matrix of size Ntth x Ntth
@@ -250,35 +254,44 @@ def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
         you usually would want to add a longer two-theta scale and later trim
             the matrix to avoid edge effects.
         pixel 0 corresponds to the primary beam.
+        y is parallel with the length of the beam, x with its width. z points at
+            the detector (which is parallel with x)
         
     """
     cdef np.ndarray[np.double_t, ndim=2] mat
     cdef double X,Y,P,prop,pixnew
     cdef double tmp,pix
     cdef Py_ssize_t idxprev,ix,iy,ipix,Nx,Ny,Npix
-    print "Smearingmatrixflat"
-    print "pixmin:",pixmin
-    print "pixmax:",pixmax    
+    #number of pixels
     Npix=long(pixmax-pixmin+1)
-    print "Npix:",Npix
+    #create an empty matrix
     mat=np.zeros((Npix,Npix),dtype=np.double)
     Nx=len(x)
     Ny=len(y)
-    for ipix from 0<=ipix<Npix:
+    for ipix from 0<=ipix<Npix: # for each pixel (defines the two-theta) in the original (unsmeared) curve:
+        #calculate the pixel value for the ith pixel
         pix=pixmin+ipix*(pixmax-pixmin)/(Npix-1)
-        for ix from 0<=ix<Nx:
-            X=x[ix]/L0
-            for iy from 0<=iy<Ny:
-                Y=y[iy]/L0
-                P=p[ix,iy]
-                pixnew=L0*atan(sqrt((pix*pixsize/L0-Y)**2+X**2))/pixsize
+        if callback is not None: # do the callback function.
+            callback.__call__()
+        for ix from 0<=ix<Nx: #loop through the beam width (parallel to the detector, the smallest)
+            #X=x[ix]/L0 #re-scale coordinate by the s-d distance
+            X=x[ix]
+            for iy from 0<=iy<Ny: # loop through the beam length (orthogonal to the detector)
+                #Y=y[iy]/L0 #re-scale coordinate)
+                Y=y[iy]
+                P=p[ix,iy] #get the current element of the primary beam matrix
+                #calculate the pixel coordinate into which the scattering from this beam point falls under two-theta (defined by pix and ipix)
+                #pixnew=L0*atan(sqrt((pix*pixsize/L0-Y)**2+X**2))/pixsize
+                pixnew=(sqrt(pixsize*pixsize*pix*pix-Y*Y)+X)/pixsize
+                #calculate the index of pixnew -> tmp
                 tmp=(pixnew-pixmin)/(pixmax-pixmin)*(Npix-1)
-                idxprev=int(floor(tmp))
-                prop=(tmp-idxprev)
+                idxprev=int(floor(tmp)) # index of the previous pixel
+                prop=(tmp-idxprev) #difference in pixel coordinate from the previous pixel
+                #interpolate linearly
                 if idxprev>=0 and idxprev<Npix:
-                    mat[ipix,idxprev]+=P*(1-prop)
+                    mat[idxprev,ipix]+=P*(1-prop)
                 if idxprev+1>=0 and idxprev+1<Npix:
-                    mat[ipix,idxprev+1]+=P*prop
+                    mat[idxprev+1,ipix]+=P*prop
     return mat
 
    
