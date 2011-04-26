@@ -8,7 +8,70 @@ cdef extern from "math.h":
     double atan(double)
     double tan(double)
     double cos(double)
+
+cdef double *relaxedGaussSeidel(double *A, double *b, double *x, Py_ssize_t N, double relaxpar, Py_ssize_t Niter):
+    """A matrix: A[i,j]=i-th row, j-th column. Column-first ordering: A[i,j]=A[j*N+i]
+    """
+    cdef Py_ssize_t i,k,it
+    cdef double d
+    for it from 0<=it<Niter:
+        for i from 0<=i<N:
+            d=b[i]
+            for k from 0<=k<N:
+                d-=A[i+k*N]*x[k]
+            x[i]+=relaxpar*d/A[i+i*N]
+    return x
+
+def GaussSeidel(np.ndarray [np.double_t, ndim=2] A, np.ndarray[np.double_t, ndim=1] b,
+                np.ndarray [np.double_t, ndim=1] x, double relaxpar, Py_ssize_t Niter):
+    """def GaussSeidel(np.ndarray [np.double_t, ndim=2] A, np.ndarray[np.double_t, ndim=1] b,
+                np.ndarray [np.double_t, ndim=1] x, double relaxpar, Py_ssize_t Niter):
+
+    Solve a linear equation according to the relaxed Gauss-Seidel iterative method.
     
+    Inputs:
+        A: N-by-N double matrix
+        b: right-hand side
+        x: first estimate for the solution
+        relaxpar: parameter for the stabilization, between 0 and 2
+        Niter: number of iterations
+    
+    Outputs:
+        the result. The original "x" vector is intact.
+    """
+    cdef double *A1
+    cdef double *b1
+    cdef double *x1
+    cdef Py_ssize_t N
+    cdef Py_ssize_t i
+    cdef np.ndarray[np.double_t, ndim=1] out
+    
+    N=A.shape[0]
+    if A.shape[1]!=N:
+        raise ValueError('Matrix A should be square.')
+    if len(b)!=N:
+        raise ValueError('Vector b should be compatible in size with matrix A.')
+    if len(x)!=N:
+        raise ValueError('Vector x should be compatible in size with matrix A.')
+    if relaxpar<0 or relaxpar>2:
+        raise ValueError('relaxpar should be between 0 and 2 to converge.')
+    A1=<double*>malloc(sizeof(double)*N*N)
+    b1=<double*>malloc(sizeof(double)*N)
+    x1=<double*>malloc(sizeof(double)*N)
+    for i from 0<=i<N:
+        b1[i]=b[i]
+        x1[i]=x[i]
+    for i from 0<=i<N*N:
+        A1[i]=A[i%N,i/N]
+    relaxedGaussSeidel(A1,b1,x1,N,relaxpar,Niter)
+    out=np.zeros((x.shape[0]))
+    for i from 0<=i<N:
+        out[i]=x1[i]
+    free(A1)
+    free(b1)
+    free(x1)
+    return out
+
 cdef double *ctrapezoidshapefunction(double lengthbase,double lengthtop, double *x, Py_ssize_t lenx):
     cdef double * T
     cdef Py_ssize_t i
@@ -151,7 +214,7 @@ def smearingmatrix(Py_ssize_t pixelmin, Py_ssize_t pixelmax, double beamcenter,
     return A
     
 
-def trapezoidshapefunction(lengthbase,lengthtop,x):
+def trapezoidshapefunction(double lengthbase,double lengthtop,x):
     """def trapezoidshapefunction(lengthbase,lengthtop,x):
         
     Return a trapezoid centered at zero
@@ -295,81 +358,3 @@ def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
     return mat
 
    
-#----------------RETIRED MACROS----------------------
-
-def smearingmatrix1(pixelmin,pixelmax,beamcenter,pixelsize,lengthbaseh,
-                   lengthtoph,lengthbasev=0,lengthtopv=0,beamnumh=1024,
-                   beamnumv=1):
-    """Calculate the smearing matrix for the given geometry.
-    
-    Inputs: (pixels and pixel coordinates are counted from 0. The direction
-        of the detector is assumed to be vertical.)
-        pixelmin: the smallest pixel to take into account
-        pixelmax: the largest pixel to take into account
-        beamcenter: pixel coordinate of the primary beam
-        pixelsize: the size of pixels, in micrometers
-        lengthbaseh: the length of the base of the horizontal beam profile
-        lengthtoph: the length of the top of the horizontal beam profile
-        lengthbasev: the length of the base of the vertical beam profile
-        lengthtopv: the length of the top of the vertical beam profile
-        beamnumh: the number of elementary points of the horizontal beam
-            profile
-        beamnumv: the number of elementary points of the vertical beam profile
-            Give 1 if you only want to take the length of the slit into
-            account.
-    
-    Output:
-        The smearing matrix. This is an upper triangular matrix. Desmearing
-        of a column vector of the measured intensities can be accomplished by
-        multiplying by the inverse of this matrix.
-    """
-    # coordinates of the pixels
-    pixels=np.arange(pixelmin,pixelmax+1)
-    # distance of each pixel from the beam in pixel units
-    x=np.absolute(pixels-beamcenter);
-    # horizontal and vertical coordinates of the beam-profile in mm.
-    if beamnumh>1:
-        yb=np.linspace(-max(lengthbaseh,lengthtoph)/2.0,max(lengthbaseh,lengthtoph)/2.0,beamnumh)
-        deltah=(yb[-1]-yb[0])*1.0/beamnumh
-        centerh=2.0/(lengthbaseh+lengthtoph)
-    else:
-        yb=np.array([0])
-        deltah=1
-        centerh=1
-    if beamnumv>1:
-        xb=np.linspace(-max(lengthbasev,lengthtopv)/2.0,max(lengthbasev,lengthtopv)/2.0,beamnumv)
-        deltav=(xb[-1]-xb[0])*1.0/beamnumv
-        centerv=2.0/(lengthbasev+lengthtopv)
-    else:
-        xb=np.array([0])
-        deltav=1
-        centerv=1
-    Xb,Yb=np.meshgrid(xb,yb)
-    #beam profile vector (trapezoid centered at the origin. Only a half of it
-    # is taken into account)
-    H=trapezoidshapefunction(lengthbaseh,lengthtoph,yb)
-    V=trapezoidshapefunction(lengthbasev,lengthtopv,xb)
-    P=np.kron(H,V)
-    center=centerh*centerv
-    # scale y to detector pixel units
-    Yb=Yb/pixelsize*1e3
-    Xb=Xb/pixelsize*1e3
-    A=np.zeros((len(x),len(x)))
-    for i in range(len(x)):
-        A[i,i]+=center
-        tmp=np.sqrt((i-Xb)**2+Yb**2)
-        ind1=np.floor(tmp).astype('int').flatten()
-        prop=tmp.flatten()-ind1
-        indices=(ind1<len(pixels))        
-        ind1=ind1[indices].flatten()
-        prop=prop[indices].flatten()
-        p=P[indices].flatten()
-        for j in range(len(ind1)):
-            A[i,ind1[j]]+=p[j]*(1-prop[j])
-            if ind1[j]<len(pixels)-1:
-                A[i,ind1[j]+1]+=p[j]*prop[j]
-    A=A*deltah*deltav
-#    pylab.imshow(A)
-#    pylab.colorbar()
-#    pylab.gcf().show()
-    return A

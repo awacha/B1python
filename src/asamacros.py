@@ -1,15 +1,3 @@
-#-----------------------------------------------------------------------------
-# Name:        asamacros.py
-# Purpose:     Macros for processing 1D SAXS data (line focus, Hecus-ASA)
-#
-# Author:      Andras Wacha
-#
-# Created:     2010/02/22
-# RCS-ID:      $Id: asamacros.py $
-# Copyright:   (c) 2010
-# Licence:     GPLv2
-#-----------------------------------------------------------------------------
-
 import numpy as np
 import pylab
 import fitting
@@ -439,7 +427,7 @@ def directdesmearflat(pix,Intensity,Error,beamprofile_or_mat,L,pixelsize,NMC=0):
         edesm+=(idesm-id1)**2
     return idesm,np.sqrt(edesm)/(NMC-1),beamprofile_or_mat
 
-def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title='',NMC=1000):
+def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title='',NMC=10):
     """De-smear scattering curves (flat detector)
     
     Inputs:
