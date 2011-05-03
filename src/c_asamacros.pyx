@@ -8,19 +8,33 @@ cdef extern from "math.h":
     double atan(double)
     double tan(double)
     double cos(double)
+    double abs(double)
 
-cdef double *relaxedGaussSeidel(double *A, double *b, double *x, Py_ssize_t N, double relaxpar, Py_ssize_t Niter):
+cdef int relaxedGaussSeidel(double *A, double *b, double *x, Py_ssize_t N, double relaxpar, Py_ssize_t Niter,double tolerance=0.0001):
     """A matrix: A[i,j]=i-th row, j-th column. Column-first ordering: A[i,j]=A[j*N+i]
     """
     cdef Py_ssize_t i,k,it
     cdef double d
+    cdef double *x2
+    x2=<double*>malloc(sizeof(double)*N)
     for it from 0<=it<Niter:
+        for i from 0<=i<N:
+            x2[i]=x[i]
         for i from 0<=i<N:
             d=b[i]
             for k from 0<=k<N:
                 d-=A[i+k*N]*x[k]
             x[i]+=relaxpar*d/A[i+i*N]
-    return x
+        d=0
+        for i from 0<=i<N:
+            d+=(x2[i]-x[i])**2
+        if d<tolerance:
+            break
+    free(x2)
+    if d<tolerance:
+        return 1
+    else:
+        return 0
 
 def GaussSeidel(np.ndarray [np.double_t, ndim=2] A, np.ndarray[np.double_t, ndim=1] b,
                 np.ndarray [np.double_t, ndim=1] x, double relaxpar, Py_ssize_t Niter):
@@ -357,4 +371,140 @@ def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
                     mat[idxprev+1,ipix]+=P*prop
     return mat
 
-   
+cdef void fastcubicbspline(double * x, double *y, double center, double stretch, Py_ssize_t N):
+    cdef Py_ssize_t i
+    cdef double curx
+    for i from 0<=i<N:
+        curx=(x[i]-center)/stretch
+        if abs(curx)>2:
+            y[i]=0
+        elif abs(curx)>1:
+            y[i]=1/6.*(2-curx)*(2-curx)*(2-curx)
+        else:
+            y[i]=2/3.-0.5*curx*curx*(2-curx)
+    return
+    
+cdef void fastdotproduct(double *A, double *x, double *y, Py_ssize_t Nrows, Py_ssize_t Ncols):
+    """A should be in rows first format, i.e. A<row><col>=A[row+col*Nrows]
+    """
+    cdef Py_ssize_t i
+    cdef Py_ssize_t j
+    for i from 0<=i<Nrows:
+        y[i]=0
+        for j from 0<=j<Ncols:
+            y[i]+=A[i+j*Nrows]*x[j]
+    return
+    
+#def indirectdesmearflat(np.ndarray [np.double_t, ndim=1] pix not None,
+#                        np.ndarray[np.double_t, ndim=1] Intensity not None,
+#                        np.ndarray[np.double_t, ndim=1] Error not None,
+#                        Py_ssize_t Nknots, double stabparam,
+#                        np.ndarray[np.double_t, ndim=2] mat not None,
+#                        double Dmax, Py_ssize_t NMC=0, MCcallback=None):
+#    """Do an indirect desmear (Glatter) on a scattering curve recorded
+#    with a flat detector.
+#    
+#    Inputs:
+#        pix: pixel coordinates of the intensity. Should be equally spaced. Pixel
+#            zero corresponds to the primary beam position.
+#        Intensity: intensity curve corresponding to pix
+#        Error: error curve
+#        Nknots: number of spline knots
+#        stabparam: stabilization parameter
+#        mat: smearing matrix
+#        NMC: number of Monte-Carlo iterations for error propagation.
+#        MCcallback: call-back routine for the Monte Carlo procedure
+#        
+#    Outputs: Idesm, [Edesm], mat
+#        Idesm: desmeared intensity
+#        Edesm: error of the desmeared intensity (only if NMC>=2)
+#        mat: smearing matrix
+#    """
+#    cdef double minpix,maxpix
+#    cdef double stretch_spline
+#    cdef Py_ssize_t Npix
+#    cdef double knot
+#    cdef np.ndarray[np.double_t, ndim=2] splines
+#    cdef np.ndarray[np.double_t, ndim=2] transsplines
+#    cdef double *splines
+#    cdef double *transsplines
+#    cdef double *B
+#    cdef double *d
+#    cdef double *c
+#    cdef double *pix1
+#    cdef double *mat1
+#    cdef double *Int1
+#    cdef double *Err1
+#    cdef double *K
+#    
+#    minpix=pix.min()
+#    maxpix=pix.max()
+#    Npix=len(pix)
+#    
+#    # each knot will have a spline in it. The abscissa of the splines will be pix.
+#    splines=<double*>malloc(Npix*Nknots*sizeof(double))
+#    transsplines=<double*>malloc(Npix*Nknots*sizeof(double))
+#    pix1=<double*>malloc(Npix*sizeof(double))
+#    Int1=<double*>malloc(Npix*sizeof(double))
+#    Err1=<double*>malloc(Npix*sizeof(double))
+#    mat1=<double*>malloc(Npix*Npix*sizeof(double))
+#    for i from 0<=i<Npix:
+#        pix1[i]=pix[i]
+#        Int1[i]=Intensity[i]
+#        Err1[i]=Error[i]
+#        for j from 0<=j<Npix:
+#            #i: columns. j: rows
+#            mat1[j+i*Npix]=mat[j,i]
+#    print "Calculating splines..."
+#    #one knot is assigned a length of len(pixels/(Nknots-1)). We must stretch
+#    # the spline function horizontally to overlap with its four neighbours.
+#    stretch_spline=Npix/float(Nknots-1)
+#    for i from 0<=i<Nknots:
+#        fastcubicbspline(pix,splines+i*Npix,minpix+(maxpix-minpix)*i/(Nknots-1),stretch_spline,Npix)
+#        fastdotproduct(mat1,splines+i*Npix,transsplines+i*Npix,Npix,Npix)
+#    
+#    print "Calculating matrices..."
+#    d=<double*>malloc(Nknots*sizeof(double))
+#    B=<double*>malloc(Nknots*Nknots*sizeof(double))
+#    K=<double*>malloc(Nknots*Nknots*sizeof(double))
+#    for i from 0<=i<Nknots:
+#        d[i]=0
+#        for j from 0<=j<Npix:
+#            d[i]+=Int1[j]*transsplines[j+i*Npix]/(Err1[j]*Err1[j])
+#        K[i+i*Nknots]=2
+#        if i>0:
+#            K[i+(i-1)*Nknots]=-1
+#            K[i-1+i*Nknots]=-1
+#        for j from i<=j<Nknots:
+#            B[i+j*Nknots]=0
+#            for k from 0<=k<Npix:
+#                B[i+j*Nknots]+=transsplines[k+i*Npix]*transsplines[k+j*Npix]/(Err1[k]*Err1[k])
+#            B[j+i*Nknots]=B[i+j*Nknots]
+#    K[0]=1
+#    K[Nknots*Nknots-1]=1
+#    print "Solving..."
+#    raise NotImplementedError
+#    cs=[]
+#    idesms=[]
+#    mdps=[]
+#    ncprimes=[]
+#    for j in range(len(stabparams)):
+#        relaxedGaussSeidel()
+#        c=np.linalg.linalg.solve(B+stabparams[j]*K,d)
+#        idesm=np.zeros(pix.shape)
+#        for i in range(Nknots):
+#            idesm+=c[i]*splines[:,i]
+#        Ncprime=0
+#        for i in range(Nknots-1):
+#            Ncprime+=(c[i+1]-c[i])**2
+#        
+#        mdp=np.sum((Intensity-idesm)**2/Error**2)/len(Intensity)
+#        cs.append(c)
+#        idesms.append(idesm)
+#        mdps.append(mdp)
+#        ncprimes.append(Ncprime)
+#    if np.isscalar(stabparam):
+#        return idesms[0],np.sqrt(idesms[0]),mdps[0]
+#    else:
+#        return idesms,cs,mdps,B,d,K,splines,transsplines,ncprimes
+#   

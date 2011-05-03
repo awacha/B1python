@@ -11,6 +11,9 @@ import os
 import shutil
 import warnings
 import B1io
+import scipy.interpolate
+import scipy.signal
+from math import log10
 
 _asa_config={'dataroot':'/afs/.bionano/misc/measurements'}
 
@@ -393,7 +396,7 @@ def directdesmeargonio(tth,Intensity,Error,beamprofile_or_mat,L,NMC=0):
         edesm+=(idesm-id1)**2
     return idesm,np.sqrt(edesm)/(NMC-1),beamprofile_or_mat
                                                
-def directdesmearflat(pix,Intensity,Error,beamprofile_or_mat,L,pixelsize,NMC=0):
+def directdesmearflat(pix,Intensity,Error,beamprofile_or_mat,L,pixelsize,NMC=0,MCcallback=None):
     """Do a direct desmear (Singh, Ghosh, Shannon) on a scattering curve recorded
     with a flat detector.
     
@@ -407,6 +410,7 @@ def directdesmearflat(pix,Intensity,Error,beamprofile_or_mat,L,pixelsize,NMC=0):
         L: sample-detector distance
         pixelsize: pixel size (in mm)
         NMC: number of Monte-Carlo iterations for error propagation.
+        MCcallback: call-back routine for the Monte Carlo procedure
         
     Outputs: Idesm, [Edesm], mat
         Idesm: desmeared intensity
@@ -423,11 +427,107 @@ def directdesmearflat(pix,Intensity,Error,beamprofile_or_mat,L,pixelsize,NMC=0):
         return idesm,beamprofile_or_mat
     edesm=np.zeros(idesm.shape,np.double)
     for i in range(NMC):
+        if hasattr(MCcallback,'__call__'):
+            MCcallback.__call__()
         id1=np.linalg.linalg.solve(beamprofile_or_mat,(Intensity+Error*np.random.randn(len(Error))).flatten())
         edesm+=(idesm-id1)**2
     return idesm,np.sqrt(edesm)/(NMC-1),beamprofile_or_mat
 
-def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title='',NMC=10):
+def indirectdesmearflat(pix,Intensity,Error,Nknots,mat,stabparam_range=(1e-20,1e20),NMC=0,callback=None):
+    """Do an indirect desmear (Glatter) on a scattering curve recorded
+    with a flat detector.
+    
+    Inputs:
+        pix: pixel coordinates of the intensity. Should be equally spaced. Pixel
+            zero corresponds to the primary beam position.
+        Intensity: intensity curve corresponding to pix
+        Error: error curve
+        Nknots: number of spline knots
+        mat: smearing matrix
+        stabparam_range: range of the stabilization parameter in which the
+            point of inflexion will be searched for.
+        NMC: number of Monte-Carlo iterations for error propagation.
+        callback: call-back routine for iterations. Should accept three arguments:
+            description (text), current call, total number of calls.
+        
+    Outputs: Idesm, [Edesm], mat
+        Idesm: desmeared intensity
+        Edesm: error of the desmeared intensity (only if NMC>=2)
+        mat: smearing matrix
+    """
+    #we now have the smearing matrix.
+    knots=np.zeros(Nknots)
+    knots=np.linspace(min(pix),max(pix),Nknots)
+    # each knot will have a spline in it. The abscissa of the splines will be pix.
+    splines=np.zeros((len(pix),Nknots))
+    transsplines=np.zeros((len(pix),Nknots))
+    print "Calculating splines..."
+    #one knot is assigned a length of len(pixels/(Nknots-1)). We must stretch
+    # the spline function horizontally to overlap with its four neighbours.
+    stretch_spline=len(pix)/float(Nknots-1)
+    for i in range(Nknots):
+        splines[:,i]=scipy.signal.bspline((pix-knots[i])/stretch_spline,3)
+        transsplines[:,i]=np.linalg.linalg.dot(mat,splines[:,i])
+    print "Calculating matrices..."
+    d=np.zeros(Nknots)
+    B=np.zeros((Nknots,Nknots))
+    K=np.zeros(B.shape)
+    for i in range(Nknots):
+        if hasattr(callback,'__call__'):
+            callback.__call__('Calculating matrices...',i,Nknots)
+        d[i]=np.sum(Intensity*transsplines[:,i]/Error**2)
+        K[i,i]=2
+        if i>0:
+            K[i,i-1]=-1
+            K[i-1,i]=-1
+        for j in range(i,Nknots):
+            B[i,j]=np.sum(transsplines[:,i]*transsplines[:,j]/Error**2)
+            B[j,i]=B[i,j]
+    K[0,0]=1
+    K[-1,-1]=1
+    print "Stabilizing..."
+    stabparam=np.logspace(log10(stabparam_range[0]),log10(stabparam_range[1]),1000)
+    ncprimes=[]
+    for j in range(len(stabparam)):
+        if hasattr(callback,'__call__'):
+            callback.__call__('Stabilization...',j,len(stabparam))
+        try:
+            c=np.linalg.linalg.solve(B+stabparam[j]*K,d)
+        except:
+            break #if LinalgError: SingularMatrix occurs
+        Ncprime=0
+        for i in range(Nknots-1):
+            Ncprime+=(c[i+1]-c[i])**2
+        ncprimes.append(Ncprime)
+    stabparam=stabparam[:len(ncprimes)] #recover from incomplete stabilization procedure.
+    dstabparam=0.5*(stabparam[1:]+stabparam[:-1])
+    dncprimes=np.diff(ncprimes)
+    stab=dstabparam[dncprimes==min(dncprimes)]
+    
+    c=np.linalg.linalg.solve(B+stab*K,d)    
+    idesm=np.zeros(pix.shape)
+    for i in range(Nknots):
+        idesm+=c[i]*splines[:,i]
+    if NMC>1:
+        edesm=np.zeros(idesm.shape)
+        for k in range(NMC):
+            if hasattr(callback,'__call__'):
+                callback.__call__('Monte Carlo error propagation...',k,NMC)
+            dI=np.random.randn(len(pix))*Error
+            for i in range(Nknots):
+                d[i]=np.sum((Intensity+dI)*transsplines[:,i]/Error**2)
+            c1=np.linalg.linalg.solve(B+stab*K,d)
+            idesm1=c1[0]*splines[:,0]
+            for i in range(1,Nknots):
+                idesm1+=c1[i]*splines[:,i]
+            edesm+=(idesm-idesm1)**2
+        edesm=np.sqrt(edesm)/(NMC-1)
+    else:
+        edesm=np.sqrt(idesm)
+            
+    return idesm,edesm,mat
+
+def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title='',NMC=10,MCcallback=None,method='direct'):
     """De-smear scattering curves (flat detector)
     
     Inputs:
@@ -440,10 +540,14 @@ def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title
         pixelsize: pixel size
         title: title to write over the smoothing diagram
         NMC: Number of Monte Carlo steps for the error propagation.
+        MCcallback: callback function, which will be called in each MC step
+            (thus NMC times in total).
+        method: 'direct' or 'indirect' (Singh, Ghosh, Shannon or Glatter)
         
     Outputs:
         Idesm: de-smeared intensity
-        Edesm: error of de-smeared intensity
+        Edesm: error of de-smeared intensity (estimated by a Monte Carlo
+            simulation)
         mat: smearing matrix
     """
     #set up smoothing
@@ -458,12 +562,15 @@ def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title
             matrix['mat']=mat # the smearing matrix won't change during the iterations, better fix it to avoid re-calculation
         axes.plot(x,Idesm)
         axes.set_title(title)
-    sm,ysm=guitools.testsmoothing(x,Intensity,smoothing,
-                                  slidermin=np.power(10,np.log10(smoothing)-2),
-                                  slidermax=np.power(10,np.log10(smoothing)+2),
-                                  returnsmoothed=True,callback=cbfunc)
-    Idesm,Edesm,mat=directdesmearflat(x,ysm,Error,beamprofile_or_mat,L,
-                                      pixelsize,NMC=NMC)
+    if method.lower()=='direct':
+        sm,ysm=guitools.testsmoothing(x,Intensity,smoothing,
+                                      slidermin=np.power(10,np.log10(smoothing)-2),
+                                      slidermax=np.power(10,np.log10(smoothing)+2),
+                                      returnsmoothed=True,callback=cbfunc)
+        Idesm,Edesm,mat=directdesmearflat(x,ysm,Error,beamprofile_or_mat,L,
+                                          pixelsize,NMC=NMC,MCcallback=MCcallback)
+    else:
+        Idesm,Edesm,mat=indirectdesmearflat(x,Intensity,Error,len(Intensity)/2,1,beamprofile_or_mat)
     return Idesm,Edesm,mat
 
 def directdesmear(data,smoothing,params,title='',returnerror=False):

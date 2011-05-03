@@ -384,13 +384,13 @@ def readasa(basename,dirs=[]):
             if e00 is not None:
                 e00=e00[1:] # cut the leading -1
             try:
-                inffile=open(os.path.join(d,'%s.inf' % basename))
+                inffile=open(os.path.join(d,'%s.inf' % basename),'rt')
             except IOError:
                 try:
-                    inffile=open(os.path.join(d,'%s.Inf' % basename))
+                    inffile=open(os.path.join(d,'%s.Inf' % basename),'rt')
                 except IOError:
                     try:
-                        inffile=open(os.path.join(d,'%s.INF' % basename))
+                        inffile=open(os.path.join(d,'%s.INF' % basename),'rt')
                     except:
                         inffile=None
                         params=None
@@ -409,7 +409,7 @@ def readasa(basename,dirs=[]):
             l=[]
             for line in l1:
                 if len(line.strip())>0:
-                    l.append(line)
+                    l.append(line) # filter out empty lines
             def getdate(str):
                 try:
                     month=int(str.split()[0].split('-')[0])
@@ -423,16 +423,17 @@ def readasa(basename,dirs=[]):
                 return {'Month':month,'Day':day,'Year':year,
                         'Hour':hour,'Minute':minute,'Second':second,
                         'Datetime':datetime.datetime(year,month,day,hour,minute,second)}
-            if getdate(l[0]) is None:
-                params['Title']=l[0].strip()
-                offset=1
-            else:
-                params['Title']=basename
-                offset=0
-            d=getdate(l[offset])
-            params.update(d)
+            #Three different cases can exist:
+            #    1) Original, untouched INF file: first row is the date, second starts with Resolution
+            #    2) Comments before the date
+            #    3) Comments after the date
+            resolutionlinepassed=False
+            commentlines=[]
             for line in l:
-                if line.strip().startswith('PSD1 Lower Limit'):
+                line=line.replace('\r','')
+                if line.strip().startswith('Resolution'):
+                    resolutionlinepassed=True
+                elif line.strip().startswith('PSD1 Lower Limit'):
                     params['Energywindow_Low']=float(line.strip().split(':')[1].replace(',','.'))
                 elif line.strip().startswith('PSD1 Upper Limit'):
                     params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
@@ -446,6 +447,14 @@ def readasa(basename,dirs=[]):
                     params['Energywindow_High']=float(line.strip().split(':')[1].replace(',','.'))
                 elif line.strip().startswith('Stop Condition'):
                     params['Stopcondition']=line.strip().split(':')[1].strip().replace(',','.')
+                elif getdate(line) is not None:
+                    params.update(getdate(line))
+                else:
+                    if not resolutionlinepassed:
+                        commentlines.append(line.strip())
+            params['comment']='\n'.join(commentlines)
+            params['comment']=params['comment'].decode('cp1252')
+            params['Title']=params['comment']
             params['basename']=basename.split(os.sep)[-1]
         ret.append({'position':p00/params['Livetime'],'energy':e00/params['Livetime'],
                 'params':params,'pixels':pylab.arange(len(p00)),
@@ -457,6 +466,7 @@ def readasa(basename,dirs=[]):
         return ret[0]
     else:
         return ret
+        
 def readheader(filename,fsn=None,fileend=None,dirs=[],quiet=False):
     """Reads header data from measurement files
     
