@@ -1,30 +1,3 @@
-#-----------------------------------------------------------------------------
-# Name:        guitools.py
-# Purpose:     GUI utilities
-#
-# Author:      Andras Wacha
-#
-# Created:     2010/02/22
-# RCS-ID:      $Id: guitools.py $
-# Copyright:   (c) 2010
-# Licence:     GPLv2
-#-----------------------------------------------------------------------------
-#       This program is free software; you can redistribute it and/or modify
-#       it under the terms of the GNU General Public License as published by
-#       the Free Software Foundation; either version 2 of the License, or
-#       (at your option) any later version.
-#       
-#       This program is distributed in the hope that it will be useful,
-#       but WITHOUT ANY WARRANTY; without even the implied warranty of
-#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#       GNU General Public License for more details.
-#       
-#       You should have received a copy of the GNU General Public License
-#       along with this program; if not, write to the Free Software
-#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-#       MA 02110-1301, USA.
-
-
 import types
 import numpy as np
 import pylab
@@ -737,15 +710,25 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=None,slidermax=None,
         slidermin=np.power(10,np.log10(smoothing)-2)
     if slidermax is None:
         slidermax=np.power(10,np.log10(smoothing)+2)
-    ax=fig.add_axes((0.2,0.85,0.7,0.05));
+    ax=fig.add_axes((0.3,0.85,0.6,0.05));
     sl=matplotlib.widgets.Slider(ax,'',np.log10(slidermin),np.log10(slidermax),np.log10(smoothing));
     fig.smoothingdone=False
     ax=fig.add_axes((0.1,0.85,0.1,0.05));
     def butoff(a=None,fig=fig):
         """This is going to be called if the OK button is pressed"""
         fig.smoothingdone=True
+        fig.cancel=False
     but=matplotlib.widgets.Button(ax,'Ok')
     but.on_clicked(butoff)
+
+    ax=fig.add_axes((0.2,0.85,0.1,0.05));
+    def butcancel(a=None,fig=fig):
+        """This is going to be called if the OK button is pressed"""
+        fig.smoothingdone=True
+        fig.cancel=True
+    but=matplotlib.widgets.Button(ax,'Cancel')
+    but.on_clicked(butcancel)
+
     
     axes=fig.add_axes((0.1,0.1,0.8,0.7))
     def fun(a,fig=fig,axes=axes,xscale=xscaling,yscale=yscaling,x=x,y=y,sl=sl,smoothmode=smoothingmode,callback=callback,thisisthefirstplot=False):
@@ -767,6 +750,8 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=None,slidermax=None,
     fun(1e-5,thisisthefirstplot=True)
     while not fig.smoothingdone:
         pylab.waitforbuttonpress()
+    if fig.cancel:
+        raise RuntimeError('Smoothing was cancelled')
     if returnsmoothed:
         return fig.smoothing,fig.ysmoothed
     else:

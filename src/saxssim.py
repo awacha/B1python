@@ -70,7 +70,7 @@ def spheres2povray(file,spheredata,targetx=0,targety=0,targetz=0,
     file.write("#declare RCamera=%f;\n" % rcamera)
     file.write("#declare TargetX=%f;\n" % targetx)
     file.write("#declare TargetY=%f;\n" % targety)
-    file.write("#declare TargetZ=%f;\n" % targety)
+    file.write("#declare TargetZ=%f;\n" % targetz)
     if show_axes:
         file.write("#declare Axislen=%f;\n"%axislen)
         file.write("#declare Axiswid=%f;\n"%axiswid)

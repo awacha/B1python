@@ -563,10 +563,13 @@ def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title
         axes.plot(x,Idesm)
         axes.set_title(title)
     if method.lower()=='direct':
-        sm,ysm=guitools.testsmoothing(x,Intensity,smoothing,
-                                      slidermin=np.power(10,np.log10(smoothing)-2),
-                                      slidermax=np.power(10,np.log10(smoothing)+2),
-                                      returnsmoothed=True,callback=cbfunc)
+        try:
+            sm,ysm=guitools.testsmoothing(x,Intensity,smoothing,
+                                          slidermin=np.power(10,np.log10(smoothing)-2),
+                                          slidermax=np.power(10,np.log10(smoothing)+2),
+                                          returnsmoothed=True,callback=cbfunc)
+        except RuntimeError:
+            raise RuntimeError('Smoothing was interrupted, cannot do desmearing.')
         Idesm,Edesm,mat=directdesmearflat(x,ysm,Error,beamprofile_or_mat,L,
                                           pixelsize,NMC=NMC,MCcallback=MCcallback)
     else:
