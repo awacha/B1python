@@ -1341,7 +1341,10 @@ def readenergyfio(filename,files,fileend,dirs=[]):
         for d in dirs:
             mud=[];
             energy=[];
-            fname='%s%s%s%05d%s' % (d,os.sep,filename,f,fileend)
+            if isinstance(f,str):
+                fname='%s%s%s%s%s' % (d,os.sep,filename,f,fileend)
+            else:
+                fname='%s%s%s%05d%s' % (d,os.sep,filename,f,fileend)
             try:
                 fid=open(fname,'r')
                 lines=fid.readlines()
@@ -1803,3 +1806,7 @@ def writeparamfile(filename,param):
     for k in allkeys:
         writekey(k)
     f.close()
+    
+def listintnorm(fsns,filetype='intnorm',logfiletype='intnorm',dirs=['.']):
+    data,param=readintnorm(fsns,filetype,logfiletype,dirs,quiet=True);
+    

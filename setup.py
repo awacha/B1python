@@ -3,9 +3,15 @@
 from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
+from distutils.sysconfig import get_python_lib, get_python_inc
+import os
 
+VERSION='0.7.9'
 
-VERSION='0.7.8a'
+incdirs=list(set([get_python_lib(0,0),get_python_lib(0,1),get_python_lib(1,0),get_python_lib(1,1),get_python_inc(0),get_python_inc(1)]))
+
+npy_incdirs=[os.path.join(x,'numpy/core/include') for x in incdirs]
+incdirs.extend(npy_incdirs)
 
 try:
     f=open('src/__init__.py','rt')
@@ -31,17 +37,17 @@ except IOError:
 except RuntimeError:
     pass
 
-ext_modules = [Extension("B1python.c_asamacros", ["src/c_asamacros.pyx"]),
-               Extension("B1python.c_asaxseval",["src/c_asaxseval.pyx"]),
-               Extension("B1python.c_B1io",["src/c_B1io.pyx"]),
-               Extension("B1python.c_B1macros",["src/c_B1macros.pyx"]),
-               Extension("B1python.c_guitools",["src/c_guitools.pyx"]),
-               Extension("B1python.c_fitting",["src/c_fitting.pyx"]),
-               Extension("B1python.c_utils",["src/c_utils.pyx"]),
-               Extension("B1python.c_utils2d",["src/c_utils2d.pyx"]),
-               Extension("B1python.c_xanes",["src/c_xanes.pyx"]),
-               Extension("B1python.c_saxssim",["src/c_saxssim.pyx"]),
-               Extension("B1python.c_unstable",["src/c_unstable.pyx"]),
+ext_modules = [Extension("B1python.c_asamacros", ["src/c_asamacros.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_asaxseval",["src/c_asaxseval.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_B1io",["src/c_B1io.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_B1macros",["src/c_B1macros.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_guitools",["src/c_guitools.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_fitting",["src/c_fitting.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_utils",["src/c_utils.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_utils2d",["src/c_utils2d.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_xanes",["src/c_xanes.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_saxssim",["src/c_saxssim.pyx"],include_dirs=incdirs),
+               Extension("B1python.c_unstable",["src/c_unstable.pyx"],include_dirs=incdirs),
                ]
 
 setup(name='B1python',version=VERSION, author='Andras Wacha',

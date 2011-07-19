@@ -280,7 +280,8 @@ class SASDict(object):
             filename: name of the file
             cols [optional]: column names to save.
         """
-        keys=[k for k in cols if k in self.keys()]
+        keys=[k for k in cols if k in self.keys() and type(self[k])==np.ndarray]
+        print keys
         f=open(filename,'wt')
         f.write('#%s\n'%string.join([str(k) for k in keys]))
         np.savetxt(f,self.__array__(keys=keys))
