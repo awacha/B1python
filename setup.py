@@ -6,7 +6,7 @@ from Cython.Distutils import build_ext
 from distutils.sysconfig import get_python_lib, get_python_inc
 import os
 
-VERSION='0.7.9'
+VERSION='0.8.1'
 
 incdirs=list(set([get_python_lib(0,0),get_python_lib(0,1),get_python_lib(1,0),get_python_lib(1,1),get_python_inc(0),get_python_inc(1)]))
 

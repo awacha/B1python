@@ -1,4 +1,3 @@
-import types
 import numpy as np
 import pylab
 import matplotlib.widgets
@@ -126,14 +125,14 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
     
     """
     legends=[]
-    if type(energies)!=types.ListType:
+    if not (isinstance(energies,list) or isinstance(energies,tuple)):
         energies=[energies];
     colors=['blue','green','red','black','magenta'];
-    if type(samplename)==types.StringType:
+    if not (isinstance(samplename,list) or isinstance(samplename,tuple)):
         samplename=[samplename]
-    if type(marker)!=types.ListType:
+    if not (isinstance(marker,list) or isinstance(marker,tuple)):
         marker=[marker]
-    if type(mult)!=types.ListType:
+    if not (isinstance(mult,list) or isinstance(mult,tuple)):
         mult=[mult]
     if len(marker)==1:
         marker=marker*len(samplename)
@@ -678,7 +677,7 @@ def basicfittinggui(data,title='',blocking=False):
 
 def testsmoothing(x,y,smoothing=1e-5,slidermin=None,slidermax=None,
                   xscaling='linear',yscaling='log',smoothingmode='spline',
-                  callback=None,returnsmoothed=False):
+                  callback=None,returnsmoothed=False,tkgui=False):
     """Tool to test and adjust smoothing of a curve.
     
     Inputs:
@@ -695,6 +694,9 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=None,slidermax=None,
             arguments (the smoothing parameter, the smoothed curve and the axes)
             to do something, even plot.
         returnsmoothed: if the smoothed curve is to be returned [False by default]            
+        tkgui [default=False]: if a Tk gui is desired instead of the matplotlib
+            style.
+            
     Outputs: s, [smoothedy]
         s: the final smoothing parameter
         smoothedy: the smoothed curve (if returnsmoothed was True)
@@ -710,46 +712,103 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=None,slidermax=None,
         slidermin=np.power(10,np.log10(smoothing)-2)
     if slidermax is None:
         slidermax=np.power(10,np.log10(smoothing)+2)
-    ax=fig.add_axes((0.3,0.85,0.6,0.05));
-    sl=matplotlib.widgets.Slider(ax,'',np.log10(slidermin),np.log10(slidermax),np.log10(smoothing));
-    fig.smoothingdone=False
-    ax=fig.add_axes((0.1,0.85,0.1,0.05));
-    def butoff(a=None,fig=fig):
+
+    if tkgui:
+        import Tkinter as Tk
+        root=Tk.Tk()
+    else:
+        root=None
+        
+    def butoff(a=None,fig=fig,tkroot=root):
         """This is going to be called if the OK button is pressed"""
         fig.smoothingdone=True
         fig.cancel=False
-    but=matplotlib.widgets.Button(ax,'Ok')
-    but.on_clicked(butoff)
-
-    ax=fig.add_axes((0.2,0.85,0.1,0.05));
-    def butcancel(a=None,fig=fig):
+        if tkroot is not None:
+            tkroot.destroy()
+            tkroot.quit()
+    def butcancel(a=None,fig=fig,tkroot=root):
         """This is going to be called if the OK button is pressed"""
         fig.smoothingdone=True
         fig.cancel=True
-    but=matplotlib.widgets.Button(ax,'Cancel')
-    but.on_clicked(butcancel)
+        if tkroot is not None:
+            tkroot.destroy()
+            tkroot.quit()
+
+    if tkgui:
+        root.wm_title("Adjust smoothing parameters")
+        root.columnconfigure(1,weight=1)
+        Tk.Label(root,text='Smoothing:',justify=Tk.LEFT,anchor=Tk.W).grid(sticky='NSEW')
+        sl=Tk.Scale(root,orient='horizontal',length=300)
+        sl.grid(row=0,column=1,sticky='NSEW')
+        sl['to']=np.log10(slidermax)
+        sl['from']=np.log10(slidermin)
+        sl['resolution']=(sl['to']-sl['from'])/300.;
+        sl.set(np.log10(smoothing))
+        frm=Tk.Frame(root)
+        frm.columnconfigure(0,weight=1)
+        frm.columnconfigure(1,weight=1)
+        frm.grid(row=1,columnspan=2,sticky='NSEW')
+        b=Tk.Button(frm,text='OK',command=butoff)
+        b.grid(row=0,column=0)
+        b=Tk.Button(frm,text='Cancel',command=butcancel)
+        b.grid(row=0,column=1)
+        axes=fig.add_axes((0.1,0.1,0.8,0.8))
+        
+    else:
+        ax=fig.add_axes((0.3,0.85,0.6,0.05));
+        sl=matplotlib.widgets.Slider(ax,'',np.log10(slidermin),np.log10(slidermax),np.log10(smoothing));
+    
+        ax=fig.add_axes((0.1,0.85,0.1,0.05));
+        fig.smoothingdone=False
+        but=matplotlib.widgets.Button(ax,'Ok')
+        but.on_clicked(butoff)
+    
+        ax=fig.add_axes((0.2,0.85,0.1,0.05));
+        but=matplotlib.widgets.Button(ax,'Cancel')
+        but.on_clicked(butcancel)
+        axes=fig.add_axes((0.1,0.1,0.8,0.7))
 
     
-    axes=fig.add_axes((0.1,0.1,0.8,0.7))
-    def fun(a,fig=fig,axes=axes,xscale=xscaling,yscale=yscaling,x=x,y=y,sl=sl,smoothmode=smoothingmode,callback=callback,thisisthefirstplot=False):
+    def fun(a,fig=fig,axes=axes,xscale=xscaling,yscale=yscaling,x=x,y=y,sl=sl,smoothmode=smoothingmode,callback=callback,thisisthefirstplot=False,tkgui=tkgui):
+        if tkgui:
+            if a==sl.lastvalue:
+                return
+            else:
+                sl.lastvalue=a
         ax=axes.axis()
-        axes.cla()
-        axes.plot(x,y,'.')
-        axes.set_xscale(xscale)
-        axes.set_yscale(yscale)
-        fig.smoothing=pow(10.0,sl.val);
+        if thisisthefirstplot:
+            axes.cla()
+            axes.plot(x,y,'b.')
+        while len(axes.lines)>1:
+            del axes.lines[-1]
+        if tkgui:
+            val=sl.get()
+        else:
+            val=sl.val
+        fig.smoothing=pow(10.0,val);
         fig.ysmoothed=fitting.smoothcurve(x,y,fig.smoothing,mode=smoothmode)
-        axes.plot(x,fig.ysmoothed,linewidth=2)
+        axes.plot(x,fig.ysmoothed,'g-',linewidth=2)
         if not thisisthefirstplot:
             axes.axis(ax)
+        else:
+            axes.set_xscale(xscale)
+            axes.set_yscale(yscale)
         if callback is not None:
             callback(fig.smoothing,fig.ysmoothed,axes)
         pylab.draw()
-        fig.show()
-    sl.on_changed(fun)
+        #fig.show()
+    if tkgui:
+        sl.lastvalue=None
+        sl['command']=fun
+    else:
+        sl.on_changed(fun)
     fun(1e-5,thisisthefirstplot=True)
-    while not fig.smoothingdone:
-        pylab.waitforbuttonpress()
+    if tkgui:
+        root.mainloop()
+    else:
+        while not fig.smoothingdone:
+            pylab.waitforbuttonpress()
+    print "RETURNED FROM MAIN LOOP"
     if fig.cancel:
         raise RuntimeError('Smoothing was cancelled')
     if returnsmoothed:
@@ -827,7 +886,7 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
     axisheight=(1-vborder*2-vspacing*3)/4.
     
     
-    if type(fsns)!=types.ListType:
+    if not( isinstance(fsns,list) or isinstance(fsns,tuple)):
         fsns=[fsns]
     if mode.upper().startswith('GABRIEL'):
         header1=B1io.readheader('ORG',fsns,'.DAT',dirs=dirs)

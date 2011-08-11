@@ -560,14 +560,14 @@ def desmearflat(x,Intensity,Error,beamprofile_or_mat,smoothing,L,pixelsize,title
         Idesm,mat=directdesmearflat(x,ysm,Error,matrix,L,pixelsize,NMC=0)
         if type(matrix)==type({}):
             matrix['mat']=mat # the smearing matrix won't change during the iterations, better fix it to avoid re-calculation
-        axes.plot(x,Idesm)
+        axes.plot(x,Idesm,'r-')
         axes.set_title(title)
     if method.lower()=='direct':
         try:
             sm,ysm=guitools.testsmoothing(x,Intensity,smoothing,
                                           slidermin=np.power(10,np.log10(smoothing)-2),
                                           slidermax=np.power(10,np.log10(smoothing)+2),
-                                          returnsmoothed=True,callback=cbfunc)
+                                          returnsmoothed=True,callback=cbfunc,tkgui=True)
         except RuntimeError:
             raise RuntimeError('Smoothing was interrupted, cannot do desmearing.')
         Idesm,Edesm,mat=directdesmearflat(x,ysm,Error,beamprofile_or_mat,L,

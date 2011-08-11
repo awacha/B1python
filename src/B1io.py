@@ -8,7 +8,6 @@
 
 import pylab
 import numpy as np
-import types
 import os
 import gzip
 import zipfile
@@ -36,7 +35,7 @@ def readyellowsubmarine(nameformat,fsns=None,dirs='.'):
         filenames=[nameformat]
     else:
         filenames=[nameformat%f for f in fsns]
-    if type(dirs)!=type([]) and type(dirs)!=type(tuple()):
+    if not(isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     datas=[]
     params=[]
@@ -352,11 +351,11 @@ def readasa(basename,dirs=[]):
             poserror: estimated error of the position (cps)
             energyerror: estimated error of the energy (cps)
     """
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
-    if type(basename)==type(''):
+    if not (isinstance(basename,list) or isinstance(basename,tuple)):
         basenames=[basename]
         basename_scalar=True
     else:
@@ -501,7 +500,7 @@ def readheader(filename,fsn=None,fileend=None,dirs=[],quiet=False):
                      # constant in the old program on hasjusi1, which was
                      # taken over by the measurement program, to keep
                      # compatibility with that.
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
@@ -670,7 +669,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[],quiet=False):
         if not quiet:
             print 'Cannot find file %s. Make sure the path is correct.' % filename
         return None
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
@@ -749,7 +748,7 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
     Outputs:
         None
     """
-    if type(files) is not types.ListType:
+    if not (isinstance(files,list) or isinstance(files,tuple)):
         files=[files]
     if showtitles.upper().startswith('GABRIEL'):
         print 'FSN\tTime\tEnergy\tDist\tPos\tTransm\tSum/Tot %\tT (C)\tTitle\t\t\tDate'
@@ -852,7 +851,7 @@ def read2dintfile(fsns,dirs=[],norm=True,quiet=False):
                     return None
         return data
     # the core of read2dintfile
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
@@ -865,7 +864,7 @@ def read2dintfile(fsns,dirs=[],norm=True,quiet=False):
         filefound=False
         for d in dirs:
             try: # first try to load the npz file. This is the most effective way.
-                if type(norm)==type(''):
+                if isinstance(norm,str):
                     fileprefixnorm=norm
                 elif norm:
                     fileprefixnorm='int2dnorm'
@@ -880,7 +879,7 @@ def read2dintfile(fsns,dirs=[],norm=True,quiet=False):
                     tmp=tmp0['Intensity']
                     tmp1=tmp0['Error']
                 except IOError: # if mat file is not found, try the ascii files
-                    if type(norm)==type(''):
+                    if isinstance(norm,str):
                         warnings.warn(SyntaxWarning('Loading 2D ascii files when parameter <norm> for read2dintfile() is a string.'))
                         continue # try from another directory
                     if norm:
@@ -926,7 +925,7 @@ def write2dintfile(A,Aerr,params,norm=True,filetype='npz'):
     """
     if Aerr is None:
         Aerr=np.zeros((1,1))
-    if type(norm)==type(''):
+    if isinstance(norm,str):
         fileprefix='%s%d' % (norm,params['FSN'])
     elif norm:
         fileprefix='int2dnorm%d' % params['FSN']
@@ -954,7 +953,7 @@ def readintfile(filename,dirs=[],sanitize=True,quiet=False):
     """
     fields=['q','Intensity','Error','Area','qavg','qstd']
     
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
@@ -1027,9 +1026,9 @@ def readintnorm(fsns, filetype='intnorm',dirs=[],logfiletype='intnorm',quiet=Fal
         When loading only one fsn, the outputs will be still in lists, thus
             lists with one elements will be returned.
     """
-    if type(fsns) != types.ListType:
+    if not (isinstance(fsns,list) or isinstance(fsns,tuple)):
         fsns=[fsns];
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
@@ -1147,12 +1146,12 @@ def readlogfile(fsn,dirs=[],norm=True,quiet=False):
         else:
             return None
     #this is the beginning of readlogfile().
-    if type(norm)==type(True):
+    if isinstance(norm,bool):
         if norm:
             norm='intnorm'
         else:
             norm='intarb'
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
@@ -1174,7 +1173,7 @@ def readlogfile(fsn,dirs=[],norm=True,quiet=False):
                     name=getname(line);
                     for k in logfile_dict_float.keys():
                         if name==k:
-                            if type(logfile_dict_float[k]) is types.StringType:
+                            if isinstance(logfile_dict_float[k],str):
                                 param[logfile_dict_float[k]]=getvalue(line);
                             else: # type(logfile_dict_float[k]) is types.TupleType
                                 param[logfile_dict_float[k][0]]=getfirstvalue(line);
@@ -1289,9 +1288,9 @@ def readwaxscor(fsns,dirs=[]):
     Output:
         a list of scattering data dictionaries (see readintfile())
     """
-    if type(fsns)!=types.ListType:
+    if not (isinstance(fsns,list) or isinstance(fsns,tuple)):
         fsns=[fsns]
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
@@ -1327,9 +1326,9 @@ def readenergyfio(filename,files,fileend,dirs=[]):
         samples: the sample names for each fsn
         muds: the mu*d values for each fsn
     """
-    if type(files)!=types.ListType:
+    if not (isinstance(files,list) or isinstance(files,tuple)):
         files=[files]
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
@@ -1521,7 +1520,7 @@ def readxanes(filebegin,files,fileend,energymeas,energycalib,dirs=[]):
             self-describing. The last will be the FSN.
     """
     muds=[];
-    if type(files)!=types.ListType:
+    if not (isinstance(files,list) or isinstance(files,tuple)):
         files=[files]
 
     for f in files:
@@ -1558,7 +1557,7 @@ def readabt(filename,dirs='.'):
             'dataset': a structured array a la numpy, containing the same data
                 as in 'data', but in another representation.
     """
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     if len(dirs)==0:
         dirs=['.']
@@ -1659,7 +1658,7 @@ def readmask(filename,fieldname=None,dirs='.'):
     Outputs:
         the mask in a numpy array of type np.uint8
     """
-    if type(dirs)==type(''):
+    if not (isinstance(dirs,list) or isinstance(dirs,tuple)):
         dirs=[dirs]
     f=None
     for d in dirs:
@@ -1743,7 +1742,7 @@ def writeparamfile(filename,param):
         #try if it is a float argument
         k1=[x for x in logfile_dict_float.keys() if logfile_dict_float[x]==k]
         if len(k1)>0:
-            if type(k)==type(''):
+            if isinstance(k,str):
                 k=[k,]
             k=[x for x in k if x in allkeys]
             if len(k)==0:
@@ -1758,7 +1757,7 @@ def writeparamfile(filename,param):
         #try if it is a str argument
         k1=[x for x in logfile_dict_str.keys() if logfile_dict_str[x]==k]
         if len(k1)>0:
-            if type(k)==type(''):
+            if isinstance(k,str):
                 k=[k,]
             k=[x for x in k if x in allkeys]
             if len(k)==0:
@@ -1773,7 +1772,7 @@ def writeparamfile(filename,param):
         #try if it is a bool argument
         k1=[x for x in logfile_dict_bool.keys() if logfile_dict_bool[x]==k]
         if len(k1)>0:
-            if type(k)==type(''):
+            if isinstance(k,str):
                 k=[k,]
             k=[x for x in k if x in allkeys]
             if len(k)==0:
@@ -1788,7 +1787,7 @@ def writeparamfile(filename,param):
         #try if it is a list
         k1=[x for x in logfile_dict_list.keys() if logfile_dict_list[x]==k]
         if len(k1)>0:
-            if type(k)==type(''):
+            if isinstance(k,str):
                 k=[k,]
             k=[x for x in k if x in allkeys]
             if len(k)==0:
@@ -1806,7 +1805,4 @@ def writeparamfile(filename,param):
     for k in allkeys:
         writekey(k)
     f.close()
-    
-def listintnorm(fsns,filetype='intnorm',logfiletype='intnorm',dirs=['.']):
-    data,param=readintnorm(fsns,filetype,logfiletype,dirs,quiet=True);
     
