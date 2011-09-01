@@ -227,6 +227,7 @@ def bdf2B1(bdf,doffset,steps2cm,energyreal,fsnref,thicknessref,pixelsize,mult,er
                  params['InjectionEB'],params['PixelSize'])
     write2dintfile(bdf['data']*mult/thickness,np.sqrt((bdf['error']*mult)**2+(bdf['data']*errmult)**2)/thickness,params)
     return bdf['data']*mult/thickness,np.sqrt((bdf['error']*mult)**2+(bdf['data']*errmult)**2)/thickness,params
+
 def bdf_read(filename):
     """Read bdf file (Bessy Data Format)
 
@@ -584,6 +585,7 @@ def readheader(filename,fsn=None,fileend=None,dirs=[],quiet=False):
         if not filefound and not quiet:
             print 'readheader: Cannot find file %s in given directories.' % name
     return headers
+
 def read2dB1data(filename,files=None,fileend=None,dirs=[],quiet=False):
     """Read 2D measurement files, along with their header data
 
@@ -732,6 +734,7 @@ def read2dB1data(filename,files=None,fileend=None,dirs=[],quiet=False):
                     data.append(tmp2);
                     header.append(tmp1);
             return data,header
+            
 def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
     """Prints information on the measurement files
     
@@ -782,6 +785,7 @@ def getsamplenames(filename,files,fileend,showtitles='Gabriel',dirs=[]):
                                                 h['Year'],
                                                 h['Hour'],
                                                 h['Minutes'])))
+                                                
 def read2dintfile(fsns,dirs=[],norm=True,quiet=False):
     """Read corrected intensity and error matrices
     

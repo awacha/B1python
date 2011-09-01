@@ -133,7 +133,7 @@ class ValueAndError(object):
     def __repr__(self):
         return unicode(self)
     def relative(self):
-        return abs(self.error6self.value)
+        return abs(self.error/self.value)
         
 class SASDict(object):
     """Small Angle Scattering results in a dictionary-like representation.
