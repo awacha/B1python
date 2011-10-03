@@ -827,8 +827,9 @@ def testorigin(data,orig,mask=None,dmin=None,dmax=None):
     """
     print "Creating origin testing images, please wait..."
     pylab.clf()
+    data=data.astype(np.double)
     if mask is None:
-        mask=np.ones(data.shape)
+        mask=np.ones(data.shape,dtype=np.uint8)
     print "    plotting matrix with cross-hair..."
     pylab.subplot(2,2,1)
     plot2dmatrix(data,mask=mask)

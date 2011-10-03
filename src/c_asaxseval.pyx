@@ -36,7 +36,7 @@ def asaxsbasicfunctions(np.ndarray[np.double_t, ndim=2] I not None,
                         np.ndarray[np.double_t, ndim=1] df1=None,
                         np.ndarray[np.double_t, ndim=1] df2=None,
                         unsigned int element=0,
-                        bool quiet=False,
+                        int quiet=False,
                         Py_ssize_t NMC=0):
     """Calculate the basic functions (nonresonant, mixed, resonant)
     
@@ -248,7 +248,7 @@ def reconstructfrompsfs(np.ndarray[np.double_t, ndim=1] N not None,
     cdef np.ndarray[np.double_t, ndim=2] Ints
     cdef np.ndarray[np.double_t, ndim=2] Errs
     cdef Py_ssize_t i    
-    cdef bool errorneeded
+    cdef int errorneeded
     
     errorneeded=True    
     Nenergies=len(f1);

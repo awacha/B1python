@@ -374,8 +374,8 @@ def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
         #display the measured and the fitted curves
         pylab.axes(ax2)
         pylab.title('First approximation')
-        pylab.xlabel(u'q (1/%c)' %197)
-        pylab.ylabel('Intensity')
+        pylab.xlabel(u'ln (q^2+3/R0^2)')
+        pylab.ylabel('ln Intensity')
         pylab.plot(xdata,logIexp,'.',label='Measured')
         pylab.plot(xdata,a*xdata+b,label='Fitted')
         pylab.legend()
@@ -400,13 +400,17 @@ def shullroess(data,qmin=-np.inf,qmax=np.inf,gui=False):
         print "n: ",n
         print "K: ",K
         print "Covariance matrix:",res[1]
-        dR0=np.sqrt(res[1][2][2])
-        dn=np.sqrt(res[1][1][1])
+        if res[1] is not None:
+            dR0=np.sqrt(res[1][2][2])
+            dn=np.sqrt(res[1][1][1])
+        else:
+            dR0=0
+            dn=0
         # plot the measured and the fitted curves
         pylab.axes(ax4)
         pylab.title('After LSQ fit')
-        pylab.xlabel(u'q (1/%c)'%197)
-        pylab.ylabel('Intensity')
+        pylab.xlabel(u'ln (q^2+3/R0^2)')
+        pylab.ylabel('ln Intensity')
         pylab.plot(np.log(qexp**2+3/R0**2),-(n+4)/2.0*np.log(qexp**2+3/R0**2)+K,label='Fitted')
         pylab.plot(np.log(qexp**2+3/R0**2),logIexp,'.',label='Measured')
         pylab.legend()
