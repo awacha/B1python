@@ -2,12 +2,8 @@ import numpy as np
 import warnings
 cimport numpy as np
 
-from stdlib cimport *
-cdef extern from "math.h":
-    double sqrt(double)
-    double exp(double)
-    double M_PI
-    double fabs(double)
+from libc.stdlib cimport *
+from libc.math cimport *
 
 
 cdef inline double gaussian_fast(double x, double x0, double std):

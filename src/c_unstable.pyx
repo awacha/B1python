@@ -1,16 +1,8 @@
 import numpy as np
 cimport numpy as np
 import scipy.signal
-from stdlib cimport malloc,free
-
-cdef extern from "math.h":
-    double sqrt(double)
-    double M_PI
-    double sin(double)
-    double atan(double)
-
-cdef extern from "stdlib.h":
-    void *calloc(Py_ssize_t,Py_ssize_t)
+from libc.stdlib cimport malloc,free
+from libc.math cimport *
 
 def indirectdesmear(np.ndarray[np.double_t, ndim=1] m not None,
                     np.ndarray[np.double_t, ndim=1] I not None,

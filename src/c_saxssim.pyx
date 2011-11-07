@@ -1,6 +1,7 @@
 import numpy as np
 cimport numpy as np
-from stdlib cimport *
+from libc.stdlib cimport *
+from libc.math cimport *
 import warnings
 from scipy.integrate import quadrature
 
@@ -10,19 +11,6 @@ ctypedef struct Coordtype:
     double x
     double y
     double z
-
-cdef extern from "stdlib.h":
-    Py_ssize_t RAND_MAX
-    Py_ssize_t rand()
-
-cdef extern from "math.h":
-    double sin(double)
-    double cos(double)
-    double sqrt(double)
-    double fabs(double)
-    double M_PI
-    double exp(double)
-    double log(double)
 
 cdef inline double randn():
     """Standard normal distribution

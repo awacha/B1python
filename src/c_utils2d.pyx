@@ -1,22 +1,11 @@
 import numpy as np
 cimport numpy as np
-from stdlib cimport *
+from libc.stdlib cimport *
+from libc.math cimport *
 
 cdef extern from "math.h":
-    double cos(double)
-    double sin(double)
-    double sqrt(double)
-    double atan(double)
-    double floor(double)
-    double atan2(double,double)
-    double exp(double)
-    double M_PI
-    double NAN
-    double INFINITY
-    double ceil(double)
-    double fmod(double,double)
-    double fabs(double)
     int isfinite(double)
+    double INFINITY
 
 cdef double HC=12398.419 #Planck's constant times speed of light, in eV*Angstrom units
 

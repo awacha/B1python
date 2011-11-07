@@ -1,16 +1,8 @@
 import numpy as np
 cimport numpy as np
 import utils
-from stdlib cimport *
-
-cdef extern from "stdlib.h":
-    Py_ssize_t RAND_MAX
-    Py_ssize_t rand()
-    
-cdef extern from "math.h":
-    double log(double)
-    double exp(double)
-    double sqrt(double)
+from libc.stdlib cimport *
+from libc.math cimport *
 
 cdef inline double randn():
     """Standard normal distribution
