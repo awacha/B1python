@@ -1,14 +1,7 @@
 import numpy as np
 cimport numpy as np
-from stdlib cimport malloc, free
-
-cdef extern from "math.h":
-    double sqrt(double)
-    double floor(double)
-    double atan(double)
-    double tan(double)
-    double cos(double)
-    double abs(double)
+from libc.stdlib cimport malloc, free
+from libc.math cimport sqrt, floor, atan, tan, cos, abs
 
 cdef int relaxedGaussSeidel(double *A, double *b, double *x, Py_ssize_t N, double relaxpar, Py_ssize_t Niter,double tolerance=0.0001):
     """A matrix: A[i,j]=i-th row, j-th column. Column-first ordering: A[i,j]=A[j*N+i]
@@ -303,17 +296,17 @@ def smearingmatrixgonio(double tthmin, double tthmax, Py_ssize_t Ntth,
                     mat[itth,idxprev+1]+=P*prop
     return mat
 
-def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
+def smearingmatrixflat(double pixmin, Py_ssize_t Npix, double pixsize,
                       np.ndarray[np.double_t, ndim=2] p,
                       np.ndarray[np.double_t,ndim=1] x,
                       np.ndarray[np.double_t, ndim=1] y, double L0,callback=None):
-    """def smearingmatrixflat(pixmin,pixmax,pixsize,p,x,y,L0):
+    """def smearingmatrixflat(pixmin,Npix,pixsize,p,x,y,L0):
 
     Construct a smearing matrix for line focus, flat detector.
     
     Inputs:
         pixmin: pixel coordinate of the first point
-        pixmax: pixel coordinate of the last point
+        Npix: number of pixels.
         pixsize: the width of a pixel (mm)
         p: beam profile matrix (length: along rows. Height: along columns. I.e.
             in normal case, the matrix has more columns than rows).
@@ -338,9 +331,10 @@ def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
     cdef np.ndarray[np.double_t, ndim=2] mat
     cdef double X,Y,P,prop,pixnew
     cdef double tmp,pix
-    cdef Py_ssize_t idxprev,ix,iy,ipix,Nx,Ny,Npix
+    cdef double pixmax
+    cdef Py_ssize_t idxprev,ix,iy,ipix,Nx,Ny
     #number of pixels
-    Npix=long(pixmax-pixmin+1)
+    pixmax=pixmin+Npix-1
     #create an empty matrix
     mat=np.zeros((Npix,Npix),dtype=np.double)
     Nx=len(x)

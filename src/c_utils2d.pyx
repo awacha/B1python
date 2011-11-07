@@ -67,7 +67,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             np.ndarray[np.double_t, ndim=1] q=None,
             bint shutup=True, bint returnavgq=False, phi0=None, dphi=None,
             returnmask=False, double fuzzy_FWHM=0, bint symmetric_sector=False,
-            bint sliceorsector=False):
+            bint sliceorsector=False, bint returnpixel=False):
     """
     def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             np.ndarray[np.double_t,ndim=2] dataerr not None,
@@ -77,7 +77,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
             np.ndarray[np.double_t, ndim=1] q=None,
             bint shutup=True, bint returnavgq=False, phi0=None, dphi=None,
             returnmask=False, double fuzzy_FWHM=0, bint symmetric_sector=False,
-            bint sliceorsector=False):
+            bint sliceorsector=False, bint returnpixel=False):
 
         Do radial integration on 2D scattering images. Now this takes the
         functional determinant dq/dr into account.
@@ -121,6 +121,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         sliceorsector: True if slice, False if sector integration is preferred.
             In the former case, dphi is interpreted as the width of the slice,
             in pixel units.
+        returnpixel: return pixel coordinates for integrated bins.
+        
     Outputs: four ndarrays.
         the q vector
         the intensity vector
@@ -152,6 +154,7 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     cdef double symmetric_sector_periodicity
     cdef double sinphi0,cosphi0
     cdef double bcxa, bcya
+    cdef np.ndarray[np.double_t, ndim=1] pixelout
     
     if type(res)!=type([]) and type(res)!=type(()) and type(res)!=np.ndarray:
         res=[res,res];
@@ -203,7 +206,6 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
 
     if returnmask:
         maskout=np.ones([data.shape[0],data.shape[1]],dtype=np.uint8)
-    
     if not shutup:
         print "Creating D matrix...",
     # if the q-scale was not supplied, create one.
@@ -239,6 +241,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
     Error=np.zeros(K,dtype=np.double)
     Area=np.zeros(K,dtype=np.double)
     qout=np.zeros(K,dtype=np.double)
+    if returnpixel:
+        pixelout=np.zeros(K,dtype=np.double)
     if not shutup:
         print "Integrating..."
     # set the bounds of the q-bins in qmin and qmax
@@ -312,6 +316,8 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 weight[l]+=w1
                 if returnmask:
                     maskout[ix,iy]=0
+                if returnpixel:
+                    pixelout[l]+=sqrt(ix**2+iy**2)
                 if fuzzy_FWHM<=0: # we must do this for the traditional integration,
                                   # because omitting this would cause the pixel to be
                                   # calculated into the next bin as well.
@@ -324,11 +330,13 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
                 Intensity[l]=0
                 Error[l]=0
                 Area[l]=0
+                pixelout[l]=0
             else:
                 qout[l]/=weight[l]
                 Intensity[l]/=weight[l]
                 Error[l]=sqrt(Error[l])
                 Error[l]/=weight[l]
+                pixelout[l]/=weight[l]
     if fuzzy_FWHM<=0:
         free(qmax)
     free(weight)
@@ -338,17 +346,15 @@ def radintC(np.ndarray[np.double_t,ndim=2] data not None,
         print "Hiescape: ",hiescape
         print "Masked: ",masked
         print "ZeroError: ",zeroerror
-    if returnavgq:
-        if returnmask:
-            return qout,Intensity,Error,Area,maskout
-        else:
-            return qout,Intensity,Error,Area
-    else:
-        if returnmask:
-            return q,Intensity,Error,Area,maskout
-        else:
-            return q,Intensity,Error,Area
-    
+    if not returnavgq:
+        qout=q
+    output=[qout,Intensity,Error,Area]
+    if returnmask:
+        output.append(maskout)
+    if returnpixel:
+        output.append(pixelout)
+    return tuple(output)
+
 def azimintpixC(np.ndarray[np.double_t, ndim=2] data not None,
                 np.ndarray[np.double_t, ndim=2] error,
                 orig,

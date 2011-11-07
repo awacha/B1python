@@ -341,6 +341,166 @@ def theorsaxs2D(np.ndarray[np.double_t, ndim=2] data not None, double dist,
     else:
         return output
 
+def theorsaxs2D_fast(np.ndarray[np.double_t, ndim=2] data not None, double dist,
+              double wavelength, Py_ssize_t Nx, Py_ssize_t Ny,
+              double pixelsizex, double pixelsizey, double dx=0, double dy=0,
+              bint headerout=False, Py_ssize_t FSN=0, Title='',verbose=True):
+    """theorsaxs2D_fast(np.ndarray[np.double_t, ndim=2] data not None,
+                   double dist, double wavelength, Py_ssize_t Nx,
+                   Py_ssize_t Ny, double pixelsizex, double pixelsizey,
+                   double dx=0,double dy=0,bint headerout=False,
+                   Py_ssize_t FSN=0,Title='',verbose=True):
+    
+    Calculate theoretical scattering of a sphere/cylinder composite structure
+    in a virtual transmission SAXS setup. This is an improved version where
+    T_CPU ~ N_objects.
+    
+    Inputs:
+        data: numpy array representing the sphere structure data. It should have
+            at least 5 columns, which are interpreted as x, y, z, R, rho, [L,
+            vx, vy, vz]. These denote the center of the sphere/cylinder, its
+            radius and average electron density. L is the length of the cylinder
+            (if it is zero, the row is treated as a sphere) and vx, vy, vz
+            describe the director of the cylinder. Superfluous columns are
+            disregarded. x is horizontal, y is vertical. z points towards the
+            detector.
+        dist: sample-to-detector distance, usually in mm.
+        wavelength: wavelength of the radiation used, usually in Angstroems
+        Nx, Ny: the width and height of the virtual 2D detector, in pixels.
+        pixelsizex, pixelsizey: the horizontal and vertical pixel size, usually
+            expressed in millimetres (the same as dist)
+        dx, dy: horizontal and vertical displacement of the detector. If these
+            are 0, the beam falls at the centre. Of the same dimension as dist
+            and pixelsize.
+        headerout: True if a header structure is to be returned (with beam
+            beam center, distance, wavelength etc.)
+        FSN: File Sequence Number to write in header.
+        Title: Sample title to write in header.
+        verbose: True if you want to have messages printed out after each column
+
+    Output:
+        a 2D numpy array containing the scattering image. The row coordinate is
+        the vertical coordinate (rows are horizontal).
+
+    """
+    cdef double *x,*y,*z,*R,*rho # sphere data
+    cdef double *cx,*cy,*cz,*cR,*crho,*cL,*cvx,*cvy,*cvz # cylinder data
+    cdef np.ndarray[np.double_t, ndim=2] output
+    cdef double Areal, Aimag
+    cdef Py_ssize_t i,j,k,l
+    cdef Py_ssize_t numspheres
+    cdef Py_ssize_t numcylinders
+    cdef double tmp,I
+    cdef double qx,qy,qz,q
+    cdef double sx,sy,sz
+    cdef double fcurrent, qR
+    
+    if data.shape[1]<5:
+        raise ValueError('the number of columns in the input matrix should be at least 5.')
+    
+    output=np.zeros((Ny,Nx),dtype=np.double)
+    numcylinders=0
+    if data.shape[1]==5:
+        numspheres=data.shape[0]
+    else:
+        numspheres=0
+        numcylinders=0
+        for i from 0<=i<data.shape[0]:
+            if data[i,5]>0:
+                numcylinders+=1
+            else:
+                numspheres+=1
+    x=<double*>malloc(sizeof(double)*numspheres)
+    y=<double*>malloc(sizeof(double)*numspheres)
+    z=<double*>malloc(sizeof(double)*numspheres)
+    R=<double*>malloc(sizeof(double)*numspheres)
+    rho=<double*>malloc(sizeof(double)*numspheres)
+    cx=<double*>malloc(sizeof(double)*numcylinders)
+    cy=<double*>malloc(sizeof(double)*numcylinders)
+    cz=<double*>malloc(sizeof(double)*numcylinders)
+    cR=<double*>malloc(sizeof(double)*numcylinders)
+    crho=<double*>malloc(sizeof(double)*numcylinders)
+    cL=<double*>malloc(sizeof(double)*numcylinders)
+    cvx=<double*>malloc(sizeof(double)*numcylinders)
+    cvy=<double*>malloc(sizeof(double)*numcylinders)
+    cvz=<double*>malloc(sizeof(double)*numcylinders)
+
+    j=0
+    k=0
+    if numcylinders==0:
+        for i from 0<=i<data.shape[0]:
+            x[i]=data[i,0]
+            y[i]=data[i,1]
+            z[i]=data[i,2]
+            R[i]=data[i,3]
+            rho[i]=data[i,4]
+    else:
+        for i from 0<=i<data.shape[0]:
+            if data[i,5]>0:
+                cx[k]=data[i,0]
+                cy[k]=data[i,1]
+                cz[k]=data[i,2]
+                cR[k]=data[i,3]
+                crho[k]=data[i,4]
+                cL[k]=data[i,5]
+                cvx[k]=data[i,6]
+                cvy[k]=data[i,7]
+                cvz[k]=data[i,8]
+                k=k+1
+            else:
+                x[j]=data[i,0]
+                y[j]=data[i,1]
+                z[j]=data[i,2]
+                R[j]=data[i,3]
+                rho[j]=data[i,4]
+                j=j+1
+    for i from 0<=i<Nx:
+        for j from 0<=j<Ny:
+            sx=((i-Nx/2.0)*pixelsizex+dx)
+            sy=((j-Ny/2.0)*pixelsizey+dy)
+            sz=dist
+            tmp=sqrt(sx**2+sy**2+sz**2)
+            if tmp==0:
+                qx=0
+                qy=0
+                qz=0
+            else:
+                qx=sx/tmp*2*M_PI/wavelength
+                qy=sy/tmp*2*M_PI/wavelength
+                qz=(sz/tmp-1)*2*M_PI/wavelength
+            q=sqrt(qx**2+qy**2+qz**2)
+            I=0
+            Areal=0
+            Aimag=0
+            for k from 0<=k<numspheres:
+                qR=(x[k]*qx+y[k]*qy+z[k]*qz)
+                fcurrent=fsphere(q,R[k])
+                Areal+=rho[k]*fcurrent*cos(qR)
+                Aimag+=rho[k]*fcurrent*sin(qR)
+            for k from 0<=k<numcylinders:
+                qR=(cx[k]*qx+cy[k]*qy+cz[k]*qz)
+                fcurrent=fcylinder(qx,qy,qz,cvx[k],cvy[k],cvz[k],cL[k],cR[k])
+                Areal+=crho[k]*fcurrent*cos(qR)
+                Aimag+=crho[k]*fcurrent*sin(qR)
+            output[j,i]=Areal**2+Aimag**2
+        if verbose:
+            print "column",i,"/",Nx,"done"
+    free(rho); free(R); free(z); free(y); free(x);
+    if numcylinders>0:
+        free(crho); free(cR); free(cz); free(cy); free(cx); free(cvx); free(cvy); free(cvz); free(cL);
+    if headerout:
+        return output,{'BeamPosX':(0.5*Ny+1)-dy/pixelsizey,\
+                       'BeamPosY':(0.5*Nx+1)-dx/pixelsizex,'Dist':dist,\
+                       'EnergyCalibrated':HC/wavelength,'PixelSizeX':pixelsizex,\
+                       'PixelSizeY':pixelsizey,\
+                       'PixelSize':sqrt(pixelsizex*pixelsizex+pixelsizey*pixelsizey),\
+                       'FSN':FSN,'Title':Title}
+    else:
+        return output
+
+
+
+
 def Ctheorsphere2D(np.ndarray[np.double_t, ndim=2] data not None,
                    double dist, double wavelength, Py_ssize_t Nx,
                    Py_ssize_t Ny, double pixelsizex, double pixelsizey,

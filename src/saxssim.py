@@ -1,4 +1,4 @@
-from c_saxssim import theorsaxs2D,Ctheorsphere2D,Ctheorspheregas,Ctheorspheres,maxdistance,unidir,grf_saxs2D,grf_realize,ddistcylinder,ddistsphere,ddistellipsoid,ddistbrick,ftddist,ddistgrf,charfuncgrf,packspheres,structurefactor,ellipsoid_scatter,Ctheorspheres_azim
+from c_saxssim import theorsaxs2D,theorsaxs2D_fast,Ctheorsphere2D,Ctheorspheregas,Ctheorspheres,maxdistance,unidir,grf_saxs2D,grf_realize,ddistcylinder,ddistsphere,ddistellipsoid,ddistbrick,ftddist,ddistgrf,charfuncgrf,packspheres,structurefactor,ellipsoid_scatter,Ctheorspheres_azim
 import numpy as np
 
 def grf_savevtk(file,grfmatrix,origin=None,spacing=None):

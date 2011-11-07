@@ -1,5 +1,5 @@
 import numpy as np
-import pylab
+import matplotlib.pyplot as plt
 import matplotlib.widgets
 import matplotlib.nxutils
 import scipy.io
@@ -36,14 +36,14 @@ def plotintegrated(A,q,intensity,error=None,area=None,qtheor=None,mask=None,para
         mode: mode of the integration. 'r[adial]' or 'a[zimuthal]'. Default is
             'radial'
     """
-    pylab.clf()
+    plt.clf()
     if (area is not None) or (qtheor is not None):
         Nsubplotrows=2
     else:
         Nsubplotrows=1
-    pylab.subplot(Nsubplotrows,2,1)
+    plt.subplot(Nsubplotrows,2,1)
     plot2dmatrix(A,mask=mask,header=param,showqscale=True)
-    pylab.subplot(Nsubplotrows,2,2)
+    plt.subplot(Nsubplotrows,2,2)
     
     if mode.upper()=='AZIMUTHAL'[:max(1,len(mode))]:
         xlabel=u'azimuth angle (rad)'
@@ -53,53 +53,53 @@ def plotintegrated(A,q,intensity,error=None,area=None,qtheor=None,mask=None,para
         raise ValueError, "Invalid integration mode: %s" %mode
     
     if error is not None:
-        pylab.errorbar(q,intensity,error)
+        plt.errorbar(q,intensity,error)
     else:
-        pylab.plot(q,intensity)
+        plt.plot(q,intensity)
         
     if xscale.upper()=='LOGARITHMIC'[:max(2,len(xscale))]:
-        pylab.xscale('log')
+        plt.xscale('log')
     elif xscale.upper()=='LINEAR'[:max(2,len(xscale))]:
-        pylab.xscale('linear')
+        plt.xscale('linear')
     else:
         raise ValueError, 'invalid scaling mode %s' % xscale
 
     if yscale.upper()=='LOGARITHMIC'[:max(2,len(yscale))]:
-        pylab.yscale('log')
+        plt.yscale('log')
     elif yscale.upper()=='LINEAR'[:max(2,len(yscale))]:
-        pylab.yscale('linear')
+        plt.yscale('linear')
     else:
         raise ValueError, 'invalid scaling mode %s' % yscale
         
-    pylab.xlabel(xlabel)
-    pylab.ylabel(u'Intensity')
-    pylab.title('Integrated intensity')
+    plt.xlabel(xlabel)
+    plt.ylabel(u'Intensity')
+    plt.title('Integrated intensity')
     
     if area is not None:        
-        pylab.subplot(Nsubplotrows,2,3)
-        pylab.plot(q,area)
-        pylab.xlabel(xlabel)
-        pylab.ylabel(u'Effective area')
+        plt.subplot(Nsubplotrows,2,3)
+        plt.plot(q,area)
+        plt.xlabel(xlabel)
+        plt.ylabel(u'Effective area')
         if xscale.upper()=='LOGARITHMIC'[:max(2,len(xscale))]:
-            pylab.xscale('log')
+            plt.xscale('log')
         elif xscale.upper()=='LINEAR'[:max(2,len(xscale))]:
-            pylab.xscale('linear')
+            plt.xscale('linear')
         else:
             raise ValueError, 'invalid scaling mode %s' % xscale
-        pylab.title('Effective area')
+        plt.title('Effective area')
     if qtheor is not None:
-        pylab.subplot(Nsubplotrows,2,4)
-        pylab.plot(q,q/qtheor,'.')
-        pylab.xlabel(xlabel)
-        pylab.ylabel(u'Effective q / desired q (==1 if correct)')
+        plt.subplot(Nsubplotrows,2,4)
+        plt.plot(q,q/qtheor,'.')
+        plt.xlabel(xlabel)
+        plt.ylabel(u'Effective q / desired q (==1 if correct)')
         if xscale.upper()=='LOGARITHMIC'[:max(2,len(xscale))]:
-            pylab.xscale('log')
+            plt.xscale('log')
         elif xscale.upper()=='LINEAR'[:max(2,len(xscale))]:
-            pylab.xscale('linear')
+            plt.xscale('linear')
         else:
             raise ValueError, 'invalid scaling mode %s' % xscale
-        pylab.title('q_eff/q_theor')
-    pylab.gcf().show()
+        plt.title('q_eff/q_theor')
+    plt.gcf().show()
 
 def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
     """Plot intensities
@@ -141,13 +141,13 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
     if (len(marker)<len(samplename)) or (len(mult) <len(samplename)):
         raise ValueError
     if gui==True:
-        fig=pylab.figure()
+        fig=plt.figure()
         buttonax=fig.add_axes((0.65,0.1,0.3,0.05))
         guiax=fig.add_axes((0.65,0.15,0.3,0.75))
         ax=fig.add_axes((0.1,0.1,0.5,0.8))
         btn=matplotlib.widgets.Button(buttonax,'Close GUI')
         def fun(event):
-            fig=pylab.gcf()
+            fig=plt.gcf()
             fig.delaxes(fig.axes[0])
             fig.delaxes(fig.axes[0])
             fig.axes[0].set_position((0.1,0.1,0.8,0.85))
@@ -156,8 +156,8 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
         texts=[]
         handles=[]
     else:
-        fig=pylab.gcf()
-        ax=pylab.gca()
+        fig=plt.gcf()
+        ax=plt.gca()
     for k in range(len(data)):
         for s in range(len(samplename)):
             if param[k]['Title']==samplename[s]:
@@ -201,9 +201,9 @@ def plotints(data,param,samplename,energies,marker='.',mult=1,gui=False):
     if gui==True:
         while len(fig.axes)==3:
             fig.waitforbuttonpress()
-            pylab.draw()
+            plt.draw()
     return legends
-def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1,blacknegative=False,crosshair=True,zscaling='log'):
+def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,contour=None,pmin=0,pmax=1,blacknegative=False,crosshair=True,zscaling='log',axes=None):
     """Plots the matrix A in logarithmic coloured plot
     
     Inputs:
@@ -229,6 +229,8 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
         crosshair: True if you want to draw a beam-center testing cross-hair
         zscaling: 'log' or 'linear' (color scale model)
     """
+    if axes is None:
+        axes=plt.gca()
     tmp=A.copy(); # this is needed as Python uses the pass-by-object method,
                   # so A is the SAME as the version of the caller. tmp=A would
                   # render tmp the SAME (physically) as A. If we only would
@@ -239,20 +241,11 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
                   # matrix were modified.
     if maxval is not None:
         tmp[tmp>maxval]=max(tmp[tmp<=maxval])
-#    t0=time.time()
     nonpos=(tmp<=0)
-#    t1=time.time()
     tmp[nonpos]=tmp[tmp>0].min()
-#    t2=time.time()
     if zscaling.upper()=='LOG':
         tmp=np.log(tmp);
-#    t3=time.time()
     tmp[np.isnan(tmp)]=tmp[-np.isnan(tmp)].min();
-#    t4=time.time()
-#    print t1-t0
-#    print t2-t1
-#    print t3-t2
-#    print t4-t3
     if (header is not None) and (showqscale):
         # x: row direction (vertical on plot)
         xmin=0-(header['BeamPosX']-1)*header['PixelSize']
@@ -276,32 +269,34 @@ def plot2dmatrix(A,maxval=None,mask=None,header=None,qs=[],showqscale=True,conto
     else:
         extent1=extent;
     if contour is None:
-        pylab.imshow(tmp,extent=extent,interpolation='nearest',vmin=tmp.min()+pmin*(tmp.max()-tmp.min()),vmax=tmp.min()+pmax*(tmp.max()-tmp.min()));
+        axes.imshow(tmp,extent=extent,interpolation='nearest',vmin=tmp.min()+pmin*(tmp.max()-tmp.min()),vmax=tmp.min()+pmax*(tmp.max()-tmp.min()));
     else:
         X,Y=np.meshgrid(np.linspace(extent1[2],extent1[3],tmp.shape[1]),
                            np.linspace(extent1[0],extent1[1],tmp.shape[0]))
-        pylab.contour(X,Y,tmp,contour)
+        axes.contour(X,Y,tmp,contour)
     if blacknegative:
         black=np.zeros((A.shape[0],A.shape[1],4))
         black[:,:,3][nonpos]=1
-        pylab.imshow(black,extent=extent,interpolation='nearest')
+        axes.imshow(black,extent=extent,interpolation='nearest')
     if mask is not None:
         white=np.ones((mask.shape[0],mask.shape[1],4))
         white[:,:,3]=np.array(1-mask).astype('float')*0.7
-        pylab.imshow(white,extent=extent,interpolation='nearest')
+        axes.imshow(white,extent=extent,interpolation='nearest')
     for q in qs:
-        a=pylab.gca().axis()
-        pylab.plot(q*np.cos(np.linspace(0,2*np.pi,2000)),
+        a=axes.axis()
+        axes.plot(q*np.cos(np.linspace(0,2*np.pi,2000)),
                    q*np.sin(np.linspace(0,2*np.pi,2000)),
                    color='white',linewidth=3)
-        pylab.gca().axis(a)
+        axes.axis(a)
     if header is not None:
-        pylab.title("#%d: %s" % (header['FSN'], header['Title']))
+        if 'FSN' in header.keys() and 'Title' in header.keys():
+            axes.set_title("#%d: %s" % (header['FSN'], header['Title']))
     if crosshair and header is not None:
-        a=pylab.gca().axis()
-        pylab.plot([extent1[0],extent1[1]],[bcrow,bcrow],'-',color='white')
-        pylab.plot([bccol,bccol],[extent1[2],extent1[3]],'-',color='white')
-        pylab.gca().axis(a)
+        a=axes.axis()
+        axes.plot([extent1[0],extent1[1]],[bcrow,bcrow],'-',color='white')
+        axes.plot([bccol,bccol],[extent1[2],extent1[3]],'-',color='white')
+        axes.axis(a)
+        
 def makemask(mask,A,savefile=None):
     """Make mask matrix.
     
@@ -314,7 +309,7 @@ def makemask(mask,A,savefile=None):
         False, non-masked True
     """
     def clickevent(event):
-        fig=pylab.gcf()
+        fig=plt.gcf()
         if (fig.canvas.manager.toolbar.mode!='') and (fig.mydata['backuptitle'] is None):
             fig.mydata['backuptitle']=fig.mydata['ax'].get_title()
             fig.mydata['ax'].set_title('%s mode is on. Turn it off to continue editing.' % fig.canvas.manager.toolbar.mode)
@@ -454,13 +449,13 @@ def makemask(mask,A,savefile=None):
             fig.mydata['redrawneeded']=True
             return
         elif event.inaxes==fig.mydata['bax0']: # done
-            pylab.gcf().toexit=True
+            plt.gcf().toexit=True
     if mask is None:
         mask=np.ones(A.shape)
     if A.shape!=mask.shape:
         print 'The shapes of A and mask should be equal.'
         return None
-    fig=pylab.gcf();
+    fig=plt.gcf();
     fig.clf()
     fig.mydata={}
     fig.mydata['ax']=fig.add_axes((0.3,0.1,0.6,0.8))
@@ -492,20 +487,20 @@ def makemask(mask,A,savefile=None):
                 ax=fig.mydata['ax'].axis();
             fig.mydata['redrawneeded']=False
             fig.mydata['ax'].cla()
-            pylab.axes(fig.mydata['ax'])
+            plt.axes(fig.mydata['ax'])
             plot2dmatrix(A,mask=fig.mydata['mask'])
             fig.mydata['ax'].set_title('')
             if not firstdraw:
                 fig.mydata['ax'].axis(ax);
             firstdraw=0;
-        pylab.draw()
+        plt.draw()
         fig.waitforbuttonpress()
     #ax.imshow(maskplot)
-    #pylab.show()
+    #plt.show()
     mask=fig.mydata['mask']
-    #pylab.close(fig)
+    #plt.close(fig)
     fig.clf()
-#    pylab.title('Mask Done')
+#    plt.title('Mask Done')
     if savefile is not None:
         print 'Saving file'
         scipy.io.savemat(savefile,{'mask':mask})
@@ -534,18 +529,18 @@ def basicfittinggui_old(data,title='',blocking=False):
     bottomborder=0.1
     leftbox_end=0.3
     data=utils.flatten1dsasdict(data)
-    fig=pylab.figure()
-    pylab.clf()
+    fig=plt.figure()
+    plt.clf()
     plots=['Guinier','Guinier thickness','Guinier cross-section','Porod','lin-lin','lin-log','log-lin','log-log']
     buttons=['Guinier','Guinier thickness','Guinier cross-section','Porod','Power law','Power law with c.background','Power law with l.background']
     fitfuns=[fitting.guinierfit,fitting.guinierthicknessfit,fitting.guiniercrosssectionfit,fitting.porodfit,fitting.powerfit,fitting.powerfitwithbackground,fitting.powerfitwithlinearbackground]
     for i in range(len(buttons)):
-        ax=pylab.axes((leftborder,topborder-(i+1)*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))))
+        ax=plt.axes((leftborder,topborder-(i+1)*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))))
         but=matplotlib.widgets.Button(ax,buttons[i])
         def onclick(A=None,B=None,data=data,type=buttons[i],fitfun=fitfuns[i]):
-            a=pylab.axis()
-            plottype=pylab.gcf().plottype
-            pylab.figure()
+            a=plt.axis()
+            plottype=plt.gcf().plottype
+            plt.figure()
             if plottype=='Guinier':
                 xt=data['q']**2
                 yt=np.log(data['Intensity'])
@@ -569,81 +564,81 @@ def basicfittinggui_old(data,title='',blocking=False):
             res=fitfun(data,qmin,qmax,testimage=True)
             listoffits.append({'type':type,'res':res,'time':time.time(),'qmin':qmin,'qmax':qmax})
 #            if len(res)==4:
-#                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg' % (type,res[0],res[2],res[1],res[3]))
+#                plt.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg' % (type,res[0],res[2],res[1],res[3]))
 #            elif len(res)==6:
-#                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg' % (type,res[0],res[3],res[1],res[4],res[2],res[5]))
+#                plt.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg' % (type,res[0],res[3],res[1],res[4],res[2],res[5]))
 #            elif len(res)==8:
-#                pylab.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg; %lg +/- %lg' % (type,res[0],res[4],res[1],res[5],res[2],res[6],res[3],res[7]))
-            pylab.gcf().show()
+#                plt.title('%s fit on dataset.\nParameters: %lg +/- %lg ; %lg +/- %lg;\n %lg +/- %lg; %lg +/- %lg' % (type,res[0],res[4],res[1],res[5],res[2],res[6],res[3],res[7]))
+            plt.gcf().show()
         but.on_clicked(onclick)
-    ax=pylab.axes((leftborder,topborder-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))*len(plots) ))
-    pylab.title('Plot types')
+    ax=plt.axes((leftborder,topborder-(len(buttons)+len(plots))*(0.8)/(len(buttons)+len(plots)),leftbox_end,0.7/(len(buttons)+len(plots))*len(plots) ))
+    plt.title('Plot types')
     rb=matplotlib.widgets.RadioButtons(ax,plots,active=7)
-    pylab.gcf().blocking=blocking
-    if pylab.gcf().blocking:
-        ax=pylab.axes((leftborder,0.03,leftbox_end,bottomborder-0.03))
+    plt.gcf().blocking=blocking
+    if plt.gcf().blocking:
+        ax=plt.axes((leftborder,0.03,leftbox_end,bottomborder-0.03))
         b=matplotlib.widgets.Button(ax,"Done")
-        fig=pylab.gcf()
+        fig=plt.gcf()
         fig.fittingdone=False
         def onclick1(A=None,B=None,fig=fig):
             fig.fittingdone=True
-            pylab.gcf().blocking=False
+            plt.gcf().blocking=False
      #       print "blocking should now end"
         b.on_clicked(onclick1)
-    pylab.axes((0.4,bottomborder,0.5,0.8))
+    plt.axes((0.4,bottomborder,0.5,0.8))
     def onselectplottype(plottype,q=data['q'],I=data['Intensity'],title=title):
-        pylab.cla()
-        pylab.gcf().plottype==plottype
+        plt.cla()
+        plt.gcf().plottype==plottype
         if plottype=='Guinier':
             x=q**2
             y=np.log(I)
-            pylab.plot(x,y,'.')
-            pylab.xlabel('q^2')
-            pylab.ylabel('ln I')
+            plt.plot(x,y,'.')
+            plt.xlabel('q^2')
+            plt.ylabel('ln I')
         elif plottype=='Guinier thickness':
             x=q**2
             y=np.log(I)*q**2
-            pylab.plot(x,y,'.')
-            pylab.xlabel('q^2')
-            pylab.ylabel('ln I*q^2')
+            plt.plot(x,y,'.')
+            plt.xlabel('q^2')
+            plt.ylabel('ln I*q^2')
         elif plottype=='Guinier cross-section':
             x=q**2
             y=np.log(I)*q
-            pylab.plot(x,y,'.')
-            pylab.xlabel('q^2')
-            pylab.ylabel('ln I*q')            
+            plt.plot(x,y,'.')
+            plt.xlabel('q^2')
+            plt.ylabel('ln I*q')            
         elif plottype=='Porod':
             x=q**4
             y=I*q**4
-            pylab.plot(x,y,'.')
-            pylab.xlabel('q^4')
-            pylab.ylabel('I*q^4')
+            plt.plot(x,y,'.')
+            plt.xlabel('q^4')
+            plt.ylabel('I*q^4')
         elif plottype=='lin-lin':
-            pylab.plot(q,I,'.')
-            pylab.xlabel('q')
-            pylab.ylabel('I')
+            plt.plot(q,I,'.')
+            plt.xlabel('q')
+            plt.ylabel('I')
         elif plottype=='lin-log':
-            pylab.semilogx(q,I,'.')
-            pylab.xlabel('q')
-            pylab.ylabel('I')
+            plt.semilogx(q,I,'.')
+            plt.xlabel('q')
+            plt.ylabel('I')
         elif plottype=='log-lin':
-            pylab.semilogy(q,I,'.')
-            pylab.xlabel('q')
-            pylab.ylabel('I')
+            plt.semilogy(q,I,'.')
+            plt.xlabel('q')
+            plt.ylabel('I')
         elif plottype=='log-log':
-            pylab.loglog(q,I,'.')
-            pylab.xlabel('q')
-            pylab.ylabel('I')
-        pylab.title(title)
-        pylab.gcf().plottype=plottype
-        pylab.gcf().show()
+            plt.loglog(q,I,'.')
+            plt.xlabel('q')
+            plt.ylabel('I')
+        plt.title(title)
+        plt.gcf().plottype=plottype
+        plt.gcf().show()
     rb.on_clicked(onselectplottype)
-    pylab.title(title)
-    pylab.loglog(data['q'],data['Intensity'],'.')
-    pylab.gcf().plottype='log-log'
-    pylab.gcf().show()
-    pylab.draw()
-    fig=pylab.gcf()
+    plt.title(title)
+    plt.loglog(data['q'],data['Intensity'],'.')
+    plt.gcf().plottype='log-log'
+    plt.gcf().show()
+    plt.draw()
+    fig=plt.gcf()
     while blocking:
         fig.waitforbuttonpress()
 #        print "buttonpress"
@@ -706,7 +701,7 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=None,slidermax=None,
         change the smoothing parameter.
     """
     #create the slider above
-    fig=pylab.gcf()
+    fig=plt.gcf()
     fig.clf()
     if slidermin is None:
         slidermin=np.power(10,np.log10(smoothing)-2)
@@ -795,7 +790,7 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=None,slidermax=None,
             axes.set_yscale(yscale)
         if callback is not None:
             callback(fig.smoothing,fig.ysmoothed,axes)
-        pylab.draw()
+        plt.draw()
         #fig.show()
     if tkgui:
         sl.lastvalue=None
@@ -807,7 +802,7 @@ def testsmoothing(x,y,smoothing=1e-5,slidermin=None,slidermax=None,
         root.mainloop()
     else:
         while not fig.smoothingdone:
-            pylab.waitforbuttonpress()
+            plt.waitforbuttonpress()
     print "RETURNED FROM MAIN LOOP"
     if fig.cancel:
         raise RuntimeError('Smoothing was cancelled')
@@ -826,48 +821,48 @@ def testorigin(data,orig,mask=None,dmin=None,dmax=None):
         mask: the mask matrix. Nonzero means nonmasked
     """
     print "Creating origin testing images, please wait..."
-    pylab.clf()
+    plt.clf()
     data=data.astype(np.double)
     if mask is None:
         mask=np.ones(data.shape,dtype=np.uint8)
     print "    plotting matrix with cross-hair..."
-    pylab.subplot(2,2,1)
+    plt.subplot(2,2,1)
     plot2dmatrix(data,mask=mask)
-    pylab.plot([0,data.shape[1]],[orig[0]-1,orig[0]-1],color='white')
-    pylab.plot([orig[1]-1,orig[1]-1],[0,data.shape[0]],color='white')
-    pylab.gca().axis('tight')
+    plt.plot([0,data.shape[1]],[orig[0]-1,orig[0]-1],color='white')
+    plt.plot([orig[1]-1,orig[1]-1],[0,data.shape[0]],color='white')
+    plt.gca().axis('tight')
     print "    calculating and plotting slices..."
-    pylab.subplot(2,2,2)
+    plt.subplot(2,2,2)
     c1,nc1=utils2d.imageintC(data,orig,1-mask,35,20)
     c2,nc2=utils2d.imageintC(data,orig,1-mask,35+90,20)
     c3,nc3=utils2d.imageintC(data,orig,1-mask,35+180,20)
     c4,nc4=utils2d.imageintC(data,orig,1-mask,35+270,20)
-    pylab.semilogy(c1,marker='.',color='blue',markersize=3)
-    pylab.semilogy(c3,marker='o',color='blue',markersize=6)
-    pylab.semilogy(c2,marker='.',color='red',markersize=3)
-    pylab.semilogy(c4,marker='o',color='red',markersize=6)
+    plt.semilogy(c1,marker='.',color='blue',markersize=3)
+    plt.semilogy(c3,marker='o',color='blue',markersize=6)
+    plt.semilogy(c2,marker='.',color='red',markersize=3)
+    plt.semilogy(c4,marker='o',color='red',markersize=6)
     print "    calculating and plotting polar matrices..."
-    pylab.subplot(2,2,3)
+    plt.subplot(2,2,3)
     maxr=max([len(c1),len(c2),len(c3),len(c4)])
     pdata=utils2d.polartransform(data.astype('double'),np.arange(0,maxr,dtype=np.double),np.linspace(0,4*np.pi,600),orig[0],orig[1])
     pmask=utils2d.polartransform(mask.astype('double'),np.arange(0,maxr,dtype=np.double),np.linspace(0,4*np.pi,600),orig[0],orig[1])
     plot2dmatrix(pdata,mask=pmask)
-    pylab.axis('scaled')
+    plt.axis('scaled')
     print "    calculating and plotting azimuthal curves..."
-    pylab.subplot(2,2,4)
+    plt.subplot(2,2,4)
     if dmin is None:
         dmin=maxr/4.
     if dmax is None:
         dmax=maxr/2.
     
     t,I,A=utils2d.azimintpixC(data,None,orig,(1-mask).astype(np.uint8),dmin,dmin,dmax)
-    pylab.plot(t,I,'b-')
-    pylab.ylabel('Azimuthal intensity (blue)\n(nonperiodic for 2pi)')
-    pylab.twinx()
-    pylab.plot(t,A,'g-')
-    pylab.ylabel('Effective area (green)\n(should be definitely flat)')
-    pylab.xlabel('Azimuth angle (rad)')
-    pylab.gcf().show()
+    plt.plot(t,I,'b-')
+    plt.ylabel('Azimuthal intensity (blue)\n(nonperiodic for 2pi)')
+    plt.twinx()
+    plt.plot(t,A,'g-')
+    plt.ylabel('Effective area (green)\n(should be definitely flat)')
+    plt.xlabel('Azimuth angle (rad)')
+    plt.gcf().show()
     print "... images ready!"
 def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
     """Plot transmission, beam center and Doris current vs. FSNs of the given
@@ -906,60 +901,60 @@ def assesstransmission(fsns,titleofsample,mode='Gabriel',dirs=[]):
             params.append(h.copy())
     energies=utils.unique([h['Energy'] for h in header],(lambda a,b:abs(a-b)<2))
 
-    axisTransm=pylab.gcf().add_axes([hborder,1-vborder-axisheight,axiswidth,axisheight])
-    axisBcX=pylab.gcf().add_axes([hborder,1-vborder-2*axisheight-vspacing,axiswidth,axisheight])
-    axisBcY=pylab.gcf().add_axes([hborder,1-vborder-3*axisheight-2*vspacing,axiswidth,axisheight])
-    axisDORIS=pylab.gcf().add_axes([hborder,1-vborder-4*axisheight-3*vspacing,axiswidth,axisheight])
+    axisTransm=plt.gcf().add_axes([hborder,1-vborder-axisheight,axiswidth,axisheight])
+    axisBcX=plt.gcf().add_axes([hborder,1-vborder-2*axisheight-vspacing,axiswidth,axisheight])
+    axisBcY=plt.gcf().add_axes([hborder,1-vborder-3*axisheight-2*vspacing,axiswidth,axisheight])
+    axisDORIS=plt.gcf().add_axes([hborder,1-vborder-4*axisheight-3*vspacing,axiswidth,axisheight])
 
     print "Assesstransmission"
     for l in range(len(energies)):
         print "  Energy: ",energies[l]
-        pylab.axes(axisTransm)
+        plt.axes(axisTransm)
         fsn=[h['FSN'] for h in params if abs(h['Energy']-energies[l])<2]
         transm1=[h['Transm'] for h in params if abs(h['Energy']-energies[l])<2]
         legend1='Energy (not calibrated) = %.1f eV\n Mean T = %.4f, std %.4f' % (energies[l],np.mean(transm1),np.std(transm1))
         print "    Transmission: mean=",np.mean(transm1),"std=",np.std(transm1)
-        pylab.plot(fsn,transm1,'-o',label=legend1,linewidth=1)
-        pylab.ylabel('Transmission')
-        pylab.xlabel('FSN')
-        pylab.grid('on')
+        plt.plot(fsn,transm1,'-o',label=legend1,linewidth=1)
+        plt.ylabel('Transmission')
+        plt.xlabel('FSN')
+        plt.grid('on')
 
-        pylab.axes(axisBcX)
+        plt.axes(axisBcX)
         orix1=[h['BeamPosX'] for h in params if abs(h['Energy']-energies[l])<2]
         legend2='Energy (not calibrated) = %.1f eV\n Mean x = %.4f, std %.4f' % (energies[l],np.mean(orix1),np.std(orix1))
         print "    BeamcenterX: mean=",np.mean(orix1),"std=",np.std(orix1)
-        pylab.plot(fsn,orix1,'-o',label=legend2,linewidth=1)
-        pylab.ylabel('Position of beam center in X')
-        pylab.xlabel('FSN')
-        pylab.grid('on')
+        plt.plot(fsn,orix1,'-o',label=legend2,linewidth=1)
+        plt.ylabel('Position of beam center in X')
+        plt.xlabel('FSN')
+        plt.grid('on')
         
-        pylab.axes(axisBcY)
+        plt.axes(axisBcY)
         oriy1=[h['BeamPosY'] for h in params if abs(h['Energy']-energies[l])<2]
         legend3='Energy (not calibrated) = %.1f eV\n Mean y = %.4f, std %.4f' % (energies[l],np.mean(oriy1),np.std(oriy1))
         print "    BeamcenterY: mean=",np.mean(oriy1),"std=",np.std(oriy1)
-        pylab.plot(fsn,oriy1,'-o',label=legend3,linewidth=1)
-        pylab.ylabel('Position of beam center in Y')
-        pylab.xlabel('FSN')
-        pylab.grid('on')
+        plt.plot(fsn,oriy1,'-o',label=legend3,linewidth=1)
+        plt.ylabel('Position of beam center in Y')
+        plt.xlabel('FSN')
+        plt.grid('on')
         
-        pylab.axes(axisDORIS)
+        plt.axes(axisDORIS)
         doris1=[h['Current1'] for h in header if abs(h['Energy']-energies[l])<2]
         legend4='Energy (not calibrated) = %.1f eV\n Mean I = %.4f' % (energies[l],np.mean(doris1))
         print "    Doris current: mean=",np.mean(doris1),"std=",np.std(doris1)
         fsnh=[h['FSN'] for h in header if abs(h['Energy']-energies[l])<2]
-        pylab.plot(fsnh,doris1,'o',label=legend4,linewidth=1)
-        pylab.ylabel('Doris current (mA)')
-        pylab.xlabel('FSN')
-        pylab.grid('on')
+        plt.plot(fsnh,doris1,'o',label=legend4,linewidth=1)
+        plt.ylabel('Doris current (mA)')
+        plt.xlabel('FSN')
+        plt.grid('on')
         
-    pylab.axes(axisTransm)
-    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-0*vspacing-0.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'xx-small'})
-    pylab.axes(axisBcX)
-    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-1*vspacing-1.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'xx-small'})
-    pylab.axes(axisBcY)
-    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-2*vspacing-2.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'xx-small'})
-    pylab.axes(axisDORIS)
-    pylab.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-3*vspacing-3.5*axisheight), bbox_transform=pylab.gcf().transFigure,prop={'size':'xx-small'})
+    plt.axes(axisTransm)
+    plt.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-0*vspacing-0.5*axisheight), bbox_transform=plt.gcf().transFigure,prop={'size':'xx-small'})
+    plt.axes(axisBcX)
+    plt.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-1*vspacing-1.5*axisheight), bbox_transform=plt.gcf().transFigure,prop={'size':'xx-small'})
+    plt.axes(axisBcY)
+    plt.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-2*vspacing-2.5*axisheight), bbox_transform=plt.gcf().transFigure,prop={'size':'xx-small'})
+    plt.axes(axisDORIS)
+    plt.legend(loc='center left',bbox_to_anchor=(hspacing+hborder+axiswidth,1-vborder-3*vspacing-3.5*axisheight), bbox_transform=plt.gcf().transFigure,prop={'size':'xx-small'})
     
 def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,return_error=False):
     """GUI tool for locating peaks by zooming on them
@@ -984,18 +979,18 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
     ydata=ydata.flatten()
     if not blind:
         if scaling=='log':
-            pylab.semilogy(xdata,ydata,'b.-')
+            plt.semilogy(xdata,ydata,'b.-')
         else:
-            pylab.plot(xdata,ydata,'b.-')
+            plt.plot(xdata,ydata,'b.-')
         if prompt is None:
             prompt='Please zoom to the peak you want to select, then press ENTER'
-        pylab.title(prompt)
-        pylab.draw()
-        pylab.gcf().show()
+        plt.title(prompt)
+        plt.draw()
+        plt.gcf().show()
         print(prompt)
-        while (pylab.waitforbuttonpress() is not True):
+        while (plt.waitforbuttonpress() is not True):
             pass
-        a=pylab.axis()
+        a=plt.axis()
         indices=((xdata<=a[1])&(xdata>=a[0]))&((ydata<=a[3])&(ydata>=a[2]))
         x1=xdata[indices]
         y1=ydata[indices]
@@ -1020,9 +1015,9 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
         cov=res[1]
         if not blind:
             if scaling=='log':
-                pylab.semilogy(x2,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x2-p1[2])**2/(2*p1[1]**2)),'r-')
+                plt.semilogy(x2,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x2-p1[2])**2/(2*p1[1]**2)),'r-')
             else:
-                pylab.plot(x2,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x2-p1[2])**2/(2*p1[1]**2)),'r-')
+                plt.plot(x2,p1[3]+p1[0]/(np.sqrt(2*np.pi)*p1[1])*np.exp(-(x2-p1[2])**2/(2*p1[1]**2)),'r-')
     elif mode=='Lorentz':
         sigma0=0.25*(x1[-1]-x1[0])
         p0=((y1.max()-y1.min())/(1/sigma0),
@@ -1034,14 +1029,14 @@ def findpeak(xdata,ydata,prompt=None,mode='Lorentz',scaling='lin',blind=False,re
         cov=res[1]
         if not blind:
             if scaling=='log':
-                pylab.semilogy(x2,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x2),'r-')
+                plt.semilogy(x2,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x2),'r-')
             else:
-                pylab.plot(x2,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x2),'r-')
+                plt.plot(x2,p1[3]+p1[0]*utils.lorentzian(p1[2],p1[1],x2),'r-')
     else:
         raise ValueError('Only Gauss and Lorentz modes are supported in findpeak()')
     if not blind:
-        pylab.gcf().show()
-        pylab.draw()
+        plt.gcf().show()
+        plt.draw()
     if return_error:
         return p1[2],np.sqrt(cov[2][2])
     else:
@@ -1077,19 +1072,19 @@ def tweakfit(xdata,ydata,modelfun,fitparams):
     """
     def redraw(keepzoom=True):
         if keepzoom:
-            ax=pylab.gca().axis()
-        pylab.cla()
-        pylab.loglog(xdata,ydata,'.',color='blue')
-        pylab.loglog(xdata,modelfun(xdata,*(pylab.gcf().params)),color='red')
-        pylab.draw()
+            ax=plt.gca().axis()
+        plt.cla()
+        plt.loglog(xdata,ydata,'.',color='blue')
+        plt.loglog(xdata,modelfun(xdata,*(plt.gcf().params)),color='red')
+        plt.draw()
         if keepzoom:
-            pylab.gca().axis(ax)
-    fig=pylab.figure()
+            plt.gca().axis(ax)
+    fig=plt.figure()
     ax=[]
     sl=[]
     fig.params=[]
     for i in range(len(fitparams)):
-        ax.append(pylab.axes((0.1,0.1+i*0.8/len(fitparams),0.3,0.75/len(fitparams))))
+        ax.append(plt.axes((0.1,0.1+i*0.8/len(fitparams),0.3,0.75/len(fitparams))))
         if fitparams[i]['mode']=='lin':
             sl.append(matplotlib.widgets.Slider(ax[-1],fitparams[i]['Label'],fitparams[i]['Min'],fitparams[i]['Max'],fitparams[i]['Val']))
         elif fitparams[i]['mode']=='log':
@@ -1099,14 +1094,14 @@ def tweakfit(xdata,ydata,modelfun,fitparams):
         fig.params.append(fitparams[i]['Val'])
         def setfun(val,parnum=i,sl=sl[-1],mode=fitparams[i]['mode']):
             if mode=='lin':
-                pylab.gcf().params[parnum]=sl.val;
+                plt.gcf().params[parnum]=sl.val;
             elif mode=='log':
-                pylab.gcf().params[parnum]=pow(10,sl.val);
+                plt.gcf().params[parnum]=pow(10,sl.val);
             else:
                 pass
             redraw()
         sl[-1].on_changed(setfun)
-    pylab.axes((0.5,0.1,0.4,0.8))
+    plt.axes((0.5,0.1,0.4,0.8))
     redraw(False)
 def plotasa(asadata):
     """Plot SAXS/WAXS measurement read by readasa().
@@ -1117,14 +1112,14 @@ def plotasa(asadata):
     Output:
         none, a graph is plotted.
     """
-    pylab.figure()
-    pylab.subplot(211)
-    pylab.plot(np.arange(len(asadata['position'])),asadata['position'],label='Intensity',color='black')
-    pylab.xlabel('Channel number')
-    pylab.ylabel('Counts')
-    pylab.title('Scattering data')
-    pylab.legend(loc='best')
-    pylab.subplot(212)
+    plt.figure()
+    plt.subplot(211)
+    plt.plot(np.arange(len(asadata['position'])),asadata['position'],label='Intensity',color='black')
+    plt.xlabel('Channel number')
+    plt.ylabel('Counts')
+    plt.title('Scattering data')
+    plt.legend(loc='best')
+    plt.subplot(212)
     x=np.arange(len(asadata['energy']))
     e1=asadata['energy'][(x<asadata['params']['Energywindow_Low'])]
     x1=x[(x<asadata['params']['Energywindow_Low'])]
@@ -1135,14 +1130,14 @@ def plotasa(asadata):
     e3=asadata['energy'][(x>asadata['params']['Energywindow_High'])]
     x3=x[(x>asadata['params']['Energywindow_High'])]
 
-    pylab.plot(x1,e1,label='excluded',color='red')
-    pylab.plot(x2,e2,label='included',color='black')
-    pylab.plot(x3,e3,color='red')
-    pylab.xlabel('Energy channel number')
-    pylab.ylabel('Counts')
-    pylab.title('Energy (pulse-area) spectrum')
-    pylab.legend(loc='best')
-    pylab.suptitle(asadata['params']['Title'])
+    plt.plot(x1,e1,label='excluded',color='red')
+    plt.plot(x2,e2,label='included',color='black')
+    plt.plot(x3,e3,color='red')
+    plt.xlabel('Energy channel number')
+    plt.ylabel('Counts')
+    plt.title('Energy (pulse-area) spectrum')
+    plt.legend(loc='best')
+    plt.suptitle(asadata['params']['Title'])
 
 def fitperiodicity(data,ns,mode='Lorentz',scaling='log'):
     """Determine periodicity from q values of Bragg-peaks
@@ -1197,34 +1192,34 @@ def azimsectorgui(data,dataerr,param,mask):
         param: header structure
         mask: mask matrix (1 is unmasked, 0 is masked)
     """
-    fig=pylab.gcf()
+    fig=plt.gcf()
     fig.clf()
     fig.userdata={} # a la Matlab(R)
     def _plotting(tmp=None,rescaleazim=True,rescalerad=True):
-        pylab.axes(fig.userdata['ax_2dplot'])
-        pylab.cla()
+        plt.axes(fig.userdata['ax_2dplot'])
+        plt.cla()
         plot2dmatrix(fig.userdata['data'],mask=fig.userdata['lastmask'],header=fig.userdata['param'])
-        pylab.axes(fig.userdata['ax_sector'])
+        plt.axes(fig.userdata['ax_sector'])
         if not fig.userdata['keeprad']:
-            pylab.cla()
+            plt.cla()
         if not rescalerad:
-            a=pylab.axis()
+            a=plt.axis()
         valididx=np.isfinite(fig.userdata['sectorintensity'])
-        pylab.semilogy(fig.userdata['qrange'][valididx],fig.userdata['sectorintensity'][valididx])
-        pylab.xlabel(u'q (1/%c)' % 197)
-        pylab.ylabel('Intensity')
+        plt.semilogy(fig.userdata['qrange'][valididx],fig.userdata['sectorintensity'][valididx])
+        plt.xlabel(u'q (1/%c)' % 197)
+        plt.ylabel('Intensity')
         if not rescalerad:
-            pylab.axis(a)
-        pylab.axes(fig.userdata['ax_azim'])
+            plt.axis(a)
+        plt.axes(fig.userdata['ax_azim'])
         if not fig.userdata['keepazim']:
-            pylab.cla()
+            plt.cla()
         if not rescaleazim:
-            a=pylab.axis()
-        pylab.plot(fig.userdata['thetarange'],fig.userdata['azimintensity'])
-        pylab.xlabel('theta (rad)')
-        pylab.ylabel('Intensity')
+            a=plt.axis()
+        plt.plot(fig.userdata['thetarange'],fig.userdata['azimintensity'])
+        plt.xlabel('theta (rad)')
+        plt.ylabel('Intensity')
         if not rescaleazim:
-            pylab.axis(a)
+            plt.axis(a)
     def _calculation_rad(tmp=None):
         print "radial integration. phi0:",fig.userdata['phi0'],"dphi:",fig.userdata['dphi']
         qmin,qmax,Nq=utils2d.qrangefrommask(fig.userdata['mask'],\
@@ -1274,8 +1269,8 @@ def azimsectorgui(data,dataerr,param,mask):
     def dokeepazim(tmp=None):
         fig.userdata['keepazim']=not fig.userdata['keepazim']
     def dorad2azim(tmp=None):
-        pylab.axes(fig.userdata['ax_sector'])
-        a=pylab.axis()
+        plt.axes(fig.userdata['ax_sector'])
+        a=plt.axis()
         indices=(fig.userdata['qrange']<=a[1]) & (fig.userdata['qrange']>=a[0]) & (fig.userdata['sectorintensity']<=a[3]) & (fig.userdata['sectorintensity']>=a[2])
         fig.userdata['qmin']=np.nanmin(fig.userdata['qrange'][indices])
         fig.userdata['qmax']=np.nanmax(fig.userdata['qrange'][indices])
@@ -1283,8 +1278,8 @@ def azimsectorgui(data,dataerr,param,mask):
         _calculation_azim()
         _plotting(rescalerad=False)
     def doazim2rad(tmp=None):
-        pylab.axes(fig.userdata['ax_sector'])
-        a=pylab.axis()
+        plt.axes(fig.userdata['ax_sector'])
+        a=plt.axis()
         indices=(fig.userdata['thetarange']<=a[1]) & (fig.userdata['thetarange']>=a[0]) & (fig.userdata['azimintensity']<=a[3]) & (fig.userdata['azimintensity']>=a[2])
         print fig.userdata['thetarange']
         print indices
@@ -1321,14 +1316,14 @@ def azimsectorgui(data,dataerr,param,mask):
     buttonarea=(.6,.1,.35,.35)
     buttons=['Radial -> Azimuthal','Azimuthal -> Radial','!Keep Radial','!Keep Azimuthal','Reset','Done']
     buttonfuncs=[dorad2azim,doazim2rad,dokeeprad,dokeepazim,doreset,dodone]
-    fig.userdata['ax_2dplot']=pylab.axes((.1,.6,.35,.35))
-    fig.userdata['ax_sector']=pylab.axes((.1,.1,.35,.35))
-    fig.userdata['ax_azim']=pylab.axes((.6,.6,.35,.35))
+    fig.userdata['ax_2dplot']=plt.axes((.1,.6,.35,.35))
+    fig.userdata['ax_sector']=plt.axes((.1,.1,.35,.35))
+    fig.userdata['ax_azim']=plt.axes((.6,.6,.35,.35))
     fig.userdata['ax_btns']=[]
     fig.userdata['btns']=[]
     buttonheight=buttonarea[3]/(len(buttons)*1.5-0.5)
     for i in range(len(buttons)):
-        fig.userdata['ax_btns'].append(pylab.axes((buttonarea[0],\
+        fig.userdata['ax_btns'].append(plt.axes((buttonarea[0],\
                                    buttonarea[1]+buttonarea[3]-(i+1)*buttonheight-i*buttonheight*0.5,\
                                    buttonarea[2],buttonheight)))
         if buttons[i][0]=='!': #checkbox
@@ -1353,44 +1348,44 @@ def assessmostab(fsns,dirs='.'):
     doris=[h['MonitorDORIS']/h['MeasTime'] for h in header]
     piezo=[h['MonitorPIEZO']/h['MeasTime'] for h in header]
     energies=[h['Energy'] for h in header]
-    pylab.clf()
-    pylab.gcf().subplotpars.wspace=0.4
-    pylab.subplot(2,2,1);
-    pylab.plot(fsn,monitor,'b',label='Monitor')
-    pylab.ylabel('Monitor cps',color='blue')
-    pylab.xlabel('FSN')
-    pylab.twinx()
-    pylab.plot(fsn,doris,'r',label='DORIS counter')
-    pylab.ylabel('DORIS cps',color='red')
-    pylab.subplot(2,2,2);
-    pylab.plot(fsn,monitor,'b',label='Monitor')
-    pylab.ylabel('Monitor cps',color='blue')
-    pylab.xlabel('FSN')
-    pylab.twinx()
-    pylab.plot(fsn,piezo,'g',label='PIEZO counter')
-    pylab.ylabel('PIEZO cps',color='green')
-    pylab.subplot(2,2,3);
-    pylab.plot(fsn,doris,'r',label='DORIS counter')
-    pylab.ylabel('DORIS cps',color='red')
-    pylab.xlabel('FSN')
-    pylab.twinx()
-    pylab.plot(fsn,piezo,'g',label='PIEZO counter')
-    pylab.ylabel('PIEZO cps',color='green')
-    pylab.subplot(2,2,4);
-    pylab.plot(fsn,map(lambda a,b:a/b,piezo,doris),'k',label='ratio')
+    plt.clf()
+    plt.gcf().subplotpars.wspace=0.4
+    plt.subplot(2,2,1);
+    plt.plot(fsn,monitor,'b',label='Monitor')
+    plt.ylabel('Monitor cps',color='blue')
+    plt.xlabel('FSN')
+    plt.twinx()
+    plt.plot(fsn,doris,'r',label='DORIS counter')
+    plt.ylabel('DORIS cps',color='red')
+    plt.subplot(2,2,2);
+    plt.plot(fsn,monitor,'b',label='Monitor')
+    plt.ylabel('Monitor cps',color='blue')
+    plt.xlabel('FSN')
+    plt.twinx()
+    plt.plot(fsn,piezo,'g',label='PIEZO counter')
+    plt.ylabel('PIEZO cps',color='green')
+    plt.subplot(2,2,3);
+    plt.plot(fsn,doris,'r',label='DORIS counter')
+    plt.ylabel('DORIS cps',color='red')
+    plt.xlabel('FSN')
+    plt.twinx()
+    plt.plot(fsn,piezo,'g',label='PIEZO counter')
+    plt.ylabel('PIEZO cps',color='green')
+    plt.subplot(2,2,4);
+    plt.plot(fsn,map(lambda a,b:a/b,piezo,doris),'k',label='ratio')
     for e in utils.unique(energies):
-        pylab.plot([f for f,e1 in zip(fsn,energies) if e1==e],
+        plt.plot([f for f,e1 in zip(fsn,energies) if e1==e],
                    [p/d for p,d,e1 in zip(piezo,doris,energies) if e1==e],
                    'o',label='%.2f'%e)
-    pylab.ylabel('Piezo/DORIS ratio',color='black')
-    pylab.xlabel('FSN')
-    pylab.twinx()
-    pylab.plot(fsn,map(lambda a,b:a/b,monitor,doris),'m')
+    plt.ylabel('Piezo/DORIS ratio',color='black')
+    plt.xlabel('FSN')
+    plt.twinx()
+    plt.plot(fsn,map(lambda a,b:a/b,monitor,doris),'m')
     for e in utils.unique(energies):
-        pylab.plot([f for f,e1 in zip(fsn,energies) if e1==e],
+        plt.plot([f for f,e1 in zip(fsn,energies) if e1==e],
                    [m/d for m,d,e1 in zip(monitor,doris,energies) if e1==e],
                    'o',label='%.2f eV'%e)
-    pylab.ylabel('Monitor/DORIS ratio',color='magenta')
-    pylab.legend(loc='best',prop={'size':'x-small'})
-    pylab.gcf().show()
-    pylab.draw()
+    plt.ylabel('Monitor/DORIS ratio',color='magenta')
+    plt.legend(loc='best',prop={'size':'x-small'})
+    plt.gcf().show()
+    plt.draw()
