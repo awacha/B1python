@@ -296,17 +296,18 @@ def smearingmatrixgonio(double tthmin, double tthmax, Py_ssize_t Ntth,
                     mat[itth,idxprev+1]+=P*prop
     return mat
 
-def smearingmatrixflat(double pixmin, Py_ssize_t Npix, double pixsize,
+def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
                       np.ndarray[np.double_t, ndim=2] p,
                       np.ndarray[np.double_t,ndim=1] x,
-                      np.ndarray[np.double_t, ndim=1] y, double L0,callback=None):
+                      np.ndarray[np.double_t, ndim=1] y, double L0, callback=None,
+                      object Npix=None):
     """def smearingmatrixflat(pixmin,Npix,pixsize,p,x,y,L0):
 
     Construct a smearing matrix for line focus, flat detector.
     
     Inputs:
         pixmin: pixel coordinate of the first point
-        Npix: number of pixels.
+        pixmax: pixel coordinate of the last point
         pixsize: the width of a pixel (mm)
         p: beam profile matrix (length: along rows. Height: along columns. I.e.
             in normal case, the matrix has more columns than rows).
@@ -315,7 +316,7 @@ def smearingmatrixflat(double pixmin, Py_ssize_t Npix, double pixsize,
         L0: sample-to-detector distance (detector at 0 angles)
         callback: callback function (will be called (pixmax-pixmin+1) times)
             during the calculation, if not None. Intended for eg. progress bars.
-            
+        Npix: number of pixels. If None, Npix will be long(pixmax-pixmin+1)
     
     Output:
         the smearing matrix of size Ntth x Ntth
@@ -331,17 +332,20 @@ def smearingmatrixflat(double pixmin, Py_ssize_t Npix, double pixsize,
     cdef np.ndarray[np.double_t, ndim=2] mat
     cdef double X,Y,P,prop,pixnew
     cdef double tmp,pix
-    cdef double pixmax
+    cdef Py_ssize_t Npix1
     cdef Py_ssize_t idxprev,ix,iy,ipix,Nx,Ny
     #number of pixels
-    pixmax=pixmin+Npix-1
+    if Npix is None:
+        Npix1=long(floor(pixmax-pixmin+1))
+    else:
+        Npix1=Npix
     #create an empty matrix
-    mat=np.zeros((Npix,Npix),dtype=np.double)
+    mat=np.zeros((Npix1,Npix1),dtype=np.double)
     Nx=len(x)
     Ny=len(y)
-    for ipix from 0<=ipix<Npix: # for each pixel (defines the two-theta) in the original (unsmeared) curve:
+    for ipix from 0<=ipix<Npix1: # for each pixel (defines the two-theta) in the original (unsmeared) curve:
         #calculate the pixel value for the ith pixel
-        pix=pixmin+ipix*(pixmax-pixmin)/(Npix-1)
+        pix=pixmin+ipix*(pixmax-pixmin)/(Npix1-1)
         if callback is not None: # do the callback function.
             callback.__call__()
         for ix from 0<=ix<Nx: #loop through the beam width (parallel to the detector, the smallest)
@@ -355,13 +359,13 @@ def smearingmatrixflat(double pixmin, Py_ssize_t Npix, double pixsize,
                 #pixnew=L0*atan(sqrt((pix*pixsize/L0-Y)**2+X**2))/pixsize
                 pixnew=(sqrt(pixsize*pixsize*pix*pix-Y*Y)+X)/pixsize
                 #calculate the index of pixnew -> tmp
-                tmp=(pixnew-pixmin)/(pixmax-pixmin)*(Npix-1)
+                tmp=(pixnew-pixmin)/(pixmax-pixmin)*(Npix1-1)
                 idxprev=int(floor(tmp)) # index of the previous pixel
                 prop=(tmp-idxprev) #difference in pixel coordinate from the previous pixel
                 #interpolate linearly
-                if idxprev>=0 and idxprev<Npix:
+                if idxprev>=0 and idxprev<Npix1:
                     mat[idxprev,ipix]+=P*(1-prop)
-                if idxprev+1>=0 and idxprev+1<Npix:
+                if idxprev+1>=0 and idxprev+1<Npix1:
                     mat[idxprev+1,ipix]+=P*prop
     return mat
 
