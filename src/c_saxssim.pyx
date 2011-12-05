@@ -1,4 +1,5 @@
 import numpy as np
+cimport cython
 cimport numpy as np
 from libc.stdlib cimport *
 from libc.math cimport *
@@ -11,6 +12,50 @@ ctypedef struct Coordtype:
     double x
     double y
     double z
+
+#def makechain(double L0, double dL, double fa0, double dfa,
+#              double da0, double dda, Py_ssize_t N ):
+#    """def makechain(double L0, double dL, double fa0, double dfa,
+#             double da0, double dda, Py_ssize_t N ):
+#
+#    Create a chain, starting from the origin.
+#
+#    Inputs:
+#        L0: expectation of the length of chain elements.
+#        dL: HWHM of the length of chain elements.
+#        fa0: mean value of the follow angle (radian)
+#        dfa: HWHM of the follow angle (radian)
+#        da0: mean value of the dihedral angles (radian)
+#        dda: HWHM of the dihedral angles (radian)
+#        N: number of chain elements.
+#    """
+#    cdef np.ndarray[np.double_t, ndim=2] data
+#    cdef Py_ssize_t i
+#    cdef double x,y,z
+#    cdef struct Coordtype c;
+#    cdef double r;
+#    
+#    data=np.zeros((N,3),np.double)
+#    if i>1:
+#        l=randn_positive(L0,dL);
+#        data[1,0]=l
+#    if i>2:
+#        l=randn_positive(L0,dL);
+#        r=rand()/<double>RAND_MAX*M_PI*2;
+#        data[2,0]=data[1,0]+l*cos(r);
+#        data[2,1]=l*sin(r);
+#    for i from 3<=i<N:
+#        l=randn_positive(L0,dL);
+#        dihed=randn()*dda+da0;
+        
+
+cdef inline double randn_positive(double M, double sigma):
+    cdef double r
+    r=randn()*sigma+M;
+    while(r<=0):
+        r=randn()*sigma+M;
+    return r;
+    
 
 cdef inline double randn():
     """Standard normal distribution
@@ -648,7 +693,51 @@ def Ctheorspheres_azim(np.ndarray[np.double_t, ndim=1] x not None,
     free(myz)
     free(myR)
     return Intensity            
-    
+
+@cython.boundscheck(False)
+def CtheorchainPBC(np.ndarray[np.double_t, ndim=1] qrange not None,
+    		np.ndarray[np.double_t, ndim=1] x not None,
+		np.ndarray[np.double_t, ndim=1] y not None,
+                np.ndarray[np.double_t, ndim=1] z not None, double Lbox):
+    """def CtheorchainPBC(np.ndarray[np.double_t, ndim=1] qrange not None,
+    		np.ndarray[np.double_t, ndim=1] x not None,
+		np.ndarray[np.double_t, ndim=1] y not None,
+                np.ndarray[np.double_t, ndim=1] z not None, double Lbox):
+
+	Calculate the theoretical scattering intensity of a chain with periodic
+	boundary conditions, using the minimum image convention.
+
+	Inputs:
+	     qrange: one-dimensional numpy array of q points
+	     x,y,z: one-dimensional numpy arrays containing the coordinates
+	         of the chain knots.
+ 	     Lbox: edge-size of the (cubic) simulation box.
+	Output:
+	    the scattering intensity vector in a numpy array (same shape as
+	    input argument "qrange")."""
+
+    cdef double I
+    cdef double q
+    cdef Py_ssize_t i,j,k
+    cdef Py_ssize_t N
+    cdef double r
+    cdef np.ndarray[np.double_t, ndim=1] Iout
+
+    Iout=np.zeros(len(qrange),np.double)
+    N=len(x);
+    if len(y)!=N or len(z)!=N:
+        raise ValueError('Arguments x, y, z should have the same length.')
+    for k from 0<=k<len(qrange):
+        q=qrange[k]
+        I=N
+        for i from 0<=i<N:
+            for j from i+1<=j<N:
+                r=sqrt(remainder(x[i]-x[j],Lbox)**2+\
+                    remainder(y[i]-y[j],Lbox)**2+\
+                    remainder(z[i]-z[j],Lbox)**2);
+                I+=2*sin(q*r)/(q*r);
+        Iout[k]=I;
+    return Iout;
 
 def Ctheorspheres(np.ndarray[np.double_t, ndim=1] qrange not None,
                   np.ndarray[np.double_t, ndim=1] x not None,

@@ -49,7 +49,8 @@ def CromerLiberman(energy,z,convolution=0,shutup=True):
     Inputs:
         energy: list or numpy array of energy values
         z: atomic number of the element
-        convolution: convolve the resulting values by a Lorentzian of this width
+        convolution: convolve the resulting values by a Lorentzian of this width.
+            If this width is negative, use the natural core level width.
         shutup: set it to False if you want to get debugging output
         
     Outputs: f1,f2 in np.arrays or lists (depending on the type of the first

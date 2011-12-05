@@ -336,7 +336,13 @@ def smearingmatrixflat(double pixmin, double pixmax, double pixsize,
     cdef Py_ssize_t idxprev,ix,iy,ipix,Nx,Ny
     #number of pixels
     if Npix is None:
+        print "Smearingmatrix"
+        print "Pixmin:",pixmin
+        print "Pixmax:",pixmax
+        print "pixmax-pixmin",pixmax-pixmin
+        print "floor(pixmax-pixmin+1)",floor(pixmax-pixmin+1)
         Npix1=long(floor(pixmax-pixmin+1))
+        print "Npix1",Npix1
     else:
         Npix1=Npix
     #create an empty matrix

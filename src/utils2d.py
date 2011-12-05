@@ -226,6 +226,7 @@ def findbeam_semitransparent(data,pri):
     bcx=np.sum(np.sum(d,1)*x)/np.sum(d)+1
     bcy=np.sum(np.sum(d,0)*y)/np.sum(d)+1
     return bcx,bcy
+
 def azimintpix(data,error,orig,mask,Ntheta=100,dmin=0,dmax=np.inf):
     """Perform azimuthal integration of image.
 
